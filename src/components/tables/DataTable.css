@@ -1,0 +1,122 @@
+.data-table-container {
+  width: 100%;
+  overflow-x: auto;
+  background-color: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.data-table th {
+  padding: 1rem 1.5rem;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: capitalize;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tbody tr {
+  transition: background-color var(--transition-speed) ease;
+}
+
+.data-table tbody tr:hover {
+  background-color: rgba(0, 0, 0, 0.01);
+}
+
+/* Status Badges */
+.badge-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-active {
+  background-color: #d1fae5;
+  color: #059669;
+}
+
+.badge-inactive {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.badge-new {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.badge-approved {
+  background-color: #e0e7ff;
+  color: #4f46e5;
+}
+
+.badge-rejected {
+  background-color: #ffedd5;
+  color: #ea580c;
+}
+
+/* Action Dropdown */
+.action-cell {
+  position: relative;
+  text-align: right;
+}
+
+.action-btn {
+  color: var(--text-muted);
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+}
+
+.action-btn:hover {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+}
+
+.action-dropdown {
+  position: absolute;
+  right: 1.5rem;
+  top: 2rem;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  min-width: 120px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0;
+}
+
+.action-item {
+  padding: 0.5rem 1rem;
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  width: 100%;
+}
+
+.action-item:hover {
+  background-color: var(--bg-main);
+}
