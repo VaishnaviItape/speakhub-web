@@ -4,7 +4,9 @@ import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
-import type { Subject } from '../../types/models';
+import type { Subject, Course } from '../../types/models';
+import { db } from '../../config/firebase';
+import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, where } from 'firebase/firestore';
 import '../../components/ui/TableStyles.css';
 
 const Subjects: React.FC = () => {
@@ -12,52 +14,112 @@ const Subjects: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   
   // Form State
-  const [courseId, setCourseId] = useState('');
   const [subjectName, setSubjectName] = useState('');
+  const [courseId, setCourseId] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Dummy Data
+  // Data
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+
+  const fetchCourses = async () => {
+    try {
+      const q = query(collection(db, 'courses'), where('status', '==', 'active'));
+      const snapshot = await getDocs(q);
+      const activeCourses: Course[] = [];
+      snapshot.forEach(doc => {
+        activeCourses.push({ documentId: doc.id, ...doc.data() } as Course);
+      });
+      setCourses(activeCourses);
+    } catch (error) {
+      console.error("Error fetching courses:", error);
+    }
+  };
+
+  const fetchSubjects = async () => {
+    try {
+      setIsLoading(true);
+      const q = query(collection(db, 'subjects'));
+      const snapshot = await getDocs(q);
+      const fetchedSubjects: Subject[] = [];
+      snapshot.forEach(doc => {
+        fetchedSubjects.push({ documentId: doc.id, ...doc.data() } as Subject);
+      });
+      setSubjects(fetchedSubjects);
+    } catch (error) {
+      console.error("Error fetching subjects:", error);
+      alert("Failed to load subjects");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setSubjects([
-        { documentId: '1', courseId: 'Course1', subjectName: 'Grammar', status: 'active' },
-        { documentId: '2', courseId: 'Course1', subjectName: 'Vocabulary', status: 'active' }
-      ]);
-      setIsLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
+    fetchCourses();
+    fetchSubjects();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newSubject: Subject = {
-      documentId: Math.random().toString(36).substr(2, 9),
-      courseId,
-      subjectName,
-      status
-    };
-    setSubjects([...subjects, newSubject]);
-    setIsModalOpen(false);
-    resetForm();
+    if (!courseId) {
+      alert("Please select a course");
+      return;
+    }
+
+    try {
+      if (editingId) {
+        await updateDoc(doc(db, 'subjects', editingId), {
+          subjectName,
+          courseId,
+          status
+        });
+      } else {
+        await addDoc(collection(db, 'subjects'), {
+          subjectName,
+          courseId,
+          status
+        });
+      }
+      setIsModalOpen(false);
+      resetForm();
+      fetchSubjects();
+    } catch (error) {
+      console.error("Error saving subject:", error);
+      alert("Failed to save subject");
+    }
   };
 
   const resetForm = () => {
-    setCourseId('');
     setSubjectName('');
+    setCourseId('');
     setStatus('active');
+    setEditingId(null);
   };
 
   const handleEdit = (subject: Subject) => {
-    setCourseId(subject.courseId);
     setSubjectName(subject.subjectName);
+    setCourseId(subject.courseId);
     setStatus(subject.status);
+    setEditingId(subject.documentId || null);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (subject: Subject) => {
-    setSubjects(subjects.filter(s => s.documentId !== subject.documentId));
+  const handleDelete = async (subject: Subject) => {
+    if (!subject.documentId) return;
+    if (window.confirm('Are you sure you want to delete this subject?')) {
+      try {
+        await deleteDoc(doc(db, 'subjects', subject.documentId));
+        fetchSubjects();
+      } catch (error) {
+        console.error("Error deleting subject:", error);
+        alert("Failed to delete subject");
+      }
+    }
+  };
+
+  const getCourseName = (cId: string) => {
+    return courses.find(c => c.documentId === cId)?.courseName || cId;
   };
 
   const columns: Column<Subject>[] = [
@@ -68,22 +130,22 @@ const Subjects: React.FC = () => {
     },
     {
       key: 'courseId',
-      header: 'Course ID'
+      header: 'Course',
+      render: (row) => getCourseName(row.courseId)
     },
     {
       key: 'status',
       header: 'Status',
       render: (row) => (
-        <button className={`dt-badge ${row.status === 'active' ? 'active' : 'inactive'}`}>
-          {row.status.charAt(0).toUpperCase() + row.status.slice(1)} <ChevronDown size={14} />
-        </button>
+        <span className={`dt-badge ${row.status === 'active' ? 'active' : 'inactive'}`}>
+          {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+        </span>
       )
     }
   ];
 
   return (
     <div className="page-container">
-      {/* Page Header */}
       <div className="page-header">
         <div>
           <h1 className="page-title">Subjects</h1>
@@ -91,7 +153,7 @@ const Subjects: React.FC = () => {
             <span>Dashboard</span> <span className="separator">/</span> <span className="current">Subjects</span>
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+        <button className="btn btn-primary" onClick={() => { resetForm(); setIsModalOpen(true); }}>
           <Plus size={16} />
           Add Subject
         </button>
@@ -108,7 +170,7 @@ const Subjects: React.FC = () => {
       />
 
       {/* Add Subject Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add Subject Request">
+      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetForm(); }} title={editingId ? "Edit Subject" : "Add Subject"}>
         <form onSubmit={handleSubmit} className="modal-form">
           <Input 
             label="Subject Name" 
@@ -118,15 +180,10 @@ const Subjects: React.FC = () => {
             required 
           />
           <Select 
-            label="Course" 
-            options={[
-              {label: 'Select Course', value: ''},
-              {label: 'Spoken English Basics', value: 'Course1'}, 
-              {label: 'Advanced English', value: 'Course2'}
-            ]} 
+            label="Select Course" 
+            options={courses.map(c => ({ label: c.courseName, value: c.documentId || '' }))} 
             value={courseId}
             onChange={(e) => setCourseId(e.target.value)}
-            required
           />
           <Select 
             label="Status" 
@@ -136,7 +193,7 @@ const Subjects: React.FC = () => {
           />
           
           <div className="modal-actions">
-            <button type="submit" className="btn btn-success">Save Subject</button>
+            <button type="submit" className="btn btn-success">{editingId ? "Update Subject" : "Save Subject"}</button>
           </div>
         </form>
       </Modal>

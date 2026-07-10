@@ -8,6 +8,7 @@ import AdminLayout from '../layouts/AdminLayout/AdminLayout';
 
 // Auth Pages
 import Login from '../pages/Login/Login';
+import ChangePassword from '../pages/Login/ChangePassword';
 
 // Main Pages
 import Dashboard from '../pages/Dashboard/Dashboard';
@@ -27,11 +28,15 @@ import Roles from '../pages/Settings/Roles';
 // Resources & Exams
 import Notes from '../pages/Notes/Notes';
 import Homework from '../pages/Homework/Homework';
+import HomeworkReview from '../pages/Homework/HomeworkReview';
 import Exams from '../pages/Exams/Exams';
 import ExamQuestions from '../pages/Exams/ExamQuestions';
+import ExamResults from '../pages/Exams/ExamResults';
 
 // Finance
+import FeePlans from '../pages/Fees/FeePlans';
 import Fees from '../pages/Fees/Fees';
+import FeeReports from '../pages/Fees/FeeReports';
 
 // Student Pages
 import StudentDashboard from '../pages/StudentPortal/StudentDashboard';
@@ -45,9 +50,13 @@ const AppRoutes: React.FC = () => {
   return (
     <Routes>
       <Route path="/login" element={
-        isAuthenticated ? (
+        isAuthenticated && !user?.forcePasswordChange ? (
           <Navigate to={user?.role === 'student' ? '/student/dashboard' : '/dashboard'} replace />
         ) : <Login />
+      } />
+
+      <Route path="/change-password" element={
+        isAuthenticated ? <ChangePassword /> : <Navigate to="/login" replace />
       } />
       
       <Route path="/" element={
@@ -69,8 +78,10 @@ const AppRoutes: React.FC = () => {
           
           <Route path="/notes" element={<Notes />} />
           <Route path="/homework" element={<Homework />} />
+          <Route path="/homework/:homeworkId/review" element={<HomeworkReview />} />
           <Route path="/exams" element={<Exams />} />
           <Route path="/exams/:examId/questions" element={<ExamQuestions />} />
+          <Route path="/exams/:examId/results" element={<ExamResults />} />
         </Route>
 
         {/* Routes accessible ONLY to Admin */}
@@ -79,7 +90,9 @@ const AppRoutes: React.FC = () => {
           <Route path="/users" element={<Users />} />
           <Route path="/employees" element={<Employees />} />
           <Route path="/settings/roles" element={<Roles />} />
+          <Route path="/fees/plans" element={<FeePlans />} />
           <Route path="/fees" element={<Fees />} />
+          <Route path="/fees/reports" element={<FeeReports />} />
         </Route>
         
       </Route>

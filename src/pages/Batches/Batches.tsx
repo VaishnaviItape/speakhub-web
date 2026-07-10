@@ -4,7 +4,9 @@ import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
-import type { Batch } from '../../types/models';
+import type { Batch, Course, User } from '../../types/models';
+import { db } from '../../config/firebase';
+import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, where, Timestamp, arrayUnion } from 'firebase/firestore';
 import '../../components/ui/TableStyles.css';
 
 const Batches: React.FC = () => {
@@ -15,58 +17,116 @@ const Batches: React.FC = () => {
   const [batchName, setBatchName] = useState('');
   const [courseId, setCourseId] = useState('');
   const [teacherId, setTeacherId] = useState('');
-  const [meetingLink, setMeetingLink] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [meetingLink, setMeetingLink] = useState('');
   const [status, setStatus] = useState<'active' | 'completed' | 'inactive'>('active');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Dummy Data
+  // Data
   const [batches, setBatches] = useState<Batch[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [teachers, setTeachers] = useState<User[]>([]);
+
+  const fetchDependencies = async () => {
+    try {
+      // Fetch Courses
+      const cq = query(collection(db, 'courses'), where('status', '==', 'active'));
+      const cSnapshot = await getDocs(cq);
+      const activeCourses: Course[] = [];
+      cSnapshot.forEach(doc => activeCourses.push({ documentId: doc.id, ...doc.data() } as Course));
+      setCourses(activeCourses);
+
+      // Fetch Teachers
+      const tq = query(collection(db, 'users'), where('role', '==', 'teacher'), where('status', '==', 'active'));
+      const tSnapshot = await getDocs(tq);
+      const activeTeachers: User[] = [];
+      tSnapshot.forEach(doc => activeTeachers.push({ documentId: doc.id, ...doc.data() } as User));
+      setTeachers(activeTeachers);
+
+    } catch (error) {
+      console.error("Error fetching dependencies:", error);
+    }
+  };
+
+  const fetchBatches = async () => {
+    try {
+      setIsLoading(true);
+      const q = query(collection(db, 'batches'));
+      const snapshot = await getDocs(q);
+      const fetchedBatches: Batch[] = [];
+      snapshot.forEach(doc => {
+        fetchedBatches.push({ documentId: doc.id, ...doc.data() } as Batch);
+      });
+      setBatches(fetchedBatches);
+    } catch (error) {
+      console.error("Error fetching batches:", error);
+      alert("Failed to load batches");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setBatches([
-        { 
-          documentId: '1', 
-          courseId: 'Course1', 
-          teacherId: 'Teacher1', 
-          batchName: 'Morning Batch A',
-          meetingLink: 'https://meet.google.com/abc-defg-hij',
-          startDate: new Date(),
-          endDate: new Date(),
-          status: 'active' 
-        }
-      ]);
-      setIsLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
+    fetchDependencies();
+    fetchBatches();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newBatch: Batch = {
-      documentId: Math.random().toString(36).substr(2, 9),
-      batchName,
-      courseId,
-      teacherId,
-      meetingLink,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
-      status
-    };
-    setBatches([...batches, newBatch]);
-    setIsModalOpen(false);
-    resetForm();
+    if (!courseId || !teacherId || !startDate || !endDate) {
+      alert("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      const batchData = {
+        batchName,
+        courseId,
+        teacherId,
+        meetingLink,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        status
+      };
+
+      let newBatchId = editingId;
+      if (editingId) {
+        await updateDoc(doc(db, 'batches', editingId), batchData);
+      } else {
+        const docRef = await addDoc(collection(db, 'batches'), batchData);
+        newBatchId = docRef.id;
+      }
+
+      // Assign the batch to the teacher's profile
+      if (teacherId && newBatchId) {
+        try {
+          await updateDoc(doc(db, 'users', teacherId), {
+            batchIds: arrayUnion(newBatchId)
+          });
+        } catch (err) {
+          console.error("Could not assign batch to teacher document", err);
+        }
+      }
+
+      setIsModalOpen(false);
+      resetForm();
+      fetchBatches();
+    } catch (error) {
+      console.error("Error saving batch:", error);
+      alert("Failed to save batch");
+    }
   };
 
   const resetForm = () => {
     setBatchName('');
     setCourseId('');
     setTeacherId('');
-    setMeetingLink('');
     setStartDate('');
     setEndDate('');
+    setMeetingLink('');
     setStatus('active');
+    setEditingId(null);
   };
 
   const handleEdit = (batch: Batch) => {
@@ -74,15 +134,44 @@ const Batches: React.FC = () => {
     setCourseId(batch.courseId);
     setTeacherId(batch.teacherId);
     setMeetingLink(batch.meetingLink || '');
-    // Format dates properly for input type="date"
-    setStartDate(batch.startDate instanceof Date ? batch.startDate.toISOString().split('T')[0] : '');
-    setEndDate(batch.endDate instanceof Date ? batch.endDate.toISOString().split('T')[0] : '');
     setStatus(batch.status);
+    
+    // Format dates for input[type="date"]
+    let sDate = '';
+    let eDate = '';
+    if (batch.startDate instanceof Date) { sDate = batch.startDate.toISOString().split('T')[0]; }
+    else if ((batch.startDate as any)?.toDate) { sDate = (batch.startDate as any).toDate().toISOString().split('T')[0]; }
+    
+    if (batch.endDate instanceof Date) { eDate = batch.endDate.toISOString().split('T')[0]; }
+    else if ((batch.endDate as any)?.toDate) { eDate = (batch.endDate as any).toDate().toISOString().split('T')[0]; }
+    
+    setStartDate(sDate);
+    setEndDate(eDate);
+    setEditingId(batch.documentId || null);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (batch: Batch) => {
-    setBatches(batches.filter(b => b.documentId !== batch.documentId));
+  const handleDelete = async (batch: Batch) => {
+    if (!batch.documentId) return;
+    if (window.confirm('Are you sure you want to delete this batch?')) {
+      try {
+        await deleteDoc(doc(db, 'batches', batch.documentId));
+        fetchBatches();
+      } catch (error) {
+        console.error("Error deleting batch:", error);
+        alert("Failed to delete batch");
+      }
+    }
+  };
+
+  const getCourseName = (id: string) => courses.find(c => c.documentId === id)?.courseName || id;
+  const getTeacherName = (id: string) => teachers.find(t => t.documentId === id)?.name || id;
+
+  const formatDate = (dateValue: any) => {
+    if (!dateValue) return 'N/A';
+    if (dateValue instanceof Date) return dateValue.toLocaleDateString();
+    if (dateValue.toDate) return dateValue.toDate().toLocaleDateString();
+    return new Date(dateValue).toLocaleDateString();
   };
 
   const columns: Column<Batch>[] = [
@@ -93,44 +182,37 @@ const Batches: React.FC = () => {
     },
     {
       key: 'courseId',
-      header: 'Course & Teacher',
-      render: (row) => (
-        <div>
-          <div>{row.courseId}</div>
-          <div style={{ fontSize: '0.75rem', color: '#a3aed0' }}>{row.teacherId}</div>
-        </div>
-      )
+      header: 'Course',
+      render: (row) => getCourseName(row.courseId)
     },
     {
-      key: 'meetingLink',
-      header: 'Meeting Link',
-      render: (row) => (
-        row.meetingLink ? (
-          <a href={row.meetingLink} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate inline-block max-w-[150px]">
-            {row.meetingLink}
-          </a>
-        ) : (
-          <span style={{ color: '#a3aed0' }}>-</span>
-        )
-      )
+      key: 'teacherId',
+      header: 'Teacher',
+      render: (row) => getTeacherName(row.teacherId)
+    },
+    {
+      key: 'startDate',
+      header: 'Start Date',
+      render: (row) => formatDate(row.startDate)
+    },
+    {
+      key: 'endDate',
+      header: 'End Date',
+      render: (row) => formatDate(row.endDate)
     },
     {
       key: 'status',
       header: 'Status',
       render: (row) => (
-        <button className={`dt-badge ${
-          row.status === 'active' ? 'active' : 
-          row.status === 'completed' ? 'pending' : 'inactive'
-        }`}>
-          {row.status.charAt(0).toUpperCase() + row.status.slice(1)} <ChevronDown size={14} />
-        </button>
+        <span className={`dt-badge ${row.status === 'active' ? 'active' : 'inactive'}`}>
+          {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+        </span>
       )
     }
   ];
 
   return (
     <div className="page-container">
-      {/* Page Header */}
       <div className="page-header">
         <div>
           <h1 className="page-title">Batches</h1>
@@ -138,9 +220,9 @@ const Batches: React.FC = () => {
             <span>Dashboard</span> <span className="separator">/</span> <span className="current">Batches</span>
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+        <button className="btn btn-primary" onClick={() => { resetForm(); setIsModalOpen(true); }}>
           <Plus size={16} />
-          Add Batch
+          Create Batch
         </button>
       </div>
 
@@ -154,62 +236,52 @@ const Batches: React.FC = () => {
         isLoading={isLoading}
       />
 
-      {/* Add Batch Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add Batch Request">
+      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetForm(); }} title={editingId ? "Edit Batch" : "Create Batch"}>
         <form onSubmit={handleSubmit} className="modal-form">
           <Input 
             label="Batch Name" 
-            placeholder="e.g. Morning Batch A"
+            placeholder="e.g. SEP-2026 Morning"
             value={batchName}
             onChange={(e) => setBatchName(e.target.value)}
             required 
           />
-          <div className="grid grid-cols-2 gap-4">
-            <Select 
-              label="Course" 
-              options={[
-                {label: 'Select Course', value: ''},
-                {label: 'Spoken English Basics', value: 'Course1'}, 
-                {label: 'Advanced English', value: 'Course2'}
-              ]} 
-              value={courseId}
-              onChange={(e) => setCourseId(e.target.value)}
-              required
-            />
-            <Select 
-              label="Teacher" 
-              options={[
-                {label: 'Select Teacher', value: ''},
-                {label: 'John Doe', value: 'Teacher1'}, 
-                {label: 'Jane Smith', value: 'Teacher2'}
-              ]} 
-              value={teacherId}
-              onChange={(e) => setTeacherId(e.target.value)}
-              required
-            />
-          </div>
-          <Input 
-            label="Meeting Link (Optional)" 
-            placeholder="e.g. https://meet.google.com/..."
-            value={meetingLink}
-            onChange={(e) => setMeetingLink(e.target.value)}
+          <Select 
+            label="Select Course" 
+            options={courses.map(c => ({ label: c.courseName, value: c.documentId || '' }))} 
+            value={courseId}
+            onChange={(e) => setCourseId(e.target.value)}
+            required
+          />
+          <Select 
+            label="Assign Teacher" 
+            options={teachers.map(t => ({ label: t.name || t.email, value: t.documentId || '' }))} 
+            value={teacherId}
+            onChange={(e) => setTeacherId(e.target.value)}
+            required
           />
           <div className="grid grid-cols-2 gap-4">
             <Input 
-              type="date"
               label="Start Date" 
+              type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              required
+              required 
             />
             <Input 
-              type="date"
               label="End Date" 
+              type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              required
+              required 
             />
           </div>
+          <Input 
+            label="Online Meeting Link (Optional)" 
+            type="url"
+            placeholder="e.g. Zoom or Google Meet link"
+            value={meetingLink}
+            onChange={(e) => setMeetingLink(e.target.value)}
+          />
           <Select 
             label="Status" 
             options={[
@@ -218,11 +290,11 @@ const Batches: React.FC = () => {
               {label: 'Inactive', value: 'inactive'}
             ]} 
             value={status}
-            onChange={(e) => setStatus(e.target.value as 'active' | 'completed' | 'inactive')}
+            onChange={(e) => setStatus(e.target.value as any)}
           />
           
           <div className="modal-actions">
-            <button type="submit" className="btn btn-success">Save Batch</button>
+            <button type="submit" className="btn btn-success">{editingId ? "Update Batch" : "Create Batch"}</button>
           </div>
         </form>
       </Modal>

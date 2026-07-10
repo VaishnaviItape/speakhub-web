@@ -1,18 +1,23 @@
-import React, { createContext, useContext, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { auth, db } from '../config/firebase';
+import { signInWithEmailAndPassword, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 interface User {
   id: string;
-  mobile: string;
+  email: string;
   name: string;
-  role: 'admin' | 'teacher' | 'student';
+  role: 'admin' | 'teacher' | 'student' | 'parent';
+  status: string;
+  forcePasswordChange?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  sendOtp: (mobile: string) => Promise<boolean>;
-  verifyOtp: (otp: string) => Promise<boolean>;
+  loading: boolean;
+  loginWithEmail: (email: string, password: string) => Promise<{ success: boolean; forcePasswordChange?: boolean; error?: string }>;
   logout: () => void;
 }
 
@@ -20,67 +25,81 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [pendingMobile, setPendingMobile] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Mock valid mobile numbers
-  const validUsers: Record<string, { user: User }> = {
-    '1234567890': {
-      user: { id: '1', mobile: '1234567890', name: 'Admin User', role: 'admin' }
-    },
-    '9876543210': {
-      user: { id: '2', mobile: '9876543210', name: 'Teacher User', role: 'teacher' }
-    },
-    '5555555555': {
-      user: { id: '3', mobile: '5555555555', name: 'Student User', role: 'student' }
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        await fetchAndSetUserData(firebaseUser.email || '');
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const fetchAndSetUserData = async (email: string) => {
+    try {
+      const q = query(collection(db, 'users'), where('email', '==', email));
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        const docSnap = snapshot.docs[0];
+        const data = docSnap.data();
+        
+        setUser({
+          id: docSnap.id,
+          email: data.email,
+          name: data.name,
+          role: data.role || 'student',
+          status: data.status,
+          forcePasswordChange: data.forcePasswordChange
+        });
+
+        // Forced redirect logic
+        if (data.forcePasswordChange && location.pathname !== '/change-password') {
+          navigate('/change-password');
+        }
+      } else {
+        console.warn("User document not found in Firestore.");
+        setUser(null);
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      setUser(null);
     }
   };
 
-  const sendOtp = async (mobile: string): Promise<boolean> => {
-    // In production, this will use firebase.auth().signInWithPhoneNumber
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const userEntry = validUsers[mobile];
-        if (userEntry) {
-          setPendingMobile(mobile);
-          // For demo, we assume OTP is sent. The mock OTP will be "123456".
-          console.log(`Mock OTP '123456' sent to ${mobile}`);
-          resolve(true);
-        } else {
-          resolve(false);
-        }
-      }, 1000);
-    });
+  const loginWithEmail = async (email: string, password: string) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      
+      // Fetch user data manually to check forcePasswordChange before returning
+      const q = query(collection(db, 'users'), where('email', '==', email));
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        const data = snapshot.docs[0].data();
+        return { success: true, forcePasswordChange: data.forcePasswordChange };
+      }
+      return { success: true, forcePasswordChange: false };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   };
 
-  const verifyOtp = async (otp: string): Promise<boolean> => {
-    // In production, this will use confirmationResult.confirm(otp)
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        if (otp === '123456' && pendingMobile) {
-          const userEntry = validUsers[pendingMobile];
-          if (userEntry) {
-            setUser(userEntry.user);
-            setPendingMobile(null);
-            resolve(true);
-          } else {
-            resolve(false);
-          }
-        } else {
-          resolve(false);
-        }
-      }, 1000);
-    });
-  };
-
-  const logout = () => {
+  const logout = async () => {
+    await firebaseSignOut(auth);
     setUser(null);
-    setPendingMobile(null);
     navigate('/login');
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, sendOtp, verifyOtp, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, loginWithEmail, logout }}>
       {children}
     </AuthContext.Provider>
   );

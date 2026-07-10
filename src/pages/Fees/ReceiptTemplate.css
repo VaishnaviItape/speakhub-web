@@ -1,0 +1,134 @@
+.receipt-container {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 20mm;
+  }
+  
+  body * {
+    visibility: hidden;
+  }
+  
+  .receipt-container, .receipt-container * {
+    visibility: visible;
+  }
+  
+  .receipt-container {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    color: #333;
+    line-height: 1.5;
+  }
+
+  .receipt-header {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  .receipt-title {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0 0 5px 0;
+    color: #1e3a8a;
+  }
+
+  .receipt-subtitle {
+    font-size: 14px;
+    margin: 0 0 5px 0;
+    color: #64748b;
+  }
+
+  .receipt-heading {
+    font-size: 18px;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin: 15px 0;
+    border-bottom: 2px solid #1e3a8a;
+    display: inline-block;
+    padding-bottom: 5px;
+  }
+
+  .receipt-meta-grid {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+
+  .receipt-meta-grid p {
+    margin: 4px 0;
+  }
+
+  .receipt-divider {
+    border: none;
+    border-top: 1px dashed #cbd5e1;
+    margin: 15px 0;
+  }
+
+  .receipt-section {
+    margin-bottom: 15px;
+    font-size: 14px;
+  }
+
+  .info-row {
+    display: flex;
+    margin-bottom: 6px;
+  }
+
+  .info-label {
+    width: 150px;
+    font-weight: bold;
+    color: #475569;
+  }
+
+  .receipt-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+  }
+
+  .receipt-table th, .receipt-table td {
+    border: 1px solid #e2e8f0;
+    padding: 10px;
+    text-align: left;
+  }
+
+  .receipt-table th {
+    background-color: #f8fafc;
+    color: #1e293b;
+    font-weight: bold;
+  }
+  
+  .receipt-table tfoot td {
+    background-color: #f1f5f9;
+  }
+
+  .receipt-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    margin-top: 40px;
+  }
+
+  .signature-box {
+    margin-top: 30px;
+    border-top: 1px solid #333;
+    padding-top: 5px;
+    text-align: center;
+    width: 200px;
+  }
+
+  .receipt-thankyou {
+    text-align: center;
+    font-style: italic;
+    margin-top: 30px;
+    color: #64748b;
+  }
+}

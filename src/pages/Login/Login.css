@@ -77,11 +77,11 @@
   margin-bottom: 1.5rem;
 }
 
-.login-logo-icon {
+.login-logo-img {
   width: 48px;
   height: 48px;
-  background: conic-gradient(from 180deg at 50% 50%, #3a86ff 0deg, #ffb703 180deg, #3a86ff 360deg);
-  border-radius: 50%;
+  border-radius: 12px;
+  object-fit: cover;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, ChevronDown } from 'lucide-react';
+import { Plus, ChevronDown, Edit, Trash2 } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import type { Course } from '../../types/models';
+import { db } from '../../config/firebase';
+import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import '../../components/ui/TableStyles.css';
 
 const Courses: React.FC = () => {
@@ -16,33 +18,61 @@ const Courses: React.FC = () => {
   const [description, setDescription] = useState('');
   const [duration, setDuration] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Dummy Data
+  // Data
   const [courses, setCourses] = useState<Course[]>([]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setCourses([
-        { documentId: '1', courseName: 'Spoken English Basics', description: 'Beginner level english speaking course', duration: '3 Months', status: 'active' },
-        { documentId: '2', courseName: 'Advanced English', description: 'Advanced grammar and vocabulary', duration: '6 Months', status: 'active' }
-      ]);
+  const fetchCourses = async () => {
+    try {
+      setIsLoading(true);
+      const q = query(collection(db, 'courses'));
+      const querySnapshot = await getDocs(q);
+      const fetchedCourses: Course[] = [];
+      querySnapshot.forEach((doc) => {
+        fetchedCourses.push({ documentId: doc.id, ...doc.data() } as Course);
+      });
+      setCourses(fetchedCourses);
+    } catch (error) {
+      console.error("Error fetching courses:", error);
+      alert("Failed to load courses");
+    } finally {
       setIsLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
+    }
+  };
+
+  useEffect(() => {
+    fetchCourses();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newCourse: Course = {
-      documentId: Math.random().toString(36).substr(2, 9),
-      courseName,
-      description,
-      duration,
-      status
-    };
-    setCourses([...courses, newCourse]);
-    setIsModalOpen(false);
-    resetForm();
+    try {
+      if (editingId) {
+        // Update existing course
+        const courseRef = doc(db, 'courses', editingId);
+        await updateDoc(courseRef, {
+          courseName,
+          description,
+          duration,
+          status
+        });
+      } else {
+        // Add new course
+        await addDoc(collection(db, 'courses'), {
+          courseName,
+          description,
+          duration,
+          status
+        });
+      }
+      setIsModalOpen(false);
+      resetForm();
+      fetchCourses();
+    } catch (error) {
+      console.error("Error saving course:", error);
+      alert("Failed to save course");
+    }
   };
 
   const resetForm = () => {
@@ -50,6 +80,7 @@ const Courses: React.FC = () => {
     setDescription('');
     setDuration('');
     setStatus('active');
+    setEditingId(null);
   };
 
   const handleEdit = (course: Course) => {
@@ -57,11 +88,21 @@ const Courses: React.FC = () => {
     setDescription(course.description);
     setDuration(course.duration);
     setStatus(course.status);
+    setEditingId(course.documentId || null);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (course: Course) => {
-    setCourses(courses.filter(c => c.documentId !== course.documentId));
+  const handleDelete = async (course: Course) => {
+    if (!course.documentId) return;
+    if (window.confirm('Are you sure you want to delete this course?')) {
+      try {
+        await deleteDoc(doc(db, 'courses', course.documentId));
+        fetchCourses();
+      } catch (error) {
+        console.error("Error deleting course:", error);
+        alert("Failed to delete course");
+      }
+    }
   };
 
   const columns: Column<Course>[] = [
@@ -83,9 +124,9 @@ const Courses: React.FC = () => {
       key: 'status',
       header: 'Status',
       render: (row) => (
-        <button className={`dt-badge ${row.status === 'active' ? 'active' : 'inactive'}`}>
-          {row.status.charAt(0).toUpperCase() + row.status.slice(1)} <ChevronDown size={14} />
-        </button>
+        <span className={`dt-badge ${row.status === 'active' ? 'active' : 'inactive'}`}>
+          {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+        </span>
       )
     }
   ];
@@ -100,7 +141,7 @@ const Courses: React.FC = () => {
             <span>Dashboard</span> <span className="separator">/</span> <span className="current">Courses</span>
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+        <button className="btn btn-primary" onClick={() => { resetForm(); setIsModalOpen(true); }}>
           <Plus size={16} />
           Add Course
         </button>
@@ -116,8 +157,8 @@ const Courses: React.FC = () => {
         isLoading={isLoading}
       />
 
-      {/* Add Course Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add Course Request">
+      {/* Add/Edit Course Modal */}
+      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetForm(); }} title={editingId ? "Edit Course" : "Add Course"}>
         <form onSubmit={handleSubmit} className="modal-form">
           <Input 
             label="Course Name" 
@@ -148,7 +189,7 @@ const Courses: React.FC = () => {
           />
           
           <div className="modal-actions">
-            <button type="submit" className="btn btn-success">Save Course</button>
+            <button type="submit" className="btn btn-success">{editingId ? "Update Course" : "Save Course"}</button>
           </div>
         </form>
       </Modal>

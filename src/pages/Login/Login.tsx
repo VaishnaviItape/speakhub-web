@@ -1,52 +1,42 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, KeyRound, LogIn, AlertCircle } from 'lucide-react';
+import { Mail, KeyRound, LogIn, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import './Login.css';
 
 const Login: React.FC = () => {
-  const [mobile, setMobile] = useState('');
-  const [otp, setOtp] = useState('');
-  const [step, setStep] = useState<'mobile' | 'otp'>('mobile');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { sendOtp, verifyOtp } = useAuth();
+  const { loginWithEmail } = useAuth();
   const navigate = useNavigate();
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
-    try {
-      const success = await sendOtp(mobile);
-      if (success) {
-        setStep('otp');
-      } else {
-        setError('Number not registered. Please contact admin.');
-      }
-    } catch (err) {
-      setError('An error occurred while sending OTP. Please try again later.');
-    } finally {
-      setIsLoading(false);
+    if (!email || !password) {
+      setError('Please enter both email and password.');
+      return;
     }
-  };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
     setError('');
     setIsLoading(true);
 
     try {
-      const success = await verifyOtp(otp);
-      if (success) {
-        navigate('/dashboard');
+      const result = await loginWithEmail(email, password);
+      
+      if (result.success) {
+        if (result.forcePasswordChange) {
+          navigate('/change-password');
+        } else {
+          navigate('/dashboard');
+        }
       } else {
-        setError('Invalid OTP. Please try again.');
+        setError(result.error || 'Failed to login. Please check your credentials.');
       }
-    } catch (err) {
-      setError('An error occurred during verification. Please try again later.');
+    } catch (err: any) {
+      setError('An error occurred during login. Please try again later.');
     } finally {
       setIsLoading(false);
     }
@@ -57,7 +47,7 @@ const Login: React.FC = () => {
       <div className="login-card">
         <div className="login-header">
           <div className="login-logo-container">
-            <div className="login-logo-icon"></div>
+            <img src="/logo.png" alt="Speak Hub Logo" className="login-logo-img" />
             <span className="login-logo-text">Speak Hub</span>
           </div>
           <h1 className="login-title">Welcome</h1>
@@ -71,103 +61,57 @@ const Login: React.FC = () => {
           </div>
         )}
 
-        {step === 'mobile' ? (
-          <form onSubmit={handleSendOtp}>
-            <div className="login-form-group">
-              <label className="login-form-label" htmlFor="mobile">Mobile Number</label>
-              <div className="login-input-wrapper">
-                <Phone className="login-input-icon" />
-                <input
-                  id="mobile"
-                  type="tel"
-                  className="login-input"
-                  placeholder="e.g. 1234567890"
-                  value={mobile}
-                  onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))}
-                  maxLength={10}
-                  required
-                />
-              </div>
+        <form onSubmit={handleLogin}>
+          <div className="login-form-group">
+            <label className="login-form-label" htmlFor="email">Email Address</label>
+            <div className="login-input-wrapper">
+              <Mail className="login-input-icon" />
+              <input
+                id="email"
+                type="email"
+                className="login-input"
+                placeholder="e.g. admin@speakhub.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
+          </div>
 
-            <button 
-              type="submit" 
-              className="login-button"
-              disabled={isLoading || mobile.length < 10}
-            >
-              {isLoading ? (
-                <span className="loader">Sending OTP...</span>
-              ) : (
-                <>
-                  <LogIn size={20} />
-                  Send OTP
-                </>
-              )}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleVerifyOtp}>
-            <div className="login-form-group">
-              <label className="login-form-label" htmlFor="otp">Enter OTP</label>
-              <div className="login-input-wrapper">
-                <KeyRound className="login-input-icon" />
-                <input
-                  id="otp"
-                  type="text"
-                  className="login-input"
-                  placeholder="Enter 6-digit OTP"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  maxLength={6}
-                  required
-                />
-              </div>
-              <p style={{ fontSize: '12px', color: '#10b981', marginTop: '4px' }}>
-                For demo, use OTP: 123456
-              </p>
+          <div className="login-form-group">
+            <label className="login-form-label" htmlFor="password">Password</label>
+            <div className="login-input-wrapper">
+              <KeyRound className="login-input-icon" />
+              <input
+                id="password"
+                type="password"
+                className="login-input"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
             </div>
+          </div>
 
-            <button 
-              type="submit" 
-              className="login-button"
-              disabled={isLoading || otp.length < 6}
-            >
-              {isLoading ? (
-                <span className="loader">Verifying...</span>
-              ) : (
-                <>
-                  <LogIn size={20} />
-                  Verify & Login
-                </>
-              )}
-            </button>
-            <button 
-              type="button" 
-              style={{
-                width: '100%', 
-                background: 'transparent', 
-                border: 'none', 
-                color: '#64748b', 
-                marginTop: '1rem',
-                cursor: 'pointer'
-              }}
-              onClick={() => {
-                setStep('mobile');
-                setOtp('');
-              }}
-            >
-              Change Mobile Number
-            </button>
-          </form>
-        )}
+          <button 
+            type="submit" 
+            className="login-button"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <span className="loader">Logging in...</span>
+            ) : (
+              <>
+                <LogIn size={20} />
+                Sign In
+              </>
+            )}
+          </button>
+        </form>
 
         <div className="demo-credentials">
-          <p>Demo Numbers:</p>
-          <ul>
-            <li><span>Admin:</span> <span>1234567890</span></li>
-            <li><span>Teacher:</span> <span>9876543210</span></li>
-            <li><span>Student:</span> <span>5555555555</span></li>
-          </ul>
+          <p>Login with your Firebase Auth Credentials.</p>
         </div>
       </div>
     </div>
