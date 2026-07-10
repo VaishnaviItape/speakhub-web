@@ -1,0 +1,305 @@
+/* DataTable.css - Exact styling matching the UI mockup */
+
+.dt-card {
+  background-color: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+[data-theme='dark'] .dt-card {
+  background-color: #111c44;
+}
+
+.dt-header {
+  padding: 1.5rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dt-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #2b3674;
+  margin: 0;
+}
+
+[data-theme='dark'] .dt-title {
+  color: #ffffff;
+}
+
+.dt-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.dt-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.dt-search-icon {
+  position: absolute;
+  left: 1rem;
+  color: #a3aed0;
+}
+
+.dt-search-input {
+  background-color: #f4f7fe;
+  border: none;
+  border-radius: 30px;
+  padding: 0.6rem 1rem 0.6rem 2.5rem;
+  font-size: 0.875rem;
+  color: #2b3674;
+  outline: none;
+  width: 200px;
+  transition: width 0.3s;
+}
+
+.dt-search-input:focus {
+  width: 250px;
+  box-shadow: 0 0 0 2px rgba(67, 24, 255, 0.2);
+}
+
+[data-theme='dark'] .dt-search-input {
+  background-color: #0b1437;
+  color: #ffffff;
+}
+
+.dt-btn-outline {
+  background: #ffffff;
+  border: 1px solid #e0e5f2;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #2b3674;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dt-btn-outline:hover {
+  background: #f4f7fe;
+}
+
+[data-theme='dark'] .dt-btn-outline {
+  background: transparent;
+  border-color: #2b3674;
+  color: #ffffff;
+}
+
+[data-theme='dark'] .dt-btn-outline:hover {
+  background: #0b1437;
+}
+
+.dt-table-container {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.dt-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.dt-table th {
+  background-color: #f4f7fe;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #a3aed0;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+[data-theme='dark'] .dt-table th {
+  background-color: #0b1437;
+}
+
+.dt-th-content {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.dt-sort-icon {
+  color: #a3aed0;
+  opacity: 0.6;
+}
+
+.dt-table td {
+  padding: 1rem 1.5rem;
+  font-size: 0.875rem;
+  color: #2b3674;
+  font-weight: 600;
+  border-bottom: 1px solid #e9edf7;
+  vertical-align: middle;
+}
+
+[data-theme='dark'] .dt-table td {
+  color: #ffffff;
+  border-bottom-color: #1e293b;
+}
+
+.dt-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.dt-table tbody tr {
+  transition: background-color 0.2s;
+}
+
+.dt-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+[data-theme='dark'] .dt-table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Specific Badge styling matching image */
+.dt-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background-color: #e6f4ea;
+  color: #34a853;
+  cursor: pointer;
+}
+
+.dt-badge.active, .dt-badge.approved, .dt-badge.new {
+  background-color: #e6f4ea; /* Light green */
+  color: #34a853; /* Green */
+}
+
+.dt-badge.pending {
+  background-color: #fff4e5; /* Light orange */
+  color: #ff9800; /* Orange */
+}
+
+.dt-badge.inactive, .dt-badge.rejected {
+  background-color: #fce8e6; /* Light red */
+  color: #ea4335; /* Red */
+}
+
+.dt-badge.blue {
+  background-color: #e8f0fe;
+  color: #4285f4;
+}
+
+.dt-action-cell {
+  text-align: right;
+}
+
+.dt-action-trigger {
+  background: #f4f7fe;
+  border: none;
+  border-radius: 8px;
+  padding: 0.3rem 0.5rem;
+  color: #a3aed0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dt-action-trigger:hover {
+  background: #e0e5f2;
+  color: #2b3674;
+}
+
+[data-theme='dark'] .dt-action-trigger {
+  background: #0b1437;
+}
+
+.dt-dropdown-menu {
+  position: absolute;
+  right: 2rem;
+  top: 50%;
+  background-color: #ffffff;
+  border: 1px solid #e0e5f2;
+  border-radius: 12px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  min-width: 130px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem;
+}
+
+[data-theme='dark'] .dt-dropdown-menu {
+  background-color: #111c44;
+  border-color: #2b3674;
+}
+
+.dt-dropdown-item {
+  padding: 0.5rem 1rem;
+  text-align: left;
+  background: transparent;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #2b3674;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+[data-theme='dark'] .dt-dropdown-item {
+  color: #ffffff;
+}
+
+.dt-dropdown-item:hover {
+  background-color: #f4f7fe;
+}
+
+[data-theme='dark'] .dt-dropdown-item:hover {
+  background-color: #0b1437;
+}
+
+.dt-dropdown-item.text-red {
+  color: #ea4335;
+}
+
+.dt-empty {
+  text-align: center;
+  padding: 3rem !important;
+  color: #a3aed0;
+  font-weight: 500;
+}
+
+/* Skeleton Loading Animation */
+.dt-skeleton-pulse {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: pulse 1.5s ease-in-out infinite;
+  height: 20px;
+  border-radius: 4px;
+  width: 100%;
+}
+
+[data-theme='dark'] .dt-skeleton-pulse {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+}
+
+@keyframes pulse {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

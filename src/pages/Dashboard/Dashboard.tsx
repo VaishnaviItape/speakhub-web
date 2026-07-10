@@ -1,15 +1,16 @@
 import React from 'react';
 import './Dashboard.css';
+import '../../components/ui/TableStyles.css';
 import { Plus } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   return (
-    <div className="dashboard-container">
-      <div className="dashboard-header flex justify-between items-center">
+    <div className="page-container">
+      <div className="page-header">
         <div>
-          <h1 className="page-title">Analytics</h1>
+          <h1 className="page-title">Dashboard</h1>
           <div className="breadcrumbs">
-            <span className="text-primary">Dashboard</span> <span className="text-muted">/ Analytics</span>
+            <span>Dashboard</span> <span className="separator">/</span> <span className="current">Overview</span>
           </div>
         </div>
         <button className="btn btn-primary add-employee-btn">

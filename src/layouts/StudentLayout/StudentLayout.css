@@ -1,0 +1,70 @@
+.student-app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background-color: #f4f7fe;
+  overflow: hidden;
+}
+
+[data-theme='dark'] .student-app-container {
+  background-color: #0b1437;
+}
+
+.student-main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 70px; /* Space for bottom nav */
+}
+
+/* Mobile Bottom Navigation Bar */
+.student-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 65px;
+  background-color: #ffffff;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+  z-index: 1000;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+}
+
+[data-theme='dark'] .student-bottom-nav {
+  background-color: #111c44;
+  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.5);
+}
+
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #a3aed0;
+  text-decoration: none;
+  flex: 1;
+  height: 100%;
+  transition: all 0.2s;
+}
+
+.bottom-nav-item span {
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.bottom-nav-item.active {
+  color: #4318ff;
+}
+
+[data-theme='dark'] .bottom-nav-item.active {
+  color: #7551ff;
+}
+
+.bottom-nav-item:hover {
+  color: #4318ff;
+}
