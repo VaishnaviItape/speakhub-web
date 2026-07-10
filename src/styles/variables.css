@@ -1,7 +1,7 @@
 :root {
   /* Colors */
-  --primary: #2972ff;
-  --primary-hover: #1a5cff;
+  --primary: #E31837;
+  --primary-hover: #c4122d;
   
   --bg-main: #f8f9fc;
   --bg-card: #ffffff;
@@ -17,8 +17,8 @@
   --accent-yellow-bg: #fff5e0;
   --accent-yellow-text: #f59e0b;
   
-  --accent-blue-bg: #e0f2fe;
-  --accent-blue-text: #0284c7;
+  --accent-red-bg: #fff0f0;
+  --accent-red-text: #E31837;
   
   /* Typography */
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -52,6 +52,6 @@
   --accent-yellow-bg: #452b02;
   --accent-yellow-text: #fbbf24;
   
-  --accent-blue-bg: #0c4a6e;
-  --accent-blue-text: #38bdf8;
+  --accent-red-bg: #4a0c16;
+  --accent-red-text: #ff7388;
 }

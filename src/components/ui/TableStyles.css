@@ -1,7 +1,6 @@
 /* TableStyles.css - Reusable styling for data tables based on design system */
 
 .page-container {
-  padding: 1.5rem 2rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -242,13 +241,13 @@
 }
 
 .btn-success {
-  background-color: #10b981;
+  background-color: var(--primary);
   color: white;
   border: none;
 }
 
 .btn-success:hover {
-  background-color: #059669;
+  background-color: var(--primary-hover);
 }
 
 .empty-state {

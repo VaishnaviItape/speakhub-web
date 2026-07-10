@@ -91,7 +91,7 @@
 }
 
 .nav-item.active {
-  background-color: var(--accent-blue-bg);
+  background-color: var(--accent-red-bg);
   color: var(--primary);
   font-weight: 500;
 }

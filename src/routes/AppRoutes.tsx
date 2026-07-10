@@ -38,6 +38,10 @@ import FeePlans from '../pages/Fees/FeePlans';
 import Fees from '../pages/Fees/Fees';
 import FeeReports from '../pages/Fees/FeeReports';
 
+// Reports
+import ReportsDashboard from '../pages/Reports/ReportsDashboard';
+import ReportViewer from '../pages/Reports/ReportViewer';
+
 // Student Pages
 import StudentDashboard from '../pages/StudentPortal/StudentDashboard';
 import StudentExams from '../pages/StudentPortal/StudentExams';
@@ -93,6 +97,9 @@ const AppRoutes: React.FC = () => {
           <Route path="/fees/plans" element={<FeePlans />} />
           <Route path="/fees" element={<Fees />} />
           <Route path="/fees/reports" element={<FeeReports />} />
+          
+          <Route path="/reports" element={<ReportsDashboard />} />
+          <Route path="/reports/:reportId" element={<ReportViewer />} />
         </Route>
         
       </Route>

@@ -4,6 +4,7 @@ import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
+import type { Course, Batch } from '../../types/models';
 import { db } from '../../config/firebase';
 import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
@@ -28,10 +29,33 @@ const Students: React.FC = () => {
 
   // Data
   const [students, setStudents] = useState<any[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
 
   useEffect(() => {
     fetchStudents();
+    fetchDependencies();
   }, []);
+
+  const fetchDependencies = async () => {
+    try {
+      // Fetch Courses
+      const cq = query(collection(db, 'courses'), where('status', '==', 'active'));
+      const cSnapshot = await getDocs(cq);
+      const activeCourses: Course[] = [];
+      cSnapshot.forEach(doc => activeCourses.push({ documentId: doc.id, ...doc.data() } as Course));
+      setCourses(activeCourses);
+
+      // Fetch Batches
+      const bq = query(collection(db, 'batches'), where('status', '==', 'active'));
+      const bSnapshot = await getDocs(bq);
+      const activeBatches: Batch[] = [];
+      bSnapshot.forEach(doc => activeBatches.push({ documentId: doc.id, ...doc.data() } as Batch));
+      setBatches(activeBatches);
+    } catch (error) {
+      console.error("Error fetching dependencies:", error);
+    }
+  };
 
   const fetchStudents = async () => {
     setIsLoading(true);
@@ -160,12 +184,16 @@ const Students: React.FC = () => {
     {
       key: 'courseId',
       header: 'Course / Batch',
-      render: (row) => (
-        <div>
-          <div>{row.courseIds?.join(', ') || 'Unassigned'}</div>
-          <div style={{ fontSize: '0.75rem', color: '#a3aed0' }}>{row.batchIds?.join(', ') || 'Unassigned'}</div>
-        </div>
-      )
+      render: (row) => {
+        const courseName = courses.find(c => c.documentId === row.courseIds?.[0])?.courseName || 'Unassigned';
+        const batchName = batches.find(b => b.documentId === row.batchIds?.[0])?.batchName || 'Unassigned';
+        return (
+          <div>
+            <div>{courseName}</div>
+            <div style={{ fontSize: '0.75rem', color: '#a3aed0' }}>{batchName}</div>
+          </div>
+        );
+      }
     },
     {
       key: 'status',
@@ -230,8 +258,7 @@ const Students: React.FC = () => {
               label="Assign Course" 
               options={[
                 {label: 'Select Course', value: ''},
-                {label: 'Spoken English Basics', value: 'Course1'}, 
-                {label: 'Advanced English', value: 'Course2'}
+                ...courses.map(c => ({ label: c.courseName, value: c.documentId || '' }))
               ]} 
               value={courseId}
               onChange={(e) => setCourseId(e.target.value)}
@@ -240,7 +267,9 @@ const Students: React.FC = () => {
               label="Assign Batch" 
               options={[
                 {label: 'Select Batch', value: ''},
-                {label: 'Morning Batch (Mon-Wed)', value: 'Batch1'}
+                ...batches
+                  .filter(b => !courseId || b.courseId === courseId) // Optionally filter batches by selected course
+                  .map(b => ({ label: b.batchName, value: b.documentId || '' }))
               ]} 
               value={batchId}
               onChange={(e) => setBatchId(e.target.value)}

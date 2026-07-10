@@ -92,3 +92,13 @@ ul, ol {
 /* Layout Utilities */
 .w-full { width: 100%; }
 .h-full { height: 100%; }
+
+/* Hide scrollbars globally but keep functionality */
+::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}

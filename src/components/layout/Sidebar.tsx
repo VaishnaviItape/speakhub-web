@@ -13,7 +13,8 @@ import {
   PenTool,
   HelpCircle,
   CreditCard,
-  LogOut
+  LogOut,
+  BarChart3
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import './Sidebar.css';
@@ -123,13 +124,21 @@ const Sidebar: React.FC = () => {
             </nav>
           </div>
         )}
+
+        {isAdmin && (
+          <div className="nav-group">
+            <span className="nav-group-title">ANALYTICS</span>
+            <nav className="nav-menu">
+              <NavLink to="/reports" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+                <BarChart3 size={18} />
+                <span>Reports Center</span>
+              </NavLink>
+            </nav>
+          </div>
+        )}
       </div>
 
       <div className="sidebar-footer">
-        <button className="btn btn-outline w-full help-btn mb-2">
-          <HelpCircle size={18} />
-          Help and Support
-        </button>
         <button 
           onClick={logout}
           className="btn w-full flex items-center justify-center gap-2 text-red-600 hover:bg-red-50 border border-red-200"

@@ -46,6 +46,49 @@ function DataTable<T extends { documentId?: string }>({
     );
   });
 
+  const handleDownload = () => {
+    if (!filteredData.length) {
+      alert("No data is available to download.");
+      return;
+    }
+
+    // 1. Create Headers
+    const headers = columns.map(c => `"${c.header.replace(/"/g, '""')}"`).join(',');
+
+    // 2. Create Rows
+    const csvRows = filteredData.map(row => {
+      return columns.map(col => {
+        let val = (row as any)[col.key];
+        
+        if (val === null || val === undefined) {
+          val = '';
+        } else if (typeof val === 'object') {
+          if (Array.isArray(val)) {
+            val = val.join('; ');
+          } else if (val.toDate) {
+            val = val.toDate().toLocaleDateString();
+          } else {
+            val = JSON.stringify(val);
+          }
+        }
+        
+        const stringVal = String(val).replace(/"/g, '""');
+        return `"${stringVal}"`;
+      }).join(',');
+    });
+
+    // 3. Combine and download
+    const csvString = [headers, ...csvRows].join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${title.replace(/\s+/g, '_').toLowerCase()}_report.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="dt-card">
       <div className="dt-header">
@@ -61,9 +104,8 @@ function DataTable<T extends { documentId?: string }>({
               onChange={e => setSearchTerm(e.target.value)}
             />
           </div>
-          <button className="dt-btn-outline">Download Report</button>
-          <button className="dt-btn-outline dt-dropdown-btn">
-            2024 <ChevronDown size={14} />
+          <button className="dt-btn-outline" onClick={handleDownload}>
+            Download Report
           </button>
         </div>
       </div>
