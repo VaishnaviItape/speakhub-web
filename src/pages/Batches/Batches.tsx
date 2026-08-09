@@ -7,7 +7,7 @@ import DataTable, { type Column } from '../../components/ui/DataTable';
 import type { Batch, Course, User } from '../../types/models';
 import { db } from '../../config/firebase';
 import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, where, Timestamp, arrayUnion } from 'firebase/firestore';
-import '../../components/ui/TableStyles.css';
+import { validateBatchName } from '../../utils/validation';
 
 const Batches: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -75,7 +75,11 @@ const Batches: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!courseId || !teacherId || !startDate || !endDate) {
+
+    const nameVal = validateBatchName(batchName, 'Batch Name');
+    if (!nameVal.isValid) { alert(nameVal.error); return; }
+
+    if (!courseId || !teacherId || !startDate) {
       alert("Please fill in all required fields");
       return;
     }
@@ -89,7 +93,7 @@ const Batches: React.FC = () => {
         teacherId,
         meetingLink,
         startDate: new Date(startDate),
-        endDate: new Date(endDate),
+        endDate: endDate ? new Date(endDate) : null,
         status
       };
 
@@ -208,10 +212,13 @@ const Batches: React.FC = () => {
     {
       key: 'status',
       header: 'Status',
+      align: 'center',
       render: (row) => (
-        <span className={`dt-badge ${row.status === 'active' ? 'active' : 'inactive'}`}>
-          {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
-        </span>
+        <div className="flex justify-center items-center">
+          <span className={`dt-badge ${row.status === 'active' ? 'active' : 'inactive'}`}>
+            {row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : 'Unknown'}
+          </span>
+        </div>
       )
     }
   ];
@@ -273,11 +280,10 @@ const Batches: React.FC = () => {
               required 
             />
             <Input 
-              label="End Date" 
+              label="End Date (Optional)" 
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              required 
             />
           </div>
           <Input 

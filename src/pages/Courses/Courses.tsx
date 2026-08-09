@@ -7,6 +7,7 @@ import DataTable, { type Column } from '../../components/ui/DataTable';
 import type { Course } from '../../types/models';
 import { db } from '../../config/firebase';
 import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { validateName, validatePositiveNumber } from '../../utils/validation';
 import '../../components/ui/TableStyles.css';
 
 const Courses: React.FC = () => {
@@ -51,6 +52,13 @@ const Courses: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const nameVal = validateName(courseName, 'Course Name');
+    if (!nameVal.isValid) { alert(nameVal.error); return; }
+
+    const feeVal = validatePositiveNumber(monthlyFee, 'Monthly Fee');
+    if (!feeVal.isValid) { alert(feeVal.error); return; }
+
     setIsSaving(true);
     try {
       const coursePayload = {
@@ -124,11 +132,11 @@ const Courses: React.FC = () => {
       header: 'Course Name',
       render: (row) => <span className="font-medium">{row.courseName}</span>
     },
-    {
-      key: 'description',
-      header: 'Description',
-      render: (row) => <div className="max-w-xs truncate" title={row.description}>{row.description}</div>
-    },
+    // {
+    //   key: 'description',
+    //   header: 'Description',
+    //   render: (row) => <div className="max-w-xs truncate" title={row.description}>{row.description}</div>
+    // },
     {
       key: 'duration',
       header: 'Duration'
@@ -141,10 +149,13 @@ const Courses: React.FC = () => {
     {
       key: 'status',
       header: 'Status',
+      align: 'center',
       render: (row) => (
-        <span className={`dt-badge ${row.status === 'active' ? 'active' : 'inactive'}`}>
-          {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
-        </span>
+        <div className="flex justify-center items-center">
+          <span className={`dt-badge ${row.status === 'active' ? 'active' : 'inactive'}`}>
+            {row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : 'Unknown'}
+          </span>
+        </div>
       )
     }
   ];
@@ -203,11 +214,10 @@ const Courses: React.FC = () => {
             />
           </div>
           <Input 
-            label="Description" 
+            label="Description (Optional)" 
             placeholder="Course details and syllabus overview..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            required 
           />
           <div className="grid grid-cols-2 gap-4">
             <Input 

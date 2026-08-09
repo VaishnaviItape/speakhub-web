@@ -7,6 +7,7 @@ import DataTable, { type Column } from '../../components/ui/DataTable';
 import { db } from '../../config/firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
 import type { FeeTransaction, User, Course } from '../../types/models';
+import { validatePositiveNumber } from '../../utils/validation';
 import '../../components/ui/TableStyles.css';
 import ReceiptTemplate from './ReceiptTemplate';
 
@@ -108,6 +109,13 @@ const Fees: React.FC = () => {
 
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const amtVal = validatePositiveNumber(amountPaid, 'Amount Paid');
+    if (!amtVal.isValid) {
+      alert(amtVal.error);
+      return;
+    }
+
     setIsSaving(true);
     try {
       const record = feeRecords.find(r => r.studentId === paymentStudentId);

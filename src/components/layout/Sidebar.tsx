@@ -44,29 +44,41 @@ const Sidebar: React.FC = () => {
         </div>
 
         <div className="nav-group">
-          <span className="nav-group-title">ACADEMICS</span>
+          <span className="nav-group-title">MASTERS SETUP</span>
           <nav className="nav-menu">
+            {isAdmin && (
+              <NavLink to="/teachers" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+                <Briefcase size={18} />
+                <span>Teacher Master</span>
+              </NavLink>
+            )}
             <NavLink to="/courses" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
               <BookOpen size={18} />
-              <span>Courses</span>
+              <span>Course Master</span>
             </NavLink>
             <NavLink to="/batches" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
               <Calendar size={18} />
-              <span>Batches</span>
+              <span>Batch Master</span>
             </NavLink>
+            {isAdmin && (
+              <NavLink to="/users" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+                <Users size={18} />
+                <span>User / Staff Master</span>
+              </NavLink>
+            )}
           </nav>
         </div>
-        
+
         <div className="nav-group">
-          <span className="nav-group-title">USERS</span>
+          <span className="nav-group-title">STUDENT OPERATIONS</span>
           <nav className="nav-menu">
             <NavLink to="/students" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
               <GraduationCap size={18} />
-              <span>Students</span>
+              <span>Students & Approvals</span>
             </NavLink>
             <NavLink to="/enquiries" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
               <HelpCircle size={18} />
-              <span>Enquiries</span>
+              <span>Enquiries & Leads</span>
             </NavLink>
             <NavLink to="/attendance" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
               <Calendar size={18} />
@@ -74,17 +86,13 @@ const Sidebar: React.FC = () => {
             </NavLink>
             {isAdmin && (
               <>
-                <NavLink to="/teachers" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-                  <Briefcase size={18} />
-                  <span>Teachers</span>
+                <NavLink to="/fees" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+                  <CreditCard size={18} />
+                  <span>Fees Collection</span>
                 </NavLink>
-                <NavLink to="/users" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-                  <Users size={18} />
-                  <span>All Users</span>
-                </NavLink>
-                <NavLink to="/settings/roles" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-                  <Shield size={18} />
-                  <span>Roles</span>
+                <NavLink to="/fees/reports" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+                  <FileText size={18} />
+                  <span>Fee Reports</span>
                 </NavLink>
               </>
             )}
@@ -92,11 +100,11 @@ const Sidebar: React.FC = () => {
         </div>
 
         <div className="nav-group">
-          <span className="nav-group-title">RESOURCES & EXAMS</span>
+          <span className="nav-group-title">LEARNING & EXAMS</span>
           <nav className="nav-menu">
             <NavLink to="/notes" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
               <FileText size={18} />
-              <span>Notes</span>
+              <span>Study Notes</span>
             </NavLink>
             <NavLink to="/homework" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
               <PenTool size={18} />
@@ -111,27 +119,15 @@ const Sidebar: React.FC = () => {
 
         {isAdmin && (
           <div className="nav-group">
-            <span className="nav-group-title">FINANCE</span>
-            <nav className="nav-menu">
-              <NavLink to="/fees" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-                <CreditCard size={18} />
-                <span>Fees Collection</span>
-              </NavLink>
-              <NavLink to="/fees/reports" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-                <FileText size={18} />
-                <span>Fee Reports</span>
-              </NavLink>
-            </nav>
-          </div>
-        )}
-
-        {isAdmin && (
-          <div className="nav-group">
-            <span className="nav-group-title">ANALYTICS</span>
+            <span className="nav-group-title">ANALYTICS & SETTINGS</span>
             <nav className="nav-menu">
               <NavLink to="/reports" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
                 <BarChart3 size={18} />
                 <span>Reports Center</span>
+              </NavLink>
+              <NavLink to="/settings/roles" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+                <Shield size={18} />
+                <span>Roles & Permissions</span>
               </NavLink>
             </nav>
           </div>

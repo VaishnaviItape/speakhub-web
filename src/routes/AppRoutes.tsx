@@ -73,16 +73,16 @@ const AppRoutes: React.FC = () => {
     <Routes>
       <Route path="/login" element={
         isAuthenticated && !user?.forcePasswordChange ? (
-          <Navigate to={user?.role === 'student' ? '/student/dashboard' : '/dashboard'} replace />
+          <Navigate to="/dashboard" replace />
         ) : <Login />
       } />
 
       <Route path="/register-admin" element={
-        isAuthenticated ? <Navigate to={user?.role === 'student' ? '/student/dashboard' : '/dashboard'} replace /> : <AdminSignup />
+        isAuthenticated ? <Navigate to="/dashboard" replace /> : <AdminSignup />
       } />
 
       <Route path="/register-student" element={
-        isAuthenticated ? <Navigate to={user?.role === 'student' ? '/student/dashboard' : '/dashboard'} replace /> : <StudentRegister />
+        <Navigate to="/login" replace />
       } />
 
       <Route path="/change-password" element={
@@ -90,10 +90,10 @@ const AppRoutes: React.FC = () => {
       } />
       
       <Route path="/" element={
-        <Navigate to={user?.role === 'student' ? '/student/dashboard' : '/dashboard'} replace />
+        <Navigate to="/dashboard" replace />
       } />
       
-      {/* Wrapper for all ADMIN authenticated routes */}
+      {/* Wrapper for all ADMIN/TEACHER authenticated routes */}
       <Route element={isAuthenticated && user?.role !== 'student' ? <AdminLayout /> : <Navigate to="/login" replace />}>
         
         {/* Routes accessible to Admin and Teacher */}
@@ -132,17 +132,8 @@ const AppRoutes: React.FC = () => {
         
       </Route>
 
-      {/* Wrapper for STUDENT authenticated routes */}
-      <Route element={isAuthenticated && user?.role === 'student' ? <StudentLayout /> : <Navigate to="/login" replace />}>
-        <Route path="/student/dashboard" element={<StudentDashboard />} />
-        <Route path="/student/exams" element={<StudentExams />} />
-        <Route path="/student/profile" element={<StudentProfile />} />
-        <Route path="/student/courses" element={<StudentCourses />} />
-        <Route path="/student/homework" element={<StudentHomework />} />
-        <Route path="/student/attendance" element={<StudentAttendance />} />
-      </Route>
-
-      <Route path="*" element={<Navigate to={user?.role === 'student' ? '/student/dashboard' : '/dashboard'} replace />} />
+      <Route path="/student/*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 };

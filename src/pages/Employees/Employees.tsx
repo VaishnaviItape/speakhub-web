@@ -8,6 +8,8 @@ import { db } from '../../config/firebase';
 import { secondaryAuth } from '../../config/secondaryFirebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { collection, query, getDocs, updateDoc, doc, setDoc, where, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { checkMobileExists } from '../../utils/phoneValidation';
+import { validateName, validateEmail, validatePhoneNumber } from '../../utils/validation';
 
 interface Employee {
   documentId?: string;
@@ -105,10 +107,13 @@ const Employees: React.FC = () => {
     {
       key: 'status',
       header: 'Status',
+      align: 'center',
       render: (row) => (
-        <span className={`dt-badge ${row.status === 'active' ? 'active' : 'inactive'}`}>
-          {row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : 'Unknown'}
-        </span>
+        <div className="flex justify-center items-center">
+          <span className={`dt-badge ${row.status === 'active' ? 'active' : 'inactive'}`}>
+            {row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : 'Unknown'}
+          </span>
+        </div>
       )
     }
   ];
@@ -120,12 +125,32 @@ const Employees: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.firstName || !formData.email) {
-      alert("Name and email are required!");
-      return;
+
+    const fnVal = validateName(formData.firstName, 'First Name');
+    if (!fnVal.isValid) { alert(fnVal.error); return; }
+
+    if (formData.lastName.trim()) {
+      const lnVal = validateName(formData.lastName, 'Last Name');
+      if (!lnVal.isValid) { alert(lnVal.error); return; }
+    }
+
+    const emailVal = validateEmail(formData.email, 'Email Address');
+    if (!emailVal.isValid) { alert(emailVal.error); return; }
+
+    if (formData.mobile.trim()) {
+      const mobVal = validatePhoneNumber(formData.mobile, 'Mobile Number');
+      if (!mobVal.isValid) { alert(mobVal.error); return; }
     }
 
     try {
+      if (formData.mobile.trim()) {
+        const mobileCheck = await checkMobileExists(formData.mobile.trim(), editingId);
+        if (mobileCheck.exists) {
+          alert(mobileCheck.message || "This mobile number is already registered to another user.");
+          return;
+        }
+      }
+
       setIsSaving(true);
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
 

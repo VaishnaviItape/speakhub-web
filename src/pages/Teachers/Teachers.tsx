@@ -9,6 +9,8 @@ import { db } from '../../config/firebase';
 import { secondaryAuth } from '../../config/secondaryFirebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { collection, query, getDocs, updateDoc, doc, setDoc, where, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { checkMobileExists } from '../../utils/phoneValidation';
+import { validateName, validateEmail, validatePhoneNumber } from '../../utils/validation';
 import '../../components/ui/TableStyles.css';
 
 const Teachers: React.FC = () => {
@@ -51,12 +53,30 @@ const Teachers: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName || !lastName || !email) {
-      alert("Please fill in all required fields.");
-      return;
+    
+    const fnVal = validateName(firstName, 'First Name');
+    if (!fnVal.isValid) { alert(fnVal.error); return; }
+
+    const lnVal = validateName(lastName, 'Last Name');
+    if (!lnVal.isValid) { alert(lnVal.error); return; }
+
+    const emailVal = validateEmail(email, 'Email Address');
+    if (!emailVal.isValid) { alert(emailVal.error); return; }
+
+    if (mobile.trim()) {
+      const mobVal = validatePhoneNumber(mobile, 'Mobile Number');
+      if (!mobVal.isValid) { alert(mobVal.error); return; }
     }
 
     try {
+      if (mobile.trim()) {
+        const mobileCheck = await checkMobileExists(mobile.trim(), editingId);
+        if (mobileCheck.exists) {
+          alert(mobileCheck.message || "This mobile number is already registered to another user.");
+          return;
+        }
+      }
+
       setIsSaving(true);
       const fullName = `${firstName} ${lastName}`;
 
@@ -168,10 +188,13 @@ const Teachers: React.FC = () => {
     {
       key: 'status',
       header: 'Status',
+      align: 'center',
       render: (row) => (
-        <span className={`dt-badge ${row.status === 'active' ? 'active' : 'inactive'}`}>
-          {row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : 'Unknown'}
-        </span>
+        <div className="flex justify-center items-center">
+          <span className={`dt-badge ${row.status === 'active' ? 'active' : 'inactive'}`}>
+            {row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : 'Unknown'}
+          </span>
+        </div>
       )
     }
   ];

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Phone, KeyRound, LogIn, AlertCircle } from 'lucide-react';
+import { Phone, KeyRound, LogIn, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import logo from '../../assets/logo.png';
 import './Login.css';
@@ -8,6 +8,7 @@ import './Login.css';
 const Login: React.FC = () => {
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
@@ -52,7 +53,7 @@ const Login: React.FC = () => {
             <span className="login-logo-text">Speak Hub</span>
           </div>
           <h1 className="login-title">Welcome Back</h1>
-          <p className="login-subtitle">Sign in with your mobile number to access your courses</p>
+          <p className="login-subtitle">Sign in to access Admin & Teacher portal</p>
         </div>
 
         {error && (
@@ -64,14 +65,14 @@ const Login: React.FC = () => {
 
         <form onSubmit={handleLogin}>
           <div className="login-form-group">
-            <label className="login-form-label" htmlFor="mobile">Mobile Number</label>
+            <label className="login-form-label" htmlFor="mobile">Email</label>
             <div className="login-input-wrapper">
               <Phone className="login-input-icon" />
               <input
                 id="mobile"
-                type="tel"
+                type="text"
                 className="login-input"
-                placeholder="Enter 10-digit mobile number"
+                placeholder="Enter email"
                 value={mobile}
                 onChange={(e) => setMobile(e.target.value)}
                 required
@@ -85,13 +86,22 @@ const Login: React.FC = () => {
               <KeyRound className="login-input-icon" />
               <input
                 id="password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 className="login-input"
+                style={{ paddingRight: '2.75rem' }}
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <button
+                type="button"
+                className="login-toggle-eye"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 
@@ -112,12 +122,6 @@ const Login: React.FC = () => {
         </form>
 
         <div className="demo-credentials" style={{ marginTop: '20px' }}>
-          <p>
-            New Student?{' '}
-            <Link to="/register-student" style={{ color: '#2563eb', fontWeight: 'bold', textDecoration: 'none' }}>
-              Register for Free Demo Class
-            </Link>
-          </p>
           <p style={{ marginTop: '10px' }}>
             New deployment? <Link to="/register-admin" style={{ color: 'var(--primary)', fontWeight: 'bold', textDecoration: 'none' }}>Register an Admin Account</Link>
           </p>

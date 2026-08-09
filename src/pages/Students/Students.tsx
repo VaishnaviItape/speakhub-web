@@ -11,6 +11,8 @@ import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase
 import { secondaryAuth } from '../../config/secondaryFirebase';
 import { auth } from '../../config/firebase';
 import { sendEmail } from '../../utils/emailService';
+import { checkMobileExists } from '../../utils/phoneValidation';
+import { validateName, validatePhoneNumber } from '../../utils/validation';
 import '../../components/ui/TableStyles.css';
 
 const Students: React.FC = () => {
@@ -81,12 +83,44 @@ const Students: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone && !editingId) {
-      alert("Phone number is required for new students.");
+
+    const firstNameVal = validateName(firstName, 'First Name');
+    if (!firstNameVal.isValid) {
+      alert(firstNameVal.error);
+      return;
+    }
+
+    if (lastName.trim()) {
+      const lastNameVal = validateName(lastName, 'Last Name');
+      if (!lastNameVal.isValid) {
+        alert(lastNameVal.error);
+        return;
+      }
+    }
+
+    if (parentOrHusbandName.trim()) {
+      const parentVal = validateName(parentOrHusbandName, 'Parent/Husband Name');
+      if (!parentVal.isValid) {
+        alert(parentVal.error);
+        return;
+      }
+    }
+
+    const phoneVal = validatePhoneNumber(phone, 'Phone Number');
+    if (!phoneVal.isValid) {
+      alert(phoneVal.error);
       return;
     }
 
     try {
+      if (phone) {
+        const mobileCheck = await checkMobileExists(phone, editingId);
+        if (mobileCheck.exists) {
+          alert(mobileCheck.message || "This mobile number is already registered to another user.");
+          return;
+        }
+      }
+
       const cleanPhone = phone.replace(/[^0-9]/g, '');
       const authEmail = `${cleanPhone}@speakhub.com`;
 
@@ -94,6 +128,7 @@ const Students: React.FC = () => {
         name: firstName + (lastName ? ' ' + lastName : ''),
         phone: phone,
         mobile: phone,
+        email: authEmail,
         address: address,
         parentOrHusbandName: parentOrHusbandName,
         joiningDate: joiningDate ? new Date(joiningDate) : new Date(),
@@ -124,6 +159,7 @@ const Students: React.FC = () => {
 
         try {
           const userCredential = await createUserWithEmailAndPassword(secondaryAuth, authEmail, defaultPassword);
+          updates.uid = userCredential.user.uid;
           const newUserRef = doc(db, 'users', userCredential.user.uid);
           await setDoc(newUserRef, updates);
 

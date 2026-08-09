@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, KeyRound, User, Phone, UserPlus, AlertCircle } from 'lucide-react';
+import { Mail, KeyRound, User, Phone, UserPlus, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import './Login.css';
 import { auth, db } from '../../config/firebase';
 import { createUserWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
-import { setDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { checkMobileExists } from '../../utils/phoneValidation';
+import { validateName, validateEmail, validatePhoneNumber } from '../../utils/validation';
 
 const AdminSignup: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
@@ -19,15 +22,31 @@ const AdminSignup: React.FC = () => {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !password) {
-      setError('Please fill in all required fields.');
-      return;
+    
+    const nameVal = validateName(name, 'Full Name');
+    if (!nameVal.isValid) { setError(nameVal.error || ''); return; }
+
+    const emailVal = validateEmail(email, 'Email Address');
+    if (!emailVal.isValid) { setError(emailVal.error || ''); return; }
+
+    if (mobile.trim()) {
+      const mobVal = validatePhoneNumber(mobile, 'Mobile Number');
+      if (!mobVal.isValid) { setError(mobVal.error || ''); return; }
     }
 
     setError('');
     setIsLoading(true);
 
     try {
+      if (mobile.trim()) {
+        const mobileCheck = await checkMobileExists(mobile.trim());
+        if (mobileCheck.exists) {
+          setError(mobileCheck.message || 'This mobile number is already registered to another user.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
       const userCred = await createUserWithEmailAndPassword(auth, email, password);
       const uid = userCred.user.uid;
 
@@ -35,7 +54,8 @@ const AdminSignup: React.FC = () => {
         uid,
         name,
         email,
-        mobile,
+        mobile: mobile.trim(),
+        phone: mobile.trim(),
         role: 'admin',
         status: 'active',
         forcePasswordChange: false,
@@ -109,7 +129,23 @@ const AdminSignup: React.FC = () => {
             <label className="login-form-label">Password *</label>
             <div className="login-input-wrapper">
               <KeyRound className="login-input-icon" />
-              <input type="password" className="login-input" placeholder="Min 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="login-input"
+                style={{ paddingRight: '2.75rem' }}
+                placeholder="Min 6 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="login-toggle-eye"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 

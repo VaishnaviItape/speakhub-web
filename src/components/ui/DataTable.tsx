@@ -7,6 +7,7 @@ export interface Column<T> {
   header: string;
   render?: (row: T) => React.ReactNode;
   sortable?: boolean;
+  align?: 'left' | 'center' | 'right';
 }
 
 interface DataTableProps<T> {
@@ -115,8 +116,8 @@ function DataTable<T extends { documentId?: string }>({
           <thead>
             <tr>
               {columns.map((col, idx) => (
-                <th key={idx}>
-                  <div className="dt-th-content">
+                <th key={idx} style={{ textAlign: col.align || 'left' }}>
+                  <div className={`dt-th-content ${col.align === 'center' ? 'dt-justify-center' : col.align === 'right' ? 'dt-justify-end' : ''}`}>
                     {col.header}
                     {col.sortable !== false && <ArrowUpDown size={14} className="dt-sort-icon" />}
                   </div>
@@ -144,7 +145,7 @@ function DataTable<T extends { documentId?: string }>({
               filteredData.map((row, rowIndex) => (
                 <tr key={row.documentId || rowIndex}>
                   {columns.map((col, colIdx) => (
-                    <td key={colIdx}>
+                    <td key={colIdx} style={{ textAlign: col.align || 'left' }}>
                       {col.render ? col.render(row) : (row as any)[col.key]}
                     </td>
                   ))}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { KeyRound, Lock, AlertCircle } from 'lucide-react';
+import { KeyRound, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { auth, db } from '../../config/firebase';
 import { updatePassword } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -9,6 +9,7 @@ import './Login.css';
 
 const ChangePassword: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
@@ -69,13 +70,22 @@ const ChangePassword: React.FC = () => {
               <KeyRound className="login-input-icon" />
               <input
                 id="newPassword"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 className="login-input"
+                style={{ paddingRight: '2.75rem' }}
                 placeholder="Enter new password (min 6 chars)"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
               />
+              <button
+                type="button"
+                className="login-toggle-eye"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 

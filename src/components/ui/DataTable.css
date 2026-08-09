@@ -132,6 +132,14 @@
   gap: 0.25rem;
 }
 
+.dt-th-content.dt-justify-center {
+  justify-content: center;
+}
+
+.dt-th-content.dt-justify-end {
+  justify-content: flex-end;
+}
+
 .dt-sort-icon {
   color: #a3aed0;
   opacity: 0.6;
