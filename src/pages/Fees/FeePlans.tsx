@@ -181,7 +181,7 @@ const FeePlans: React.FC = () => {
             <div className="grid grid-cols-3 gap-4 mb-4">
               <Input label="Registration Fee (₹)" type="number" value={registrationFee.toString()} onChange={(e) => setRegistrationFee(Number(e.target.value))} required />
               <Input label="Admission Fee (₹)" type="number" value={admissionFee.toString()} onChange={(e) => setAdmissionFee(Number(e.target.value))} required />
-              <Input label="Discount (₹)" type="number" value={discount.toString()} onChange={(e) => setDiscount(Number(e.target.value))} />
+              <Input label="Discount (₹)" type="number" min="0" value={discount.toString()} onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))} />
             </div>
             
             <h4 className="font-bold text-blue-800 mb-2 border-t border-blue-200 pt-4">Recurring Fees</h4>

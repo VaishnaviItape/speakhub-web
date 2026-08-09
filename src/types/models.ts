@@ -233,6 +233,9 @@ export interface FeeTransaction {
   courseId: string;
   academicYear?: string;
   billingPeriod?: string; // e.g. "August 2026"
+  monthsCount?: number;
+  joiningDate?: string;
+  nextDueDate?: string;
   paymentDate: Timestamp | Date;
   amountPaid: number;
   discount?: number;
