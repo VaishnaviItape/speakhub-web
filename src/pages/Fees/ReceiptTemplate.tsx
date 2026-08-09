@@ -6,7 +6,7 @@ interface ReceiptTemplateProps {
   transaction: FeeTransaction;
   student: User;
   course: Course;
-  plan: FeePlan;
+  plan?: { planName?: string };
 }
 
 const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ transaction, student, course, plan }) => {
@@ -45,7 +45,7 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ transaction, student,
 
       {/* Payment Details */}
       <div className="receipt-section">
-        <div className="info-row"><span className="info-label">Fee Plan:</span> <span className="info-val">{plan.planName}</span></div>
+        <div className="info-row"><span className="info-label">Fee Type:</span> <span className="info-val">{plan?.planName || 'Monthly Fee'}</span></div>
         <div className="info-row"><span className="info-label">Billing Period:</span> <span className="info-val">{transaction.billingPeriod || 'N/A'}</span></div>
         <div className="info-row"><span className="info-label">Payment Mode:</span> <span className="info-val">{transaction.paymentMode}</span></div>
         
@@ -82,10 +82,6 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ transaction, student,
           </tfoot>
         </table>
         
-        <div className="mt-4 flex justify-between text-sm">
-           <p><strong>Next Due Date:</strong> {transaction.nextDueDate instanceof Date ? transaction.nextDueDate.toLocaleDateString() : new Date((transaction.nextDueDate as any)?.seconds * 1000).toLocaleDateString()}</p>
-           <p><strong>Remaining Balance:</strong> ₹{transaction.remainingBalance || 0}</p>
-        </div>
       </div>
 
       <hr className="receipt-divider" />

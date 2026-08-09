@@ -9,7 +9,7 @@ import { db } from '../../config/firebase';
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, serverTimestamp } from 'firebase/firestore';
 import { uploadFile } from '../../utils/storageService';
 import { sendEmail } from '../../utils/emailService';
-import type { Homework, Course, Batch, Subject, User } from '../../types/models';
+import type { Homework, Course, Batch, User } from '../../types/models';
 import '../../components/ui/TableStyles.css';
 
 const HomeworkPage: React.FC = () => {
@@ -23,13 +23,11 @@ const HomeworkPage: React.FC = () => {
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<User[]>([]);
 
   // Form State
   const [courseId, setCourseId] = useState('');
   const [batchId, setBatchId] = useState('');
-  const [subjectId, setSubjectId] = useState('');
   const [teacherId, setTeacherId] = useState('');
   const [topic, setTopic] = useState('');
   const [partChapter, setPartChapter] = useState('');
@@ -64,8 +62,6 @@ const HomeworkPage: React.FC = () => {
       setCourses(cSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as Course)));
       const bSnap = await getDocs(collection(db, 'batches'));
       setBatches(bSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as Batch)));
-      const sSnap = await getDocs(collection(db, 'subjects'));
-      setSubjects(sSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as Subject)));
       const tSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'teacher')));
       setTeachers(tSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as User)));
     } catch (e) {
@@ -147,7 +143,7 @@ const HomeworkPage: React.FC = () => {
       }
 
       const hwData: Partial<Homework> = {
-        courseId, batchId, subjectId, teacherId, topic, partChapter, title, description, instructions,
+        courseId, batchId, teacherId, topic, partChapter, title, description, instructions,
         maximumMarks, allowLateSubmission, submissionType,
         maxAudioDuration, maxVideoDuration, videoQuality,
         dueDate: dueDate ? new Date(dueDate) : new Date(),
@@ -181,7 +177,7 @@ const HomeworkPage: React.FC = () => {
 
   const resetForm = () => {
     setEditingId(null);
-    setCourseId(''); setBatchId(''); setSubjectId(''); setTeacherId('');
+    setCourseId(''); setBatchId(''); setTeacherId('');
     setTopic(''); setPartChapter(''); setTitle(''); setDescription(''); setInstructions('');
     setFile(null); setMaximumMarks(100); setAllowLateSubmission(false);
     setSubmissionType(['Image', 'PDF', 'Text']);
@@ -192,7 +188,7 @@ const HomeworkPage: React.FC = () => {
 
   const handleEdit = (hw: Homework) => {
     setEditingId(hw.documentId!);
-    setCourseId(hw.courseId); setBatchId(hw.batchId); setSubjectId(hw.subjectId); setTeacherId(hw.teacherId);
+    setCourseId(hw.courseId); setBatchId(hw.batchId); setTeacherId(hw.teacherId);
     setTopic(hw.topic || ''); setPartChapter(hw.partChapter || ''); setTitle(hw.title); 
     setDescription(hw.description); setInstructions(hw.instructions || '');
     setMaximumMarks(hw.maximumMarks || 100); setAllowLateSubmission(hw.allowLateSubmission || false);
@@ -321,7 +317,6 @@ const HomeworkPage: React.FC = () => {
             <div className="grid grid-cols-2 gap-4">
               <Select label="Course" options={[{label: 'Select Course', value: ''}, ...courses.map(c => ({label: c.courseName, value: c.documentId!}))]} value={courseId} onChange={(e) => setCourseId(e.target.value)} required />
               <Select label="Batch" options={[{label: 'Select Batch', value: ''}, ...batches.map(b => ({label: b.batchName, value: b.documentId!}))]} value={batchId} onChange={(e) => setBatchId(e.target.value)} required />
-              <Select label="Subject" options={[{label: 'Select Subject', value: ''}, ...subjects.map(s => ({label: s.subjectName, value: s.documentId!}))]} value={subjectId} onChange={(e) => setSubjectId(e.target.value)} required />
               <Select label="Teacher" options={[{label: 'Select Teacher', value: ''}, ...teachers.map(t => ({label: t.name!, value: t.documentId!}))]} value={teacherId} onChange={(e) => setTeacherId(e.target.value)} required />
             </div>
           </div>

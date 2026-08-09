@@ -9,13 +9,14 @@ import AdminLayout from '../layouts/AdminLayout/AdminLayout';
 // Auth Pages
 import Login from '../pages/Login/Login';
 import ChangePassword from '../pages/Login/ChangePassword';
+import AdminSignup from '../pages/Login/AdminSignup';
+import StudentRegister from '../pages/Login/StudentRegister';
 
 // Main Pages
 import Dashboard from '../pages/Dashboard/Dashboard';
 
 // Academics
 import Courses from '../pages/Courses/Courses';
-import Subjects from '../pages/Subjects/Subjects';
 import Batches from '../pages/Batches/Batches';
 
 // Users
@@ -46,10 +47,24 @@ import ReportViewer from '../pages/Reports/ReportViewer';
 import StudentDashboard from '../pages/StudentPortal/StudentDashboard';
 import StudentExams from '../pages/StudentPortal/StudentExams';
 import StudentProfile from '../pages/StudentPortal/StudentProfile';
+import StudentCourses from '../pages/StudentPortal/StudentCourses';
+import StudentHomework from '../pages/StudentPortal/StudentHomework';
+import StudentAttendance from '../pages/StudentPortal/StudentAttendance';
 import StudentLayout from '../layouts/StudentLayout/StudentLayout';
 
+// Attendance
+import Attendance from '../pages/Attendance/Attendance';
+
 const AppRoutes: React.FC = () => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1E1B4B]"></div>
+      </div>
+    );
+  }
 
   return (
     <Routes>
@@ -57,6 +72,14 @@ const AppRoutes: React.FC = () => {
         isAuthenticated && !user?.forcePasswordChange ? (
           <Navigate to={user?.role === 'student' ? '/student/dashboard' : '/dashboard'} replace />
         ) : <Login />
+      } />
+
+      <Route path="/register-admin" element={
+        isAuthenticated ? <Navigate to={user?.role === 'student' ? '/student/dashboard' : '/dashboard'} replace /> : <AdminSignup />
+      } />
+
+      <Route path="/register-student" element={
+        isAuthenticated ? <Navigate to={user?.role === 'student' ? '/student/dashboard' : '/dashboard'} replace /> : <StudentRegister />
       } />
 
       <Route path="/change-password" element={
@@ -75,10 +98,10 @@ const AppRoutes: React.FC = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           
           <Route path="/courses" element={<Courses />} />
-          <Route path="/subjects" element={<Subjects />} />
           <Route path="/batches" element={<Batches />} />
           
           <Route path="/students" element={<Students />} />
+          <Route path="/attendance" element={<Attendance />} />
           
           <Route path="/notes" element={<Notes />} />
           <Route path="/homework" element={<Homework />} />
@@ -109,9 +132,9 @@ const AppRoutes: React.FC = () => {
         <Route path="/student/dashboard" element={<StudentDashboard />} />
         <Route path="/student/exams" element={<StudentExams />} />
         <Route path="/student/profile" element={<StudentProfile />} />
-        {/* Placeholders for others */}
-        <Route path="/student/courses" element={<div className="p-4">My Courses</div>} />
-        <Route path="/student/homework" element={<div className="p-4">My Homework</div>} />
+        <Route path="/student/courses" element={<StudentCourses />} />
+        <Route path="/student/homework" element={<StudentHomework />} />
+        <Route path="/student/attendance" element={<StudentAttendance />} />
       </Route>
 
       <Route path="*" element={<Navigate to={user?.role === 'student' ? '/student/dashboard' : '/dashboard'} replace />} />

@@ -1,0 +1,122 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.role == 'admin' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         getUserData().role == 'admin')
+      );
+    }
+
+    function isTeacher() {
+      return isSignedIn() && (
+        request.auth.token.role == 'teacher' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         getUserData().role == 'teacher')
+      );
+    }
+
+    // --- USERS ---
+    match /users/{userId} {
+      // Authenticated users can read user docs (needed for authentication query & profile lookups)
+      allow read: if isSignedIn();
+      // Admin can create/update/delete any user document. Users can update their own profile.
+      allow create, update, delete: if isAdmin() || (isSignedIn() && (request.auth.uid == userId || resource.data.uid == request.auth.uid));
+    }
+
+    // --- STUDENTS ---
+    match /students/{studentId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isTeacher();
+    }
+
+    // --- COURSES & SUBJECTS ---
+    match /courses/{courseId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /subjects/{subjectId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- BATCHES ---
+    match /batches/{batchId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isTeacher();
+    }
+
+    // --- NOTES & MATERIALS ---
+    match /notes/{noteId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isTeacher();
+    }
+
+    // --- HOMEWORK & SUBMISSIONS ---
+    match /homeworks/{homeworkId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isTeacher();
+    }
+
+    match /homeworkSubmissions/{submissionId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() || isTeacher() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+    }
+
+    // --- EXAMS, QUESTIONS & ATTEMPTS ---
+    match /exams/{examId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isTeacher();
+    }
+
+    match /examQuestions/{questionId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isTeacher();
+    }
+
+    match /examAttempts/{attemptId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() || isTeacher() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+    }
+
+    // --- FEES & FINANCIAL TRANSACTIONS ---
+    match /feePlans/{planId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /studentFeePlans/{planId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /feeTransactions/{transactionId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- CONTENT VIEWS & ANALYTICS ---
+    match /contentViews/{viewId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Fallback: Require authentication for any other collection
+    match /{document=**} {
+      allow read, write: if isSignedIn();
+    }
+  }
+}

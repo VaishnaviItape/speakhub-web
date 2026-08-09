@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Mail, KeyRound, LogIn, AlertCircle } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Phone, KeyRound, LogIn, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import logo from '../../assets/logo.png';
 import './Login.css';
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -15,8 +16,8 @@ const Login: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      setError('Please enter both email and password.');
+    if (!mobile.trim() || !password) {
+      setError('Please enter your mobile number and password.');
       return;
     }
 
@@ -24,7 +25,7 @@ const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const result = await loginWithEmail(email, password);
+      const result = await loginWithEmail(mobile.trim(), password);
       
       if (result.success) {
         if (result.forcePasswordChange) {
@@ -47,11 +48,11 @@ const Login: React.FC = () => {
       <div className="login-card">
         <div className="login-header">
           <div className="login-logo-container">
-            <img src="/logo.png" alt="Speak Hub Logo" className="login-logo-img" />
+            <img src={logo} alt="Speak Hub Logo" className="login-logo-img" />
             <span className="login-logo-text">Speak Hub</span>
           </div>
-          <h1 className="login-title">Welcome</h1>
-          <p className="login-subtitle">Sign in to access your dashboard</p>
+          <h1 className="login-title">Welcome Back</h1>
+          <p className="login-subtitle">Sign in with your mobile number to access your courses</p>
         </div>
 
         {error && (
@@ -63,16 +64,16 @@ const Login: React.FC = () => {
 
         <form onSubmit={handleLogin}>
           <div className="login-form-group">
-            <label className="login-form-label" htmlFor="email">Email Address</label>
+            <label className="login-form-label" htmlFor="mobile">Mobile Number</label>
             <div className="login-input-wrapper">
-              <Mail className="login-input-icon" />
+              <Phone className="login-input-icon" />
               <input
-                id="email"
-                type="email"
+                id="mobile"
+                type="tel"
                 className="login-input"
-                placeholder="e.g. admin@speakhub.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter 10-digit mobile number"
+                value={mobile}
+                onChange={(e) => setMobile(e.target.value)}
                 required
               />
             </div>
@@ -110,8 +111,16 @@ const Login: React.FC = () => {
           </button>
         </form>
 
-        <div className="demo-credentials">
-          <p>Login with your Firebase Auth Credentials.</p>
+        <div className="demo-credentials" style={{ marginTop: '20px' }}>
+          <p>
+            New Student?{' '}
+            <Link to="/register-student" style={{ color: '#2563eb', fontWeight: 'bold', textDecoration: 'none' }}>
+              Register for Free Demo Class
+            </Link>
+          </p>
+          <p style={{ marginTop: '10px' }}>
+            New deployment? <Link to="/register-admin" style={{ color: 'var(--primary)', fontWeight: 'bold', textDecoration: 'none' }}>Register an Admin Account</Link>
+          </p>
         </div>
       </div>
     </div>

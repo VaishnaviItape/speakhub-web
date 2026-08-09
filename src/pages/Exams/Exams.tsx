@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Plus, ChevronDown } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
@@ -7,7 +8,7 @@ import DataTable, { type Column } from '../../components/ui/DataTable';
 import { db } from '../../config/firebase';
 import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, where } from 'firebase/firestore';
 import { sendEmail } from '../../utils/emailService';
-import type { Exam } from '../../types/models';
+import type { Exam, Course, Batch } from '../../types/models';
 import '../../components/ui/TableStyles.css';
 
 const Exams: React.FC = () => {
@@ -18,7 +19,6 @@ const Exams: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [courseId, setCourseId] = useState('');
   const [batchId, setBatchId] = useState('');
-  const [subjectId, setSubjectId] = useState('');
   const [title, setTitle] = useState('');
   const [chapter, setChapter] = useState('');
   const [description, setDescription] = useState('');
@@ -48,10 +48,24 @@ const Exams: React.FC = () => {
 
   // Data
   const [exams, setExams] = useState<Exam[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
 
   useEffect(() => {
     fetchExams();
+    fetchFormData();
   }, []);
+
+  const fetchFormData = async () => {
+    try {
+      const cSnap = await getDocs(collection(db, 'courses'));
+      setCourses(cSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as Course)));
+      const bSnap = await getDocs(collection(db, 'batches'));
+      setBatches(bSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as Batch)));
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchExams = async () => {
     setIsLoading(true);
@@ -102,7 +116,7 @@ const Exams: React.FC = () => {
     }
 
     const examData: any = {
-      courseId, batchId, subjectId, title, chapter, description, instructions, examType,
+      courseId, batchId, title, chapter, description, instructions, examType,
       duration: Number(duration),
       totalMarks: Number(totalMarks),
       passingMarks: Number(passingMarks),
@@ -143,7 +157,7 @@ const Exams: React.FC = () => {
 
   const resetForm = () => {
     setEditingId(null);
-    setCourseId(''); setBatchId(''); setSubjectId(''); setTitle('');
+    setCourseId(''); setBatchId(''); setTitle('');
     setChapter(''); setDescription(''); setInstructions(''); setExamType('MCQ');
     setDuration(''); setTotalMarks(''); setPassingMarks('');
     setNumberOfQuestions(''); setMarksPerQuestion('');
@@ -157,7 +171,6 @@ const Exams: React.FC = () => {
     setEditingId(exam.documentId!);
     setCourseId(exam.courseId || '');
     setBatchId(exam.batchId || '');
-    setSubjectId(exam.subjectId || '');
     setTitle(exam.title || '');
     setChapter(exam.chapter || '');
     setDescription(exam.description || '');
@@ -216,12 +229,15 @@ const Exams: React.FC = () => {
     {
       key: 'courseInfo',
       header: 'Target',
-      render: (row) => (
-        <div>
-          <div className="text-sm font-medium">{row.batchId || 'All Batches'}</div>
-          <div className="text-xs text-[var(--text-muted)]">{row.subjectId || 'Any Subject'}</div>
-        </div>
-      )
+      render: (row) => {
+        const cName = courses.find(c => c.documentId === row.courseId)?.courseName || row.courseId || 'All Courses';
+        const bName = batches.find(b => b.documentId === row.batchId)?.batchName || row.batchId || 'All Batches';
+        return (
+          <div>
+            <div className="text-sm font-medium">{cName} - {bName}</div>
+          </div>
+        )
+      }
     },
     {
       key: 'schedule',
@@ -263,14 +279,20 @@ const Exams: React.FC = () => {
       key: 'actions',
       header: 'Manage',
       render: (row) => (
-        <div className="flex flex-col gap-1">
-          <a href={`/exams/${row.documentId}/questions`} className="text-blue-600 hover:underline text-sm font-medium">
-            Questions
-          </a>
+        <div className="flex flex-col gap-2">
+          <Link 
+            to={`/exams/${row.documentId}/questions`} 
+            className="bg-indigo-600 text-white hover:bg-indigo-700 px-3 py-1.5 rounded text-xs font-bold text-center transition-colors shadow-sm flex items-center justify-center gap-1"
+          >
+            Upload MCQ Questions
+          </Link>
           {(row.status === 'published' || row.status === 'completed') && (
-            <a href={`/exams/${row.documentId}/results`} className="text-green-600 hover:underline text-sm font-medium">
-              Results
-            </a>
+            <Link 
+              to={`/exams/${row.documentId}/results`} 
+              className="bg-green-50 text-green-700 hover:bg-green-100 px-3 py-1.5 rounded text-xs font-bold text-center transition-colors border border-green-100"
+            >
+              View Results
+            </Link>
           )}
         </div>
       )
@@ -306,10 +328,9 @@ const Exams: React.FC = () => {
         <form onSubmit={handleSubmit} className="modal-form" style={{maxHeight: '70vh', overflowY: 'auto', paddingRight: '10px'}}>
           <Input label="Exam Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
           
-          <div className="grid grid-cols-3 gap-4">
-            <Select label="Course" options={[{label: 'Select Course', value: ''}, {label: 'Spoken English', value: 'Course1'}]} value={courseId} onChange={(e) => setCourseId(e.target.value)} />
-            <Select label="Batch" options={[{label: 'Select Batch', value: ''}, {label: 'Morning Batch A', value: 'Batch1'}]} value={batchId} onChange={(e) => setBatchId(e.target.value)} />
-            <Select label="Subject" options={[{label: 'Select Subject', value: ''}, {label: 'Grammar', value: 'Subject1'}]} value={subjectId} onChange={(e) => setSubjectId(e.target.value)} />
+          <div className="grid grid-cols-2 gap-4">
+            <Select label="Course" options={courses.map(c => ({label: c.courseName, value: c.documentId!}))} value={courseId} onChange={(e) => setCourseId(e.target.value)} required />
+            <Select label="Batch" options={batches.map(b => ({label: b.batchName, value: b.documentId!}))} value={batchId} onChange={(e) => setBatchId(e.target.value)} />
           </div>
 
           <div className="grid grid-cols-2 gap-4 mt-2">

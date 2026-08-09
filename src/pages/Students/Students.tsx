@@ -6,9 +6,10 @@ import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import type { Course, Batch } from '../../types/models';
 import { db } from '../../config/firebase';
-import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { collection, query, where, getDocs, updateDoc, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { secondaryAuth } from '../../config/secondaryFirebase';
+import { auth } from '../../config/firebase';
 import { sendEmail } from '../../utils/emailService';
 import '../../components/ui/TableStyles.css';
 
@@ -20,6 +21,10 @@ const Students: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [parentOrHusbandName, setParentOrHusbandName] = useState('');
+  const [joiningDate, setJoiningDate] = useState(new Date().toISOString().split('T')[0]);
   const [courseId, setCourseId] = useState('');
   const [batchId, setBatchId] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive' | 'pending'>('active');
@@ -60,7 +65,7 @@ const Students: React.FC = () => {
   const fetchStudents = async () => {
     setIsLoading(true);
     try {
-      const q = query(collection(db, 'users'), where('role', 'in', ['student', 'parent']));
+      const q = query(collection(db, 'users'), where('role', '==', 'student'));
       const querySnapshot = await getDocs(q);
       const studentsList: any[] = [];
       querySnapshot.forEach((doc) => {
@@ -76,62 +81,106 @@ const Students: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingId) return;
+    if (!phone && !editingId) {
+      alert("Phone number is required for new students.");
+      return;
+    }
 
     try {
-      let isApproving = false;
-      const studentToEdit = students.find(s => s.documentId === editingId);
-      
-      if (studentToEdit && studentToEdit.status === 'pending' && status === 'active') {
-        isApproving = true;
-      }
+      const cleanPhone = phone.replace(/[^0-9]/g, '');
+      const authEmail = `${cleanPhone}@speakhub.com`;
 
-      const userRef = doc(db, 'users', editingId);
       const updates: any = {
         name: firstName + (lastName ? ' ' + lastName : ''),
-        courseIds: [courseId],
-        batchIds: [batchId],
+        phone: phone,
+        mobile: phone,
+        address: address,
+        parentOrHusbandName: parentOrHusbandName,
+        joiningDate: joiningDate ? new Date(joiningDate) : new Date(),
+        role: 'student',
+        courseIds: courseId ? [courseId] : [],
+        batchIds: batchId ? [batchId] : [],
+        courseId: courseId || '',
+        batchId: batchId || '',
         status,
         isDemoMode,
         demoStartDate: isDemoMode && demoStartDate ? new Date(demoStartDate) : null,
         demoEndDate: isDemoMode && demoEndDate ? new Date(demoEndDate) : null,
       };
 
-      if (isApproving) {
+      const generateStudentPassword = (nameStr: string) => {
+        const cleanName = nameStr.trim().split(' ')[0].toLowerCase().replace(/[^a-z]/g, '');
+        const prefix = cleanName.length >= 4 ? cleanName.substring(0, 4) : cleanName.padEnd(4, 'x');
+        return `${prefix}2003`;
+      };
+
+      if (!editingId) {
+        // Create new user
+        updates.createdAt = new Date();
         updates.forcePasswordChange = true;
         
-        // Generate Default Password
-        const defaultPassword = Math.random().toString(36).slice(-8);
+        const defaultPassword = generateStudentPassword(firstName);
+        updates.plainPassword = defaultPassword;
+        
+        try {
+          const userCredential = await createUserWithEmailAndPassword(secondaryAuth, authEmail, defaultPassword);
+          const newUserRef = doc(db, 'users', userCredential.user.uid);
+          await setDoc(newUserRef, updates);
+          
+          alert(`Student Created Successfully!\n\nPlease share these login credentials with the student:\nPhone Number: ${phone}\nPassword: ${defaultPassword}`);
+          
+          setStudents([...students, { documentId: userCredential.user.uid, ...updates }]);
+        } catch (authError: any) {
+          if (authError.code === 'auth/email-already-in-use') {
+            alert('A user with this phone number already exists.');
+          } else {
+            throw authError;
+          }
+          return;
+        }
+      } else {
+        // Edit existing user
+        let isApproving = false;
+        const studentToEdit = students.find(s => s.documentId === editingId);
+        
+        if (studentToEdit && studentToEdit.status === 'pending' && status === 'active') {
+          isApproving = true;
+        }
 
-        // Create Auth User via secondary app to prevent admin logout
-        if (studentToEdit.email) {
-          try {
-            await createUserWithEmailAndPassword(secondaryAuth, studentToEdit.email, defaultPassword);
-            // Send Approval Email
-            await sendEmail(
-              studentToEdit.email,
-              'Your Speak Hub Academy Account is Approved!',
-              `Hello ${firstName},\n\nYour account has been approved and you have been assigned to your batch.\n\nLogin Email: ${studentToEdit.email}\nDefault Password: ${defaultPassword}\n\nPlease log in. You will be asked to change your password on your first login.\n\nThank you,\nSpeak Hub Academy`
-            );
-          } catch (authError: any) {
-            if (authError.code === 'auth/email-already-in-use') {
-              console.log("User already exists in Firebase Auth, just updating Firestore.");
-            } else {
-              throw authError;
+        const userRef = doc(db, 'users', editingId);
+
+        if (isApproving) {
+          const studentPhone = studentToEdit.phone || studentToEdit.mobile || phone;
+          if (studentPhone) {
+            try {
+              const studentAuthEmail = `${studentPhone.replace(/[^0-9]/g, '')}@speakhub.com`;
+              const defaultPassword = generateStudentPassword(studentToEdit.name || firstName);
+              await createUserWithEmailAndPassword(secondaryAuth, studentAuthEmail, defaultPassword);
+              
+              updates.forcePasswordChange = true;
+              updates.plainPassword = defaultPassword;
+              
+              alert(`Student Approved Successfully!\n\nPlease share these login credentials with the student:\nPhone Number: ${studentPhone}\nPassword: ${defaultPassword}`);
+            } catch (authError: any) {
+              if (authError.code === 'auth/email-already-in-use') {
+                console.log("User already exists in Firebase Auth, just updating Firestore.");
+                alert(`Student Approved Successfully!\n\nNote: The phone number ${studentPhone} already has an account set up.`);
+              } else {
+                throw authError;
+              }
             }
           }
         }
+
+        await updateDoc(userRef, updates);
+        setStudents(students.map(s => s.documentId === editingId ? { ...s, ...updates } : s));
       }
 
-      await updateDoc(userRef, updates);
-
-      // Refresh data locally
-      setStudents(students.map(s => s.documentId === editingId ? { ...s, ...updates } : s));
       setIsModalOpen(false);
       resetForm();
     } catch (error: any) {
-      console.error('Error updating student:', error);
-      alert('Failed to update student: ' + error.message);
+      console.error('Error saving student:', error);
+      alert('Failed to save student: ' + error.message);
     }
   };
 
@@ -139,6 +188,10 @@ const Students: React.FC = () => {
     setEditingId(null);
     setFirstName('');
     setLastName('');
+    setPhone('');
+    setAddress('');
+    setParentOrHusbandName('');
+    setJoiningDate(new Date().toISOString().split('T')[0]);
     setCourseId('');
     setBatchId('');
     setStatus('active');
@@ -149,6 +202,19 @@ const Students: React.FC = () => {
     setEditingId(student.documentId);
     setFirstName(names[0] || '');
     setLastName(names.slice(1).join(' ') || '');
+    setPhone(student.phone || student.mobile || '');
+    setAddress(student.address || '');
+    setParentOrHusbandName(student.parentOrHusbandName || student.parentName || '');
+    
+    if (student.joiningDate?.toDate) {
+      setJoiningDate(student.joiningDate.toDate().toISOString().split('T')[0]);
+    } else if (student.joiningDate) {
+      const dStr = String(student.joiningDate);
+      setJoiningDate(dStr.includes('T') ? dStr.split('T')[0] : dStr);
+    } else {
+      setJoiningDate(new Date().toISOString().split('T')[0]);
+    }
+
     setCourseId(student.courseIds?.[0] || '');
     setBatchId(student.batchIds?.[0] || '');
     setStatus(student.status || 'pending');
@@ -160,9 +226,15 @@ const Students: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (student: any) => {
-    // In a real app, delete from Firestore or soft delete
-    setStudents(students.filter(s => s.documentId !== student.documentId));
+  const handleDelete = async (student: any) => {
+    if (window.confirm(`Are you sure you want to delete ${student.name}?`)) {
+      try {
+        await deleteDoc(doc(db, 'users', student.documentId));
+        setStudents(students.filter(s => s.documentId !== student.documentId));
+      } catch (error: any) {
+        alert("Failed to delete student: " + error.message);
+      }
+    }
   };
 
   const columns: Column<any>[] = [
@@ -172,14 +244,28 @@ const Students: React.FC = () => {
       render: (row) => <span className="font-medium">{row.name}</span>
     },
     {
-      key: 'email',
-      header: 'Email / Phone',
+      key: 'parentOrHusbandName',
+      header: 'Parent / Husband Name',
+      render: (row) => <span className="text-gray-700 font-medium">{row.parentOrHusbandName || row.parentName || '-'}</span>
+    },
+    {
+      key: 'phone',
+      header: 'Phone / Address',
       render: (row) => (
         <div>
-          <div>{row.email || '-'}</div>
-          <div style={{ fontSize: '0.75rem', color: '#a3aed0' }}>{row.phone || row.mobile || '-'}</div>
+          <div className="font-medium">{row.phone || row.mobile || '-'}</div>
+          <div style={{ fontSize: '0.75rem', color: '#a3aed0' }}>{row.address || 'No address provided'}</div>
         </div>
       )
+    },
+    {
+      key: 'joiningDate',
+      header: 'Date of Joining',
+      render: (row) => {
+        if (!row.joiningDate) return <span className="text-gray-400">-</span>;
+        const d = row.joiningDate?.toDate ? row.joiningDate.toDate() : new Date(row.joiningDate);
+        return <span className="text-xs text-gray-700 font-medium">{isNaN(d.getTime()) ? '-' : d.toLocaleDateString('en-GB')}</span>;
+      }
     },
     {
       key: 'courseId',
@@ -194,6 +280,15 @@ const Students: React.FC = () => {
           </div>
         );
       }
+    },
+    {
+      key: 'plainPassword',
+      header: 'Initial Password',
+      render: (row) => (
+        <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border border-gray-200">
+          {row.plainPassword || 'Changed/Unknown'}
+        </span>
+      )
     },
     {
       key: 'status',
@@ -218,13 +313,20 @@ const Students: React.FC = () => {
 
   return (
     <div className="page-container">
-      <div className="page-header">
+      <div className="page-header flex justify-between items-center w-full">
         <div>
           <h1 className="page-title">Students & Approvals</h1>
           <div className="breadcrumbs">
             <span>Dashboard</span> <span className="separator">/</span> <span className="current">Students</span>
           </div>
         </div>
+        <button 
+          className="btn flex items-center justify-center gap-2 bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded-md font-medium transition-colors"
+          onClick={() => { resetForm(); setIsModalOpen(true); }}
+        >
+          <Plus size={18} />
+          Add Student
+        </button>
       </div>
 
       <DataTable 
@@ -250,6 +352,39 @@ const Students: React.FC = () => {
               label="Last Name" 
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <Input 
+              label="Parent / Husband Name" 
+              value={parentOrHusbandName}
+              onChange={(e) => setParentOrHusbandName(e.target.value)}
+              placeholder="e.g. Vishnu Itape"
+            />
+            <Input 
+              label="Date of Joining" 
+              type="date"
+              value={joiningDate}
+              onChange={(e) => setJoiningDate(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <Input 
+              label="Phone Number" 
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required={!editingId}
+              placeholder="e.g. 9876543210"
+            />
+            <Input 
+              label="Address" 
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Full address"
             />
           </div>
           
@@ -289,7 +424,7 @@ const Students: React.FC = () => {
           
           {status === 'active' && students.find(s => s.documentId === editingId)?.status === 'pending' && (
             <p className="text-sm text-green-600 mt-2 font-medium">
-              Approving this student will generate a default password and send an email notification.
+              Approving this student will generate a default password credentials notification.
             </p>
           )}
 

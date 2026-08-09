@@ -6,18 +6,25 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 
 interface User {
   id: string;
-  email: string;
+  email?: string;
+  phone?: string;
+  address?: string;
   name: string;
-  role: 'admin' | 'teacher' | 'student' | 'parent';
+  role: 'admin' | 'teacher' | 'student';
   status: string;
   forcePasswordChange?: boolean;
+  batchIds?: string[];
+  isDemoMode?: boolean;
+  demoStartDate?: any;
+  demoEndDate?: any;
+  demoDays?: number;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  loginWithEmail: (email: string, password: string) => Promise<{ success: boolean; forcePasswordChange?: boolean; error?: string }>;
+  loginWithEmail: (identifier: string, password: string) => Promise<{ success: boolean; forcePasswordChange?: boolean; error?: string }>;
   logout: () => void;
 }
 
@@ -32,7 +39,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        await fetchAndSetUserData(firebaseUser.email || '');
+        await fetchAndSetUserData(firebaseUser.email || '', firebaseUser.uid);
       } else {
         setUser(null);
       }
@@ -42,10 +49,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => unsubscribe();
   }, []);
 
-  const fetchAndSetUserData = async (email: string) => {
+  const fetchAndSetUserData = async (emailOrPhone: string, uid?: string) => {
     try {
-      const q = query(collection(db, 'users'), where('email', '==', email));
-      const snapshot = await getDocs(q);
+      let cleanInput = emailOrPhone.trim();
+      let q = query(collection(db, 'users'), where('email', '==', cleanInput));
+      let snapshot = await getDocs(q);
+
+      if (snapshot.empty && cleanInput.includes('@speakhub.com')) {
+        const rawPhone = cleanInput.replace('@speakhub.com', '');
+        q = query(collection(db, 'users'), where('phone', '==', rawPhone));
+        snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+          q = query(collection(db, 'users'), where('mobile', '==', rawPhone));
+          snapshot = await getDocs(q);
+        }
+      }
+
+      if (snapshot.empty) {
+        const cleanPhone = cleanInput.replace(/[^0-9]/g, '');
+        if (cleanPhone.length >= 10) {
+          q = query(collection(db, 'users'), where('phone', '==', cleanPhone));
+          snapshot = await getDocs(q);
+
+          if (snapshot.empty) {
+            q = query(collection(db, 'users'), where('mobile', '==', cleanPhone));
+            snapshot = await getDocs(q);
+          }
+        }
+      }
+
+      if (snapshot.empty && uid) {
+        const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', uid)));
+        if (!userDoc.empty) {
+          snapshot = userDoc;
+        }
+      }
       
       if (!snapshot.empty) {
         const docSnap = snapshot.docs[0];
@@ -54,10 +93,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser({
           id: docSnap.id,
           email: data.email,
-          name: data.name,
+          phone: data.phone || data.mobile,
+          address: data.address,
+          name: data.name || data.firstName || 'User',
           role: data.role || 'student',
-          status: data.status,
-          forcePasswordChange: data.forcePasswordChange
+          status: data.status || 'active',
+          forcePasswordChange: data.forcePasswordChange,
+          batchIds: data.batchIds || [],
+          isDemoMode: data.isDemoMode,
+          demoStartDate: data.demoStartDate,
+          demoEndDate: data.demoEndDate,
+          demoDays: data.demoDays
         });
 
         // Forced redirect logic
@@ -74,13 +120,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const loginWithEmail = async (email: string, password: string) => {
+  const loginWithEmail = async (identifier: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      let authCredentialEmail = identifier.trim();
+      if (!authCredentialEmail.includes('@')) {
+        const cleanPhone = authCredentialEmail.replace(/[^0-9]/g, '');
+        authCredentialEmail = `${cleanPhone}@speakhub.com`;
+      }
+
+      await signInWithEmailAndPassword(auth, authCredentialEmail, password);
       
-      // Fetch user data manually to check forcePasswordChange before returning
-      const q = query(collection(db, 'users'), where('email', '==', email));
-      const snapshot = await getDocs(q);
+      let q = query(collection(db, 'users'), where('email', '==', identifier));
+      let snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        q = query(collection(db, 'users'), where('phone', '==', identifier));
+        snapshot = await getDocs(q);
+      }
+
+      if (snapshot.empty) {
+        const cleanPhone = identifier.replace(/[^0-9]/g, '');
+        q = query(collection(db, 'users'), where('mobile', '==', cleanPhone));
+        snapshot = await getDocs(q);
+      }
       
       if (!snapshot.empty) {
         const data = snapshot.docs[0].data();

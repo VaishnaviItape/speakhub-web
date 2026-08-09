@@ -8,7 +8,7 @@ import { db } from '../../config/firebase';
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, serverTimestamp } from 'firebase/firestore';
 import { uploadFile } from '../../utils/storageService';
 import { sendEmail } from '../../utils/emailService';
-import type { Note, Course, Batch, Subject, User } from '../../types/models';
+import type { Note, Course, Batch, User } from '../../types/models';
 import '../../components/ui/TableStyles.css';
 
 const Notes: React.FC = () => {
@@ -21,13 +21,11 @@ const Notes: React.FC = () => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<User[]>([]);
 
   // Form State
   const [courseId, setCourseId] = useState('');
   const [batchId, setBatchId] = useState('');
-  const [subjectId, setSubjectId] = useState('');
   const [teacherId, setTeacherId] = useState('');
   const [topic, setTopic] = useState('');
   const [partChapter, setPartChapter] = useState('');
@@ -54,8 +52,6 @@ const Notes: React.FC = () => {
       setCourses(cSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as Course)));
       const bSnap = await getDocs(collection(db, 'batches'));
       setBatches(bSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as Batch)));
-      const sSnap = await getDocs(collection(db, 'subjects'));
-      setSubjects(sSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as Subject)));
       const tSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'teacher')));
       setTeachers(tSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as User)));
     } catch (e) {
@@ -136,7 +132,7 @@ const Notes: React.FC = () => {
       }
 
       const noteData: Partial<Note> = {
-        courseId, batchId, subjectId, teacherId, topic, partChapter, title, description,
+        courseId, batchId, teacherId, topic, partChapter, title, description,
         fileUrl: finalFileUrl,
         externalVideoLink, youtubeLink, referenceLink,
         publishDate: publishDate ? new Date(publishDate) : new Date(),
@@ -167,7 +163,7 @@ const Notes: React.FC = () => {
 
   const resetForm = () => {
     setEditingId(null);
-    setCourseId(''); setBatchId(''); setSubjectId(''); setTeacherId('');
+    setCourseId(''); setBatchId(''); setTeacherId('');
     setTopic(''); setPartChapter(''); setTitle(''); setDescription('');
     setUploadMode('file'); setFile(null);
     setExternalVideoLink(''); setYoutubeLink(''); setReferenceLink('');
@@ -176,7 +172,7 @@ const Notes: React.FC = () => {
 
   const handleEdit = (note: Note) => {
     setEditingId(note.documentId!);
-    setCourseId(note.courseId); setBatchId(note.batchId); setSubjectId(note.subjectId); setTeacherId(note.teacherId);
+    setCourseId(note.courseId); setBatchId(note.batchId); setTeacherId(note.teacherId);
     setTopic(note.topic || ''); setPartChapter(note.partChapter || ''); setTitle(note.title); setDescription(note.description);
     setUploadMode(note.fileUrl ? 'file' : 'link');
     setExternalVideoLink(note.externalVideoLink || ''); setYoutubeLink(note.youtubeLink || ''); setReferenceLink(note.referenceLink || '');
@@ -208,10 +204,9 @@ const Notes: React.FC = () => {
       render: (row) => {
         const cName = courses.find(c => c.documentId === row.courseId)?.courseName || row.courseId;
         const bName = batches.find(b => b.documentId === row.batchId)?.batchName || row.batchId;
-        const sName = subjects.find(s => s.documentId === row.subjectId)?.subjectName || row.subjectId;
         return (
           <div>
-            <div className="font-medium text-sm">{cName} &rarr; {sName}</div>
+            <div className="font-medium text-sm">{cName}</div>
             <div className="text-xs text-blue-600 font-bold">{bName}</div>
           </div>
         )
@@ -222,9 +217,10 @@ const Notes: React.FC = () => {
       header: 'Content',
       render: (row) => (
         <div className="flex gap-2">
-          {row.fileUrl && <a href={row.fileUrl} target="_blank" rel="noreferrer" className="text-blue-600 bg-blue-50 px-2 rounded text-xs">File</a>}
-          {row.youtubeLink && <a href={row.youtubeLink} target="_blank" rel="noreferrer" className="text-red-600 bg-red-50 px-2 rounded text-xs">YouTube</a>}
-          {row.externalVideoLink && <a href={row.externalVideoLink} target="_blank" rel="noreferrer" className="text-purple-600 bg-purple-50 px-2 rounded text-xs">Video</a>}
+          {row.fileUrl && <a href={row.fileUrl} target="_blank" rel="noreferrer" className="text-blue-600 bg-blue-50 px-2 py-1 rounded text-xs font-medium">File</a>}
+          {row.referenceLink && <a href={row.referenceLink} target="_blank" rel="noreferrer" className="text-indigo-600 bg-indigo-50 px-2 py-1 rounded text-xs font-medium">Drive/Doc</a>}
+          {row.youtubeLink && <a href={row.youtubeLink} target="_blank" rel="noreferrer" className="text-red-600 bg-red-50 px-2 py-1 rounded text-xs font-medium">YouTube</a>}
+          {row.externalVideoLink && <a href={row.externalVideoLink} target="_blank" rel="noreferrer" className="text-purple-600 bg-purple-50 px-2 py-1 rounded text-xs font-medium">Video</a>}
         </div>
       )
     },
@@ -288,18 +284,21 @@ const Notes: React.FC = () => {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Notes" : "Upload Study Notes"}>
         <form onSubmit={handleSubmit} className="modal-form" style={{maxHeight: '75vh', overflowY: 'auto', paddingRight: '10px'}}>
           
-          <div className="bg-gray-50 p-3 rounded-lg mb-4 border border-gray-200">
-            <h4 className="font-bold text-gray-700 mb-2">Target Assignment</h4>
+          <div className="mb-6">
+            <h4 className="font-semibold text-gray-800 border-b pb-2 mb-4 text-sm flex items-center gap-2">
+              <span className="w-1.5 h-4 bg-blue-600 rounded-full"></span> Target Assignment
+            </h4>
             <div className="grid grid-cols-2 gap-4">
               <Select label="Course" options={[{label: 'Select Course', value: ''}, ...courses.map(c => ({label: c.courseName, value: c.documentId!}))]} value={courseId} onChange={(e) => setCourseId(e.target.value)} required />
               <Select label="Batch" options={[{label: 'Select Batch', value: ''}, ...batches.map(b => ({label: b.batchName, value: b.documentId!}))]} value={batchId} onChange={(e) => setBatchId(e.target.value)} required />
-              <Select label="Subject" options={[{label: 'Select Subject', value: ''}, ...subjects.map(s => ({label: s.subjectName, value: s.documentId!}))]} value={subjectId} onChange={(e) => setSubjectId(e.target.value)} required />
               <Select label="Teacher" options={[{label: 'Select Teacher', value: ''}, ...teachers.map(t => ({label: t.name!, value: t.documentId!}))]} value={teacherId} onChange={(e) => setTeacherId(e.target.value)} required />
             </div>
           </div>
 
-          <div className="bg-blue-50 p-3 rounded-lg mb-4 border border-blue-100">
-            <h4 className="font-bold text-blue-800 mb-2">Content Hierarchy</h4>
+          <div className="mb-6">
+            <h4 className="font-semibold text-gray-800 border-b pb-2 mb-4 text-sm flex items-center gap-2">
+              <span className="w-1.5 h-4 bg-indigo-600 rounded-full"></span> Content Hierarchy
+            </h4>
             <Input label="Title" placeholder="e.g. Chapter 1: Grammar Rules" value={title} onChange={(e) => setTitle(e.target.value)} required />
             <div className="grid grid-cols-2 gap-4 mt-4">
               <Input label="Topic" placeholder="e.g. Algebra" value={topic} onChange={(e) => setTopic(e.target.value)} />
@@ -310,34 +309,21 @@ const Notes: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-yellow-50 p-3 rounded-lg mb-4 border border-yellow-200">
-            <h4 className="font-bold text-yellow-800 mb-2">Media & Attachments</h4>
-            <div className="flex gap-4 mb-4">
-              <label className="flex items-center gap-2">
-                <input type="radio" name="uploadMode" checked={uploadMode === 'file'} onChange={() => setUploadMode('file')} /> Upload File
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="radio" name="uploadMode" checked={uploadMode === 'link'} onChange={() => setUploadMode('link')} /> External Links
-              </label>
+          <div className="mb-6">
+            <h4 className="font-semibold text-gray-800 border-b pb-2 mb-4 text-sm flex items-center gap-2">
+              <span className="w-1.5 h-4 bg-orange-500 rounded-full"></span> Media & Attachments
+            </h4>
+            <div className="grid gap-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
+              <Input label="Google Drive / Document Link" placeholder="https://docs.google.com/..." value={referenceLink} onChange={(e) => setReferenceLink(e.target.value)} required />
+              <Input label="YouTube Link (Optional)" placeholder="https://youtube.com/..." value={youtubeLink} onChange={(e) => setYoutubeLink(e.target.value)} />
+              <Input label="External Video Link (Optional)" placeholder="https://vimeo.com/..." value={externalVideoLink} onChange={(e) => setExternalVideoLink(e.target.value)} />
             </div>
-            
-            {uploadMode === 'file' ? (
-              <div className="border-2 border-dashed border-gray-300 p-6 rounded-lg text-center hover:bg-gray-50">
-                <Upload className="mx-auto text-gray-400 mb-2" />
-                <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} className="w-full text-sm text-gray-500" />
-                <p className="text-xs text-gray-400 mt-2">Supported: PDF, DOCX, PPTX, Images</p>
-              </div>
-            ) : (
-              <div className="grid gap-4">
-                <Input label="YouTube Link" placeholder="https://youtube.com/..." value={youtubeLink} onChange={(e) => setYoutubeLink(e.target.value)} />
-                <Input label="External Video Link" placeholder="https://vimeo.com/..." value={externalVideoLink} onChange={(e) => setExternalVideoLink(e.target.value)} />
-                <Input label="Reference Document Link" placeholder="https://docs.google.com/..." value={referenceLink} onChange={(e) => setReferenceLink(e.target.value)} />
-              </div>
-            )}
           </div>
 
-          <div className="bg-gray-50 p-3 rounded-lg mb-6 border border-gray-200">
-            <h4 className="font-bold text-gray-700 mb-2">Publishing & Status</h4>
+          <div className="mb-6">
+            <h4 className="font-semibold text-gray-800 border-b pb-2 mb-4 text-sm flex items-center gap-2">
+              <span className="w-1.5 h-4 bg-green-500 rounded-full"></span> Publishing & Status
+            </h4>
             <div className="grid grid-cols-2 gap-4">
               <Input label="Publish Date" type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} />
               <Input label="Publish Time" type="time" value={publishTime} onChange={(e) => setPublishTime(e.target.value)} />

@@ -7,7 +7,6 @@ import {
   BookOpen,
   GraduationCap,
   Briefcase,
-  BookMarked,
   FileText,
   Calendar,
   PenTool,
@@ -17,6 +16,7 @@ import {
   BarChart3
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import logo from '../../assets/logo.png';
 import './Sidebar.css';
 
 const Sidebar: React.FC = () => {
@@ -27,7 +27,7 @@ const Sidebar: React.FC = () => {
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="logo-container">
-          <img src="/logo.png" alt="Speak Hub Logo" className="logo-img" />
+          <img src={logo} alt="Speak Hub Logo" className="logo-img" />
           <span className="logo-text">Speak Hub</span>
         </div>
       </div>
@@ -50,10 +50,6 @@ const Sidebar: React.FC = () => {
               <BookOpen size={18} />
               <span>Courses</span>
             </NavLink>
-            <NavLink to="/subjects" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-              <BookMarked size={18} />
-              <span>Subjects</span>
-            </NavLink>
             <NavLink to="/batches" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
               <Calendar size={18} />
               <span>Batches</span>
@@ -67,6 +63,10 @@ const Sidebar: React.FC = () => {
             <NavLink to="/students" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
               <GraduationCap size={18} />
               <span>Students</span>
+            </NavLink>
+            <NavLink to="/attendance" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+              <Calendar size={18} />
+              <span>Attendance</span>
             </NavLink>
             {isAdmin && (
               <>
@@ -109,10 +109,6 @@ const Sidebar: React.FC = () => {
           <div className="nav-group">
             <span className="nav-group-title">FINANCE</span>
             <nav className="nav-menu">
-              <NavLink to="/fees/plans" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-                <FileText size={18} />
-                <span>Fee Plans</span>
-              </NavLink>
               <NavLink to="/fees" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
                 <CreditCard size={18} />
                 <span>Fees Collection</span>

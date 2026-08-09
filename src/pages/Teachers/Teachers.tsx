@@ -8,7 +8,7 @@ import type { User } from '../../types/models';
 import { db } from '../../config/firebase';
 import { secondaryAuth } from '../../config/secondaryFirebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, query, getDocs, updateDoc, doc, setDoc, where, serverTimestamp } from 'firebase/firestore';
+import { collection, query, getDocs, updateDoc, doc, setDoc, where, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import '../../components/ui/TableStyles.css';
 
 const Teachers: React.FC = () => {
@@ -132,6 +132,17 @@ const Teachers: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  const handleDelete = async (teacher: User) => {
+    if (window.confirm(`Are you sure you want to delete teacher ${teacher.name}?`)) {
+      try {
+        await deleteDoc(doc(db, 'users', teacher.documentId!));
+        setTeachers(teachers.filter(t => t.documentId !== teacher.documentId));
+      } catch (error: any) {
+        alert("Failed to delete teacher: " + error.message);
+      }
+    }
+  };
+
   const columns: Column<User>[] = [
     {
       key: 'name',
@@ -185,6 +196,7 @@ const Teachers: React.FC = () => {
         data={teachers} 
         columns={columns} 
         onEdit={handleEdit}
+        onDelete={handleDelete}
         searchPlaceholder="Search teachers..."
         isLoading={isLoading}
       />

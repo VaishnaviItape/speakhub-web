@@ -9,7 +9,11 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 const Input: React.FC<InputProps> = ({ label, error, className = '', ...props }) => {
   return (
     <div className={`form-group ${className}`}>
-      {label && <label className="form-label">{label}</label>}
+      {label && (
+        <label className="form-label">
+          {label} {props.required && <span className="text-red-500 ml-1">*</span>}
+        </label>
+      )}
       <input className={`form-input ${error ? 'border-red-500' : ''}`} {...props} />
       {error && <span className="form-error">{error}</span>}
     </div>

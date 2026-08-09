@@ -7,10 +7,13 @@ export interface User {
   documentId?: string;
   uid?: string;
   name?: string;
-  role: 'admin' | 'teacher' | 'student' | 'parent';
-  email: string;
+  role: 'admin' | 'teacher' | 'student';
+  email?: string;
   mobile?: string;
   phone?: string;
+  address?: string;
+  parentOrHusbandName?: string;
+  joiningDate?: Timestamp | Date | string;
   status: 'active' | 'inactive' | 'pending';
   isDemoMode?: boolean;
   demoStartDate?: Timestamp | Date;
@@ -28,11 +31,14 @@ export interface Student {
   userId: string;
   firstName: string;
   lastName: string;
+  phone?: string;
+  address?: string;
   parentName?: string;
+  parentOrHusbandName?: string;
   parentMobile?: string;
   courseIds: string[];
   batchIds: string[];
-  joiningDate: Timestamp | Date;
+  joiningDate?: Timestamp | Date | string;
   photo?: string;
   status: 'active' | 'inactive' | 'pending';
 }
@@ -42,6 +48,7 @@ export interface Course {
   courseName: string;
   description: string;
   duration: string;
+  monthlyFee?: number;
   image?: string;
   status: 'active' | 'inactive';
 }
@@ -223,15 +230,13 @@ export interface StudentFeePlan {
 export interface FeeTransaction {
   documentId?: string;
   studentId: string;
-  studentFeePlanId: string;
+  courseId: string;
   academicYear?: string;
-  billingPeriod?: string;
+  billingPeriod?: string; // e.g. "August 2026"
   paymentDate: Timestamp | Date;
   amountPaid: number;
   discount?: number;
   lateFee?: number;
-  remainingBalance?: number;
-  nextDueDate?: Timestamp | Date;
   paymentMode: 'Cash' | 'UPI' | 'Bank Transfer' | 'Card' | 'Cheque' | 'Online Gateway';
   transactionNumber?: string;
   receivedBy: string; // Admin userId

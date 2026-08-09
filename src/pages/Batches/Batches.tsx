@@ -12,6 +12,7 @@ import '../../components/ui/TableStyles.css';
 const Batches: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Form State
   const [batchName, setBatchName] = useState('');
@@ -79,6 +80,8 @@ const Batches: React.FC = () => {
       return;
     }
 
+    setIsSaving(true);
+
     try {
       const batchData = {
         batchName,
@@ -115,6 +118,8 @@ const Batches: React.FC = () => {
     } catch (error) {
       console.error("Error saving batch:", error);
       alert("Failed to save batch");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -294,7 +299,9 @@ const Batches: React.FC = () => {
           />
           
           <div className="modal-actions">
-            <button type="submit" className="btn btn-success">{editingId ? "Update Batch" : "Create Batch"}</button>
+            <button type="submit" className="btn btn-success" disabled={isSaving}>
+              {isSaving ? "Saving..." : (editingId ? "Update Batch" : "Create Batch")}
+            </button>
           </div>
         </form>
       </Modal>

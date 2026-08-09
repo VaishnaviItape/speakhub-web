@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { Home, BookOpen, PenTool, FileText, User } from 'lucide-react';
+import { Home, BookOpen, PenTool, FileText, CalendarCheck, User } from 'lucide-react';
 import './StudentLayout.css';
 
 const StudentLayout: React.FC = () => {
@@ -20,6 +20,10 @@ const StudentLayout: React.FC = () => {
         <NavLink to="/student/courses" className={({isActive}) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
           <BookOpen size={24} />
           <span>Courses</span>
+        </NavLink>
+        <NavLink to="/student/attendance" className={({isActive}) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
+          <CalendarCheck size={24} />
+          <span>Attendance</span>
         </NavLink>
         <NavLink to="/student/homework" className={({isActive}) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
           <PenTool size={24} />

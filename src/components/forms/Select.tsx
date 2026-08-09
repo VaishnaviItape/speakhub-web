@@ -15,7 +15,11 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
 const Select: React.FC<SelectProps> = ({ label, options, error, className = '', ...props }) => {
   return (
     <div className={`form-group ${className}`}>
-      {label && <label className="form-label">{label}</label>}
+      {label && (
+        <label className="form-label">
+          {label} {props.required && <span className="text-red-500 ml-1">*</span>}
+        </label>
+      )}
       <select className={`form-select ${error ? 'border-red-500' : ''}`} {...props}>
         <option value="" disabled>Select an option</option>
         {options.map((option) => (

@@ -12,11 +12,15 @@ import '../../components/ui/TableStyles.css';
 const Courses: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Form State
   const [courseName, setCourseName] = useState('');
   const [description, setDescription] = useState('');
   const [duration, setDuration] = useState('');
+  const [monthlyFee, setMonthlyFee] = useState('');
+  const [modeBadge, setModeBadge] = useState('ONLINE');
+  const [demoVideoUrl, setDemoVideoUrl] = useState('https://youtube.com/@speakhubacademy?si=ZSnvnh5MzSqXPrpM');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -47,24 +51,25 @@ const Courses: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
+      const coursePayload = {
+        courseName,
+        description,
+        duration,
+        monthlyFee: Number(monthlyFee),
+        modeBadge,
+        demoVideoUrl,
+        status
+      };
+
       if (editingId) {
         // Update existing course
         const courseRef = doc(db, 'courses', editingId);
-        await updateDoc(courseRef, {
-          courseName,
-          description,
-          duration,
-          status
-        });
+        await updateDoc(courseRef, coursePayload);
       } else {
         // Add new course
-        await addDoc(collection(db, 'courses'), {
-          courseName,
-          description,
-          duration,
-          status
-        });
+        await addDoc(collection(db, 'courses'), coursePayload);
       }
       setIsModalOpen(false);
       resetForm();
@@ -72,6 +77,8 @@ const Courses: React.FC = () => {
     } catch (error) {
       console.error("Error saving course:", error);
       alert("Failed to save course");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -79,14 +86,20 @@ const Courses: React.FC = () => {
     setCourseName('');
     setDescription('');
     setDuration('');
+    setMonthlyFee('');
+    setModeBadge('ONLINE');
+    setDemoVideoUrl('https://youtube.com/@speakhubacademy?si=ZSnvnh5MzSqXPrpM');
     setStatus('active');
     setEditingId(null);
   };
 
-  const handleEdit = (course: Course) => {
+  const handleEdit = (course: any) => {
     setCourseName(course.courseName);
     setDescription(course.description);
     setDuration(course.duration);
+    setMonthlyFee(course.monthlyFee?.toString() || '');
+    setModeBadge(course.modeBadge || 'ONLINE');
+    setDemoVideoUrl(course.demoVideoUrl || 'https://youtube.com/@speakhubacademy?si=ZSnvnh5MzSqXPrpM');
     setStatus(course.status);
     setEditingId(course.documentId || null);
     setIsModalOpen(true);
@@ -119,6 +132,11 @@ const Courses: React.FC = () => {
     {
       key: 'duration',
       header: 'Duration'
+    },
+    {
+      key: 'monthlyFee',
+      header: 'Monthly Fee',
+      render: (row) => <span className="font-bold text-green-700">₹{row.monthlyFee || 0}</span>
     },
     {
       key: 'status',
@@ -167,13 +185,23 @@ const Courses: React.FC = () => {
             onChange={(e) => setCourseName(e.target.value)}
             required 
           />
-          <Input 
-            label="Duration" 
-            placeholder="e.g. 3 Months"
-            value={duration}
-            onChange={(e) => setDuration(e.target.value)}
-            required 
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input 
+              label="Duration" 
+              placeholder="e.g. 3 Months"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              required 
+            />
+            <Input 
+              label="Monthly Fee (₹)" 
+              type="number"
+              placeholder="e.g. 800"
+              value={monthlyFee}
+              onChange={(e) => setMonthlyFee(e.target.value)}
+              required 
+            />
+          </div>
           <Input 
             label="Description" 
             placeholder="Course details and syllabus overview..."
@@ -181,15 +209,31 @@ const Courses: React.FC = () => {
             onChange={(e) => setDescription(e.target.value)}
             required 
           />
-          <Select 
-            label="Status" 
-            options={[{label: 'Active', value: 'active'}, {label: 'Inactive', value: 'inactive'}]} 
-            value={status}
-            onChange={(e) => setStatus(e.target.value as 'active' | 'inactive')}
+          <div className="grid grid-cols-2 gap-4">
+            <Input 
+              label="Mode / Badge" 
+              placeholder="e.g. ONLINE, OFFLINE, HYBRID"
+              value={modeBadge}
+              onChange={(e) => setModeBadge(e.target.value)}
+            />
+            <Select 
+              label="Status" 
+              options={[{label: 'Active', value: 'active'}, {label: 'Inactive', value: 'inactive'}]} 
+              value={status}
+              onChange={(e) => setStatus(e.target.value as 'active' | 'inactive')}
+            />
+          </div>
+          <Input 
+            label="Demo Video Link (YouTube / Web)" 
+            placeholder="https://youtube.com/@speakhubacademy?si=ZSnvnh5MzSqXPrpM"
+            value={demoVideoUrl}
+            onChange={(e) => setDemoVideoUrl(e.target.value)}
           />
           
           <div className="modal-actions">
-            <button type="submit" className="btn btn-success">{editingId ? "Update Course" : "Save Course"}</button>
+            <button type="submit" className="btn btn-success" disabled={isSaving}>
+              {isSaving ? "Saving..." : (editingId ? "Update Course" : "Save Course")}
+            </button>
           </div>
         </form>
       </Modal>

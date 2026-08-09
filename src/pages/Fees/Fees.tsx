@@ -1,35 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, ChevronDown, UserPlus, MessageCircle, FileText } from 'lucide-react';
+import { Plus, MessageCircle } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import { db } from '../../config/firebase';
-import { collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
-import type { FeePlan, StudentFeePlan, FeeTransaction, User, Course } from '../../types/models';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
+import type { FeeTransaction, User, Course } from '../../types/models';
 import '../../components/ui/TableStyles.css';
 import ReceiptTemplate from './ReceiptTemplate';
 
+interface StudentFeeRecord {
+  studentId: string;
+  studentName: string;
+  courseId: string;
+  courseName: string;
+  monthlyFee: number;
+  lastPaymentDate?: Date;
+  lastPaidMonth?: string;
+}
+
 const Fees: React.FC = () => {
-  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Data State
   const [students, setStudents] = useState<User[]>([]);
-  const [feePlans, setFeePlans] = useState<FeePlan[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
-  const [studentPlans, setStudentPlans] = useState<(StudentFeePlan & { studentName?: string, planName?: string, totalPlanFee?: number })[]>([]);
-
-  // Assign Plan Form
-  const [assignStudentId, setAssignStudentId] = useState('');
-  const [assignCourseId, setAssignCourseId] = useState('');
-  const [assignPlanId, setAssignPlanId] = useState('');
-  const [billingFrequency, setBillingFrequency] = useState<'Monthly' | 'Quarterly' | 'Half-Yearly' | 'Yearly'>('Monthly');
-  const [paymentStartDate, setPaymentStartDate] = useState('');
+  const [feeRecords, setFeeRecords] = useState<StudentFeeRecord[]>([]);
 
   // Payment Form
-  const [paymentPlanId, setPaymentPlanId] = useState('');
+  const [paymentStudentId, setPaymentStudentId] = useState('');
   const [amountPaid, setAmountPaid] = useState('');
   const [discount, setDiscount] = useState('0');
   const [lateFee, setLateFee] = useState('0');
@@ -48,31 +50,44 @@ const Fees: React.FC = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const uSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student')));
+      const uSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('status', '==', 'active')));
       const usersList = uSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as User));
       setStudents(usersList);
 
-      const pSnap = await getDocs(collection(db, 'fee_plans'));
-      const plansList = pSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as FeePlan));
-      setFeePlans(plansList);
-
       const cSnap = await getDocs(collection(db, 'courses'));
-      setCourses(cSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as Course)));
+      const coursesList = cSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as Course));
+      setCourses(coursesList);
 
-      const spSnap = await getDocs(collection(db, 'student_fee_plans'));
-      const spList = spSnap.docs.map(d => {
-        const data = d.data() as StudentFeePlan;
-        const student = usersList.find(u => u.documentId === data.studentId);
-        const plan = plansList.find(p => p.documentId === data.feePlanId);
+      const tSnap = await getDocs(collection(db, 'fee_transactions'));
+      const transactions = tSnap.docs.map(d => d.data() as FeeTransaction);
+
+      const records: StudentFeeRecord[] = usersList.map(student => {
+        const courseId = student.courseIds?.[0] || '';
+        const course = coursesList.find(c => c.documentId === courseId);
+        
+        // Find latest transaction for this student
+        const studentTx = transactions
+          .filter(t => t.studentId === student.documentId)
+          .sort((a, b) => {
+            const dA = a.paymentDate?.seconds || 0;
+            const dB = b.paymentDate?.seconds || 0;
+            return dB - dA;
+          });
+
+        const lastTx = studentTx[0];
+
         return {
-          documentId: d.id,
-          ...data,
-          studentName: student?.name,
-          planName: plan?.planName,
-          totalPlanFee: plan?.totalFee
+          studentId: student.documentId!,
+          studentName: student.name || student.email,
+          courseId: courseId,
+          courseName: course?.courseName || 'Unassigned',
+          monthlyFee: course?.monthlyFee || 0,
+          lastPaymentDate: lastTx?.paymentDate ? new Date(lastTx.paymentDate.seconds * 1000) : undefined,
+          lastPaidMonth: lastTx?.billingPeriod
         };
       });
-      setStudentPlans(spList);
+
+      setFeeRecords(records);
 
     } catch (e) {
       console.error(e);
@@ -81,55 +96,33 @@ const Fees: React.FC = () => {
     }
   };
 
-  const handleAssignPlan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const plan = feePlans.find(p => p.documentId === assignPlanId);
-      if (!plan) return;
-
-      const newPlan: Partial<StudentFeePlan> = {
-        studentId: assignStudentId,
-        courseId: assignCourseId,
-        batchId: '', // Would map to student's batch normally
-        feePlanId: assignPlanId,
-        billingFrequency,
-        paymentStartDate: new Date(paymentStartDate) as any,
-        nextDueDate: new Date(paymentStartDate) as any,
-        totalPaid: 0,
-        status: 'active',
-        createdAt: serverTimestamp() as any
-      };
-
-      await addDoc(collection(db, 'student_fee_plans'), newPlan);
-      
-      // Remove Demo Lock if exists
-      const userRef = doc(db, 'users', assignStudentId);
-      await updateDoc(userRef, { isDemoMode: false });
-
-      setIsAssignModalOpen(false);
-      setAssignStudentId('');
-      setAssignCourseId('');
-      setAssignPlanId('');
-      fetchData();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to assign plan");
+  // Auto-fill amount when student is selected
+  useEffect(() => {
+    if (paymentStudentId) {
+      const record = feeRecords.find(r => r.studentId === paymentStudentId);
+      if (record) {
+        setAmountPaid(record.monthlyFee.toString());
+      }
     }
-  };
+  }, [paymentStudentId, feeRecords]);
 
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
-      const sp = studentPlans.find(p => p.documentId === paymentPlanId);
-      if (!sp) return;
+      const record = feeRecords.find(r => r.studentId === paymentStudentId);
+      if (!record) {
+        setIsSaving(false);
+        return;
+      }
 
       const amt = Number(amountPaid);
       const disc = Number(discount);
       const lf = Number(lateFee);
       
       const newTransaction: Partial<FeeTransaction> = {
-        studentId: sp.studentId,
-        studentFeePlanId: sp.documentId,
+        studentId: record.studentId,
+        courseId: record.courseId,
         academicYear,
         billingPeriod,
         paymentDate: serverTimestamp() as any,
@@ -144,24 +137,7 @@ const Fees: React.FC = () => {
         createdAt: serverTimestamp() as any
       };
 
-      // Update StudentFeePlan
-      let nextDue = sp.nextDueDate instanceof Date ? new Date(sp.nextDueDate) : new Date((sp.nextDueDate as any).seconds * 1000);
-      if (sp.billingFrequency === 'Monthly') nextDue.setMonth(nextDue.getMonth() + 1);
-      else if (sp.billingFrequency === 'Quarterly') nextDue.setMonth(nextDue.getMonth() + 3);
-      else if (sp.billingFrequency === 'Half-Yearly') nextDue.setMonth(nextDue.getMonth() + 6);
-      else if (sp.billingFrequency === 'Yearly') nextDue.setFullYear(nextDue.getFullYear() + 1);
-
-      const totalFee = feePlans.find(f => f.documentId === sp.feePlanId)?.totalFee || 0;
-      const newPaid = (sp.totalPaid || 0) + amt;
-      newTransaction.remainingBalance = Math.max(0, totalFee - newPaid);
-      newTransaction.nextDueDate = nextDue;
-
       await addDoc(collection(db, 'fee_transactions'), newTransaction);
-
-      await updateDoc(doc(db, 'student_fee_plans', sp.documentId!), {
-        totalPaid: newPaid,
-        nextDueDate: nextDue
-      });
 
       setIsPaymentModalOpen(false);
       setAmountPaid('');
@@ -181,53 +157,52 @@ const Fees: React.FC = () => {
     } catch (err) {
       console.error(err);
       alert("Failed to record payment");
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const openWhatsApp = (phone: string | undefined, name: string | undefined, amountDue: number) => {
+  const openWhatsApp = (phone: string | undefined, name: string | undefined, monthlyFee: number) => {
     if(!phone) { alert("No phone number registered for this student."); return; }
-    const msg = `Hello ${name || 'Student'},\n\nYour fee of ₹${amountDue} is due. Please complete your payment using this link: https://speakhub.com/pay \n\nThank you,\nSpeak Hub Academy`;
+    const msg = `Hello ${name || 'Student'},\n\nYour monthly fee of ₹${monthlyFee} is due. Please complete your payment using this link: https://speakhub.com/pay \n\nThank you,\nSpeak Hub Academy`;
     window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  const columns: Column<any>[] = [
+  const columns: Column<StudentFeeRecord>[] = [
     {
       key: 'studentName',
       header: 'Student Name',
-      render: (row) => <span className="font-bold text-gray-800">{row.studentName || 'Unknown'}</span>
+      render: (row) => <span className="font-bold text-gray-800">{row.studentName}</span>
     },
     {
-      key: 'planName',
-      header: 'Assigned Plan',
+      key: 'courseName',
+      header: 'Assigned Course',
       render: (row) => (
-        <div>
-          <div className="font-medium text-blue-800">{row.planName}</div>
-          <div className="text-xs text-gray-500">{row.billingFrequency} Billing</div>
-        </div>
+        <span className="font-medium text-blue-800">{row.courseName}</span>
       )
     },
     {
-      key: 'totalFee',
-      header: 'Amount',
-      render: (row) => {
-        const remaining = (row.totalPlanFee || 0) - (row.totalPaid || 0);
-        return (
-          <div>
-            <div className="text-sm font-bold">Total: ₹{row.totalPlanFee || 0}</div>
-            <div className="text-xs font-bold text-green-600">Paid: ₹{row.totalPaid || 0}</div>
-            <div className="text-xs font-bold text-red-600">Remaining: ₹{remaining}</div>
-          </div>
-        )
-      }
+      key: 'monthlyFee',
+      header: 'Monthly Fee',
+      render: (row) => (
+        <div className="text-sm font-bold text-green-700">₹{row.monthlyFee} / month</div>
+      )
     },
     {
-      key: 'nextDueDate',
-      header: 'Next Due Date',
-      render: (row) => {
-        const d = row.nextDueDate?.toDate ? row.nextDueDate.toDate() : new Date(row.nextDueDate);
-        const isOverdue = d < new Date();
-        return <span className={`font-bold ${isOverdue ? 'text-red-600' : 'text-gray-700'}`}>{d.toLocaleDateString()}</span>;
-      }
+      key: 'lastPayment',
+      header: 'Last Payment',
+      render: (row) => (
+        <div>
+          {row.lastPaymentDate ? (
+            <>
+              <div className="font-bold text-gray-700">{row.lastPaidMonth}</div>
+              <div className="text-xs text-gray-500">Paid on: {row.lastPaymentDate.toLocaleDateString()}</div>
+            </>
+          ) : (
+            <span className="text-gray-400 italic">No payments yet</span>
+          )}
+        </div>
+      )
     },
     {
       key: 'actions',
@@ -237,10 +212,10 @@ const Fees: React.FC = () => {
         const phone = student?.phone || student?.mobile;
         return (
           <div className="flex gap-2 items-center">
-            <button className="btn btn-primary" style={{padding: '4px 8px', fontSize: '12px'}} onClick={() => { setPaymentPlanId(row.documentId); setIsPaymentModalOpen(true); }}>
-              Pay
+            <button className="btn btn-primary" style={{padding: '4px 8px', fontSize: '12px'}} onClick={() => { setPaymentStudentId(row.studentId); setIsPaymentModalOpen(true); }}>
+              Pay Monthly Fee
             </button>
-            <button className="btn btn-outline" style={{padding: '4px 8px', fontSize: '12px', color: '#16a34a', borderColor: '#16a34a'}} onClick={() => openWhatsApp(phone, student?.name, (row.totalPlanFee || 0) - (row.totalPaid || 0))}>
+            <button className="btn btn-outline" style={{padding: '4px 8px', fontSize: '12px', color: '#16a34a', borderColor: '#16a34a'}} onClick={() => openWhatsApp(phone, student?.name, row.monthlyFee)}>
               <MessageCircle size={14} className="mr-1" /> WhatsApp
             </button>
           </div>
@@ -253,88 +228,38 @@ const Fees: React.FC = () => {
     <div className="page-container">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Fee Collection & Tracking</h1>
+          <h1 className="page-title">Fee Collection</h1>
           <div className="breadcrumbs">
-            <span>Fees</span> <span className="separator">/</span> <span className="current">Collection</span>
+            <span>Fees</span> <span className="separator">/</span> <span className="current">Monthly Collection</span>
           </div>
         </div>
-        <div className="flex gap-3">
-          <button className="btn btn-outline" onClick={() => setIsAssignModalOpen(true)}>
-            <UserPlus size={16} /> Assign Plan
-          </button>
-          <button className="btn btn-primary" onClick={() => { if(studentPlans.length>0) { setPaymentPlanId(studentPlans[0].documentId!); setIsPaymentModalOpen(true); } }}>
-            <Plus size={16} /> Record Payment
-          </button>
-        </div>
+        <button className="btn btn-primary" onClick={() => { if(feeRecords.length>0) { setPaymentStudentId(feeRecords[0].studentId); setIsPaymentModalOpen(true); } }}>
+          <Plus size={16} /> Record Payment
+        </button>
       </div>
 
       <DataTable 
-        title="Student Fee Plans" 
-        data={studentPlans} 
+        title="Student Monthly Fees" 
+        data={feeRecords} 
         columns={columns} 
         searchPlaceholder="Search students..."
         isLoading={isLoading}
       />
 
-      {/* Assign Plan Modal */}
-      <Modal isOpen={isAssignModalOpen} onClose={() => setIsAssignModalOpen(false)} title="Assign Fee Plan to Student">
-        <form onSubmit={handleAssignPlan} className="modal-form">
-          <div className="bg-blue-50 p-4 rounded-lg mb-4 border border-blue-100">
-            <p className="text-sm text-blue-800 font-medium mb-4">Assigning a fee plan will automatically revoke the student's Demo restriction and mark them as fully Admitted.</p>
-            <Select 
-              label="Select Student" 
-              options={[{label: 'Choose Student', value: ''}, ...students.map(s => ({label: s.name || s.email, value: s.documentId!}))]} 
-              value={assignStudentId}
-              onChange={(e) => setAssignStudentId(e.target.value)}
-              required
-            />
-            <Select 
-              label="Select Course" 
-              options={[{label: 'Choose Course', value: ''}, ...courses.map(c => ({label: c.courseName, value: c.documentId!}))]} 
-              value={assignCourseId}
-              onChange={(e) => setAssignCourseId(e.target.value)}
-              required
-            />
-            <Select 
-              label="Select Fee Plan" 
-              options={[{label: 'Choose Plan', value: ''}, ...feePlans.filter(f => f.courseId === assignCourseId).map(p => ({label: `${p.planName} (Total: ₹${p.totalFee})`, value: p.documentId!}))]} 
-              value={assignPlanId}
-              onChange={(e) => setAssignPlanId(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-             <Select 
-              label="Billing Frequency" 
-              options={[{label: 'Monthly', value: 'Monthly'}, {label: 'Quarterly', value: 'Quarterly'}, {label: 'Half-Yearly', value: 'Half-Yearly'}, {label: 'Yearly', value: 'Yearly'}]} 
-              value={billingFrequency}
-              onChange={(e) => setBillingFrequency(e.target.value as any)}
-              required
-            />
-            <Input label="Payment Start Date" type="date" value={paymentStartDate} onChange={(e) => setPaymentStartDate(e.target.value)} required />
-          </div>
-
-          <div className="modal-actions mt-6">
-            <button type="submit" className="btn btn-primary">Admit & Assign Plan</button>
-          </div>
-        </form>
-      </Modal>
-
       {/* Record Payment Modal */}
-      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Record Payment">
+      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Record Monthly Fee">
         <form onSubmit={handleRecordPayment} className="modal-form">
           <Select 
-            label="Student Plan" 
-            options={studentPlans.map(sp => ({label: `${sp.studentName} - ${sp.planName}`, value: sp.documentId!}))} 
-            value={paymentPlanId}
-            onChange={(e) => setPaymentPlanId(e.target.value)}
+            label="Select Student" 
+            options={feeRecords.map(r => ({label: `${r.studentName} (${r.courseName})`, value: r.studentId}))} 
+            value={paymentStudentId}
+            onChange={(e) => setPaymentStudentId(e.target.value)}
             required
           />
 
           <div className="grid grid-cols-2 gap-4 mt-4">
             <Input label="Academic Year" value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} required />
-            <Input label="Billing Period (e.g., Aug 2026)" value={billingPeriod} onChange={(e) => setBillingPeriod(e.target.value)} required />
+            <Input label="Billing Month (e.g., Aug 2026)" value={billingPeriod} onChange={(e) => setBillingPeriod(e.target.value)} required />
           </div>
 
           <div className="grid grid-cols-3 gap-4 mt-4">
@@ -355,7 +280,9 @@ const Fees: React.FC = () => {
           </div>
 
           <div className="modal-actions mt-6">
-            <button type="submit" className="btn btn-success">Record Payment & Print Receipt</button>
+            <button type="submit" className="btn btn-success" disabled={isSaving}>
+              {isSaving ? "Processing..." : "Record Payment & Print Receipt"}
+            </button>
           </div>
         </form>
       </Modal>
@@ -364,8 +291,8 @@ const Fees: React.FC = () => {
         <ReceiptTemplate 
           transaction={printedTransaction} 
           student={students.find(s => s.documentId === printedTransaction.studentId)!}
-          plan={feePlans.find(p => p.documentId === printedTransaction.studentFeePlanId)! || {planName: studentPlans.find(sp => sp.documentId === printedTransaction.studentFeePlanId)?.planName}}
-          course={courses.find(c => c.documentId === studentPlans.find(sp => sp.documentId === printedTransaction.studentFeePlanId)?.courseId)! || {courseName: 'Course'}}
+          plan={{planName: 'Monthly Fee'}}
+          course={courses.find(c => c.documentId === printedTransaction.courseId)! || {courseName: 'Course'}}
         />
       )}
     </div>
