@@ -7,6 +7,7 @@ import { collection, query, where, getDocs, doc, setDoc, serverTimestamp, writeB
 import type { Batch } from '../../types/models';
 import { useAuth } from '../../contexts/AuthContext';
 import '../../components/ui/TableStyles.css';
+import './Attendance.css';
 
 interface StudentAttendanceItem {
   userId: string;
@@ -22,7 +23,7 @@ const Attendance: React.FC = () => {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  
+
   const [studentList, setStudentList] = useState<StudentAttendanceItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -64,7 +65,7 @@ const Attendance: React.FC = () => {
       // Find users where batchIds array contains selectedBatchId or batchId matches
       const uQ1 = query(collection(db, 'users'), where('batchIds', 'array-contains', selectedBatchId));
       const uSnap1 = await getDocs(uQ1);
-      
+
       const studentsMap: { [userId: string]: any } = {};
       uSnap1.forEach(d => {
         const data = d.data();
@@ -80,10 +81,10 @@ const Attendance: React.FC = () => {
         const data = d.data();
         const uid = data.userId || d.id;
         if (!studentsMap[uid]) {
-          studentsMap[uid] = { 
-            userId: uid, 
-            name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'Student', 
-            phone: data.phone 
+          studentsMap[uid] = {
+            userId: uid,
+            name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'Student',
+            phone: data.phone
           };
         }
       });
@@ -95,7 +96,7 @@ const Attendance: React.FC = () => {
         where('date', '==', selectedDate)
       );
       const attSnap = await getDocs(attQ);
-      
+
       const existingAttendanceMap: { [studentId: string]: { status: any; remarks: string; docId: string } } = {};
       attSnap.forEach(d => {
         const data = d.data();
@@ -186,7 +187,7 @@ const Attendance: React.FC = () => {
     }
   };
 
-  const filteredStudents = studentList.filter(s => 
+  const filteredStudents = studentList.filter(s =>
     s.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.phone?.includes(searchQuery)
   );
@@ -209,7 +210,7 @@ const Attendance: React.FC = () => {
         </div>
 
         {studentList.length > 0 && (
-          <button 
+          <button
             onClick={handleSaveAttendance}
             disabled={isSaving}
             className="btn bg-green-600 text-white hover:bg-green-700 font-bold flex items-center gap-2 px-5 py-2.5 rounded-lg shadow-sm transition-all"
@@ -221,111 +222,115 @@ const Attendance: React.FC = () => {
       </div>
 
       {/* Selector Toolbar */}
-      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm mb-6 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-        <Select 
-          label="Select Batch *" 
+      <div className="premium-toolbar">
+        <Select
+          label="Select Batch *"
           options={[
             { label: 'Select Batch', value: '' },
             ...batches.map(b => ({ label: b.batchName, value: b.documentId || '' }))
-          ]} 
+          ]}
           value={selectedBatchId}
           onChange={(e) => setSelectedBatchId(e.target.value)}
         />
 
-        <Input 
+        <Input
           type="date"
-          label="Attendance Date *" 
+          label="Attendance Date *"
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
         />
 
-        <div className="flex gap-2">
-          <button 
+        <div className="premium-toolbar-buttons">
+          <button
             type="button"
             onClick={() => handleMarkAll('present')}
             disabled={studentList.length === 0}
-            className="btn bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold flex-1 flex justify-center items-center gap-1 py-2.5 rounded-md"
+            className="btn-emerald"
           >
             <CheckCircle2 size={16} /> Mark All Present
           </button>
 
-          <button 
+          <button
             type="button"
             onClick={() => handleMarkAll('absent')}
             disabled={studentList.length === 0}
-            className="btn bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-xs font-bold flex-1 flex justify-center items-center gap-1 py-2.5 rounded-md"
+            className="btn-rose"
           >
             <XCircle size={16} /> Mark All Absent
           </button>
         </div>
       </div>
 
-      {/* Summary Cards Banner */}
+      {/* Premium Overview Cards */}
+      {/* Premium Overview Cards */}
       {selectedBatchId && studentList.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-              <UserCheck size={24} />
+        <div className="premium-overview-cards">
+          <div className="premium-card card-indigo">
+            <div className="premium-icon-wrapper">
+              <UserCheck size={32} />
             </div>
             <div>
-              <div className="text-xs text-gray-500 font-medium">Total Students</div>
-              <div className="text-xl font-bold text-gray-900">{totalCount}</div>
+              <div className="premium-label">Total Students</div>
+              <div className="premium-value">{totalCount}</div>
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-green-50 text-green-600 rounded-lg">
-              <CheckCircle2 size={24} />
+          <div className="premium-card card-emerald">
+            <div className="premium-icon-wrapper">
+              <CheckCircle2 size={32} />
             </div>
             <div>
-              <div className="text-xs text-gray-500 font-medium">Present Today</div>
-              <div className="text-xl font-bold text-green-700">{presentCount}</div>
+              <div className="premium-label">Present Today</div>
+              <div className="premium-value">{presentCount}</div>
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-red-50 text-red-600 rounded-lg">
-              <XCircle size={24} />
+          <div className="premium-card card-rose">
+            <div className="premium-icon-wrapper">
+              <XCircle size={32} />
             </div>
             <div>
-              <div className="text-xs text-gray-500 font-medium">Absent Today</div>
-              <div className="text-xl font-bold text-red-700">{absentCount}</div>
+              <div className="premium-label">Absent Today</div>
+              <div className="premium-value">{absentCount}</div>
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
-              <Calendar size={24} />
+          <div className="premium-card card-amber">
+            <div className="premium-icon-wrapper">
+              <Calendar size={32} />
             </div>
             <div>
-              <div className="text-xs text-gray-500 font-medium">Attendance Rate</div>
-              <div className="text-xl font-bold text-purple-900">{attendancePercentage}%</div>
+              <div className="premium-label">Attendance Rate</div>
+              <div className="premium-value">{attendancePercentage}%</div>
             </div>
           </div>
         </div>
       )}
 
       {/* Main Student Attendance List */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="premium-table-container">
         {/* Table Search & Status */}
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center flex-wrap gap-4 bg-gray-50/50">
-          <div className="flex items-center gap-2">
-            <h3 className="font-bold text-gray-800 text-base">Students Sheet</h3>
+        <div className="premium-table-header">
+          <div className="premium-title-wrapper">
+            <div className="premium-title-icon">
+              <Calendar size={20} />
+            </div>
+            <h3 className="premium-title">Students Sheet</h3>
             {hasLoadedAttendance && (
-              <span className="text-xs bg-green-100 text-green-800 font-bold px-2.5 py-0.5 rounded border border-green-200 flex items-center gap-1">
+              <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1 shadow-sm">
                 <CheckCircle2 size={12} /> Previously Saved
               </span>
             )}
           </div>
 
-          <div className="relative w-full max-w-xs">
-            <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-            <input 
-              type="text" 
-              placeholder="Search student name or phone..." 
+          <div className="search-wrapper" style={{ minWidth: '250px' }}>
+            <Search className="search-icon" size={16} />
+            <input
+              type="text"
+              placeholder="Search student name or phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-indigo-500 focus:border-indigo-500"
+              className="premium-search-input"
             />
           </div>
         </div>
@@ -341,32 +346,28 @@ const Attendance: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="premium-table">
               <thead>
-                <tr className="bg-gray-100 border-b border-gray-200 text-xs text-gray-700 font-bold uppercase tracking-wider">
-                  <th className="py-3.5 px-4">#</th>
-                  <th className="py-3.5 px-4">Student Name</th>
-                  <th className="py-3.5 px-4">Mobile</th>
-                  <th className="py-3.5 px-4 text-center">Attendance Status</th>
-                  <th className="py-3.5 px-4">Remarks / Note</th>
+                <tr>
+                  <th>#</th>
+                  <th>Student Name</th>
+                  <th>Mobile</th>
+                  <th style={{ textAlign: 'center' }}>Attendance Status</th>
+                  <th>Remarks / Note</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 text-sm">
+              <tbody>
                 {filteredStudents.map((student, idx) => (
-                  <tr key={student.userId} className="hover:bg-gray-50 transition-colors">
-                    <td className="py-3 px-4 font-semibold text-gray-400 text-xs">{idx + 1}</td>
-                    <td className="py-3 px-4 font-bold text-gray-900">{student.studentName}</td>
-                    <td className="py-3 px-4 text-xs font-medium text-gray-600">{student.phone || '-'}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex justify-center items-center gap-1 bg-gray-100 p-1 rounded-lg max-w-xs mx-auto border border-gray-200">
+                  <tr key={student.userId}>
+                    <td style={{ color: '#9ca3af', fontWeight: '600' }}>{idx + 1}</td>
+                    <td style={{ fontWeight: '700', color: '#111827' }}>{student.studentName}</td>
+                    <td style={{ color: '#4b5563' }}>{student.phone || '-'}</td>
+                    <td>
+                      <div className="status-toggle-group">
                         <button
                           type="button"
                           onClick={() => handleStatusChange(student.userId, 'present')}
-                          className={`flex-1 py-1.5 px-3 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 ${
-                            student.status === 'present' 
-                              ? 'bg-emerald-600 text-white shadow-sm' 
-                              : 'text-gray-600 hover:bg-gray-200'
-                          }`}
+                          className={`status-btn ${student.status === 'present' ? 'active-present' : ''}`}
                         >
                           <CheckCircle2 size={14} /> Present
                         </button>
@@ -374,11 +375,7 @@ const Attendance: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleStatusChange(student.userId, 'absent')}
-                          className={`flex-1 py-1.5 px-3 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 ${
-                            student.status === 'absent' 
-                              ? 'bg-rose-600 text-white shadow-sm' 
-                              : 'text-gray-600 hover:bg-gray-200'
-                          }`}
+                          className={`status-btn ${student.status === 'absent' ? 'active-absent' : ''}`}
                         >
                           <XCircle size={14} /> Absent
                         </button>
@@ -386,23 +383,19 @@ const Attendance: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleStatusChange(student.userId, 'late')}
-                          className={`flex-1 py-1.5 px-3 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 ${
-                            student.status === 'late' 
-                              ? 'bg-amber-500 text-white shadow-sm' 
-                              : 'text-gray-600 hover:bg-gray-200'
-                          }`}
+                          className={`status-btn ${student.status === 'late' ? 'active-late' : ''}`}
                         >
                           <Clock size={14} /> Late
                         </button>
                       </div>
                     </td>
-                    <td className="py-3 px-4">
-                      <input 
-                        type="text" 
-                        placeholder="Add remark (optional)..." 
+                    <td>
+                      <input
+                        type="text"
+                        placeholder="Add remark (optional)..."
                         value={student.remarks}
                         onChange={(e) => handleRemarksChange(student.userId, e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-xs focus:ring-indigo-500 focus:border-indigo-500"
+                        className="premium-input"
                       />
                     </td>
                   </tr>
@@ -414,15 +407,15 @@ const Attendance: React.FC = () => {
 
         {/* Bottom Save Bar */}
         {studentList.length > 0 && (
-          <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
-            <span className="text-xs text-gray-500 font-medium">
+          <div className="bottom-save-bar">
+            <span className="bottom-save-text">
               Showing {filteredStudents.length} of {studentList.length} students
             </span>
 
-            <button 
+            <button
               onClick={handleSaveAttendance}
               disabled={isSaving}
-              className="btn bg-green-600 text-white hover:bg-green-700 font-bold flex items-center gap-2 px-6 py-2 rounded-lg shadow-sm transition-all"
+              className="btn-save-attendance"
             >
               <Save size={18} />
               {isSaving ? 'Saving Attendance...' : 'Save Attendance'}

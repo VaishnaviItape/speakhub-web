@@ -64,6 +64,10 @@ const Sidebar: React.FC = () => {
               <GraduationCap size={18} />
               <span>Students</span>
             </NavLink>
+            <NavLink to="/enquiries" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+              <HelpCircle size={18} />
+              <span>Enquiries</span>
+            </NavLink>
             <NavLink to="/attendance" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
               <Calendar size={18} />
               <span>Attendance</span>

@@ -16,7 +16,7 @@ import '../../components/ui/TableStyles.css';
 const Students: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Form State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
@@ -118,17 +118,17 @@ const Students: React.FC = () => {
         // Create new user
         updates.createdAt = new Date();
         updates.forcePasswordChange = true;
-        
+
         const defaultPassword = generateStudentPassword(firstName);
         updates.plainPassword = defaultPassword;
-        
+
         try {
           const userCredential = await createUserWithEmailAndPassword(secondaryAuth, authEmail, defaultPassword);
           const newUserRef = doc(db, 'users', userCredential.user.uid);
           await setDoc(newUserRef, updates);
-          
+
           alert(`Student Created Successfully!\n\nPlease share these login credentials with the student:\nPhone Number: ${phone}\nPassword: ${defaultPassword}`);
-          
+
           setStudents([...students, { documentId: userCredential.user.uid, ...updates }]);
         } catch (authError: any) {
           if (authError.code === 'auth/email-already-in-use') {
@@ -142,7 +142,7 @@ const Students: React.FC = () => {
         // Edit existing user
         let isApproving = false;
         const studentToEdit = students.find(s => s.documentId === editingId);
-        
+
         if (studentToEdit && studentToEdit.status === 'pending' && status === 'active') {
           isApproving = true;
         }
@@ -156,10 +156,10 @@ const Students: React.FC = () => {
               const studentAuthEmail = `${studentPhone.replace(/[^0-9]/g, '')}@speakhub.com`;
               const defaultPassword = generateStudentPassword(studentToEdit.name || firstName);
               await createUserWithEmailAndPassword(secondaryAuth, studentAuthEmail, defaultPassword);
-              
+
               updates.forcePasswordChange = true;
               updates.plainPassword = defaultPassword;
-              
+
               alert(`Student Approved Successfully!\n\nPlease share these login credentials with the student:\nPhone Number: ${studentPhone}\nPassword: ${defaultPassword}`);
             } catch (authError: any) {
               if (authError.code === 'auth/email-already-in-use') {
@@ -205,7 +205,7 @@ const Students: React.FC = () => {
     setPhone(student.phone || student.mobile || '');
     setAddress(student.address || '');
     setParentOrHusbandName(student.parentOrHusbandName || student.parentName || '');
-    
+
     if (student.joiningDate?.toDate) {
       setJoiningDate(student.joiningDate.toDate().toISOString().split('T')[0]);
     } else if (student.joiningDate) {
@@ -219,10 +219,10 @@ const Students: React.FC = () => {
     setBatchId(student.batchIds?.[0] || '');
     setStatus(student.status || 'pending');
     setIsDemoMode(student.isDemoMode || false);
-    
+
     setDemoStartDate(student.demoStartDate?.toDate ? student.demoStartDate.toDate().toISOString().split('T')[0] : (student.demoStartDate instanceof Date ? student.demoStartDate.toISOString().split('T')[0] : ''));
     setDemoEndDate(student.demoEndDate?.toDate ? student.demoEndDate.toDate().toISOString().split('T')[0] : (student.demoEndDate instanceof Date ? student.demoEndDate.toISOString().split('T')[0] : ''));
-    
+
     setIsModalOpen(true);
   };
 
@@ -281,20 +281,20 @@ const Students: React.FC = () => {
         );
       }
     },
-    {
-      key: 'plainPassword',
-      header: 'Initial Password',
-      render: (row) => (
-        <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border border-gray-200">
-          {row.plainPassword || 'Changed/Unknown'}
-        </span>
-      )
-    },
+    // {
+    //   key: 'plainPassword',
+    //   header: 'Initial Password',
+    //   render: (row) => (
+    //     <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border border-gray-200">
+    //       {row.plainPassword || 'Changed/Unknown'}
+    //     </span>
+    //   )
+    // },
     {
       key: 'status',
       header: 'Status',
       render: (row) => {
-        let badgeClass = 'inactive'; 
+        let badgeClass = 'inactive';
         if (row.status === 'active') badgeClass = 'active';
         if (row.status === 'pending') badgeClass = 'pending';
         return (
@@ -320,7 +320,7 @@ const Students: React.FC = () => {
             <span>Dashboard</span> <span className="separator">/</span> <span className="current">Students</span>
           </div>
         </div>
-        <button 
+        <button
           className="btn flex items-center justify-center gap-2 bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded-md font-medium transition-colors"
           onClick={() => { resetForm(); setIsModalOpen(true); }}
         >
@@ -329,10 +329,10 @@ const Students: React.FC = () => {
         </button>
       </div>
 
-      <DataTable 
-        title="Student Records" 
-        data={students} 
-        columns={columns} 
+      <DataTable
+        title="Student Records"
+        data={students}
+        columns={columns}
         onEdit={handleEdit}
         onDelete={handleDelete}
         searchPlaceholder="Search students..."
@@ -342,28 +342,28 @@ const Students: React.FC = () => {
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetForm(); }} title="Manage Student">
         <form onSubmit={handleSubmit} className="modal-form">
           <div className="grid grid-cols-2 gap-4">
-            <Input 
-              label="First Name" 
+            <Input
+              label="First Name"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              required 
+              required
             />
-            <Input 
-              label="Last Name" 
+            <Input
+              label="Last Name"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4 mb-4">
-            <Input 
-              label="Parent / Husband Name" 
+            <Input
+              label="Parent / Husband Name"
               value={parentOrHusbandName}
               onChange={(e) => setParentOrHusbandName(e.target.value)}
               placeholder="e.g. Vishnu Itape"
             />
-            <Input 
-              label="Date of Joining" 
+            <Input
+              label="Date of Joining"
               type="date"
               value={joiningDate}
               onChange={(e) => setJoiningDate(e.target.value)}
@@ -372,56 +372,56 @@ const Students: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-2 gap-4 mb-4">
-            <Input 
-              label="Phone Number" 
+            <Input
+              label="Phone Number"
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               required={!editingId}
               placeholder="e.g. 9876543210"
             />
-            <Input 
-              label="Address" 
+            <Input
+              label="Address"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Full address"
             />
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
-            <Select 
-              label="Assign Course" 
+            <Select
+              label="Assign Course"
               options={[
-                {label: 'Select Course', value: ''},
+                { label: 'Select Course', value: '' },
                 ...courses.map(c => ({ label: c.courseName, value: c.documentId || '' }))
-              ]} 
+              ]}
               value={courseId}
               onChange={(e) => setCourseId(e.target.value)}
             />
-            <Select 
-              label="Assign Batch" 
+            <Select
+              label="Assign Batch"
               options={[
-                {label: 'Select Batch', value: ''},
+                { label: 'Select Batch', value: '' },
                 ...batches
                   .filter(b => !courseId || b.courseId === courseId) // Optionally filter batches by selected course
                   .map(b => ({ label: b.batchName, value: b.documentId || '' }))
-              ]} 
+              ]}
               value={batchId}
               onChange={(e) => setBatchId(e.target.value)}
             />
           </div>
-          
-          <Select 
-            label="Status" 
+
+          <Select
+            label="Status"
             options={[
-              {label: 'Pending', value: 'pending'},
-              {label: 'Active (Approve)', value: 'active'},
-              {label: 'Inactive', value: 'inactive'}
-            ]} 
+              { label: 'Pending', value: 'pending' },
+              { label: 'Active (Approve)', value: 'active' },
+              { label: 'Inactive', value: 'inactive' }
+            ]}
             value={status}
             onChange={(e) => setStatus(e.target.value as any)}
           />
-          
+
           {status === 'active' && students.find(s => s.documentId === editingId)?.status === 'pending' && (
             <p className="text-sm text-green-600 mt-2 font-medium">
               Approving this student will generate a default password credentials notification.
@@ -429,17 +429,17 @@ const Students: React.FC = () => {
           )}
 
           <div className="mt-4 p-4 border border-purple-200 bg-purple-50 rounded-lg">
-             <label className="flex items-center gap-2 mb-3 cursor-pointer">
-               <input type="checkbox" checked={isDemoMode} onChange={(e) => setIsDemoMode(e.target.checked)} className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500" />
-               <span className="font-medium text-purple-800">Enable Demo Period</span>
-             </label>
-             
-             {isDemoMode && (
-               <div className="grid grid-cols-2 gap-4">
-                 <Input label="Demo Start Date" type="date" value={demoStartDate} onChange={(e) => setDemoStartDate(e.target.value)} required />
-                 <Input label="Demo End Date" type="date" value={demoEndDate} onChange={(e) => setDemoEndDate(e.target.value)} required />
-               </div>
-             )}
+            <label className="flex items-center gap-2 mb-3 cursor-pointer">
+              <input type="checkbox" checked={isDemoMode} onChange={(e) => setIsDemoMode(e.target.checked)} className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500" />
+              <span className="font-medium text-purple-800">Enable Demo Period</span>
+            </label>
+
+            {isDemoMode && (
+              <div className="grid grid-cols-2 gap-4">
+                <Input label="Demo Start Date" type="date" value={demoStartDate} onChange={(e) => setDemoStartDate(e.target.value)} required />
+                <Input label="Demo End Date" type="date" value={demoEndDate} onChange={(e) => setDemoEndDate(e.target.value)} required />
+              </div>
+            )}
           </div>
 
           <div className="modal-actions">

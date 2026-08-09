@@ -193,6 +193,39 @@ export const ReportConfig: ReportGroup[] = [
     ]
   },
   {
+    id: 'enquiries',
+    title: 'Enquiries & Admissions Reports',
+    icon: 'Users',
+    reports: [
+      {
+        id: 'inquiries-master',
+        title: 'Inquiries Master Report',
+        description: 'Displays all inquiries coming from the app.',
+        collection: 'inquiries',
+        columns: [
+          { key: 'studentName', header: 'Student Name' },
+          { key: 'phone', header: 'Phone' },
+          { key: 'courseName', header: 'Course' },
+          { key: 'status', header: 'Status', render: (row: any) => row.status ? row.status.toUpperCase() : 'PENDING' },
+          { key: 'createdAt', header: 'Date', render: (row: any) => row.createdAt?.toDate ? row.createdAt.toDate().toLocaleDateString() : '-' }
+        ]
+      },
+      {
+        id: 'app-admissions',
+        title: 'App Admissions Report',
+        description: 'Displays inquiries that were successfully assigned a batch (admitted).',
+        collection: 'inquiries',
+        filters: [{ field: 'status', operator: '==', value: 'assigned' }],
+        columns: [
+          { key: 'studentName', header: 'Student Name' },
+          { key: 'phone', header: 'Phone' },
+          { key: 'assignedBatchName', header: 'Assigned Batch' },
+          { key: 'createdAt', header: 'Inquiry Date', render: (row: any) => row.createdAt?.toDate ? row.createdAt.toDate().toLocaleDateString() : '-' }
+        ]
+      }
+    ]
+  },
+  {
     id: 'courses',
     title: 'Course Reports',
     icon: 'BookOpen',

@@ -43,6 +43,9 @@ import FeeReports from '../pages/Fees/FeeReports';
 import ReportsDashboard from '../pages/Reports/ReportsDashboard';
 import ReportViewer from '../pages/Reports/ReportViewer';
 
+// Enquiries
+import Enquiries from '../pages/Enquiries/Enquiries';
+
 // Student Pages
 import StudentDashboard from '../pages/StudentPortal/StudentDashboard';
 import StudentExams from '../pages/StudentPortal/StudentExams';
@@ -109,6 +112,8 @@ const AppRoutes: React.FC = () => {
           <Route path="/exams" element={<Exams />} />
           <Route path="/exams/:examId/questions" element={<ExamQuestions />} />
           <Route path="/exams/:examId/results" element={<ExamResults />} />
+
+          <Route path="/enquiries" element={<Enquiries />} />
         </Route>
 
         {/* Routes accessible ONLY to Admin */}
