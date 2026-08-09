@@ -1,7 +1,7 @@
 .sidebar {
   width: 260px;
   height: 100vh;
-  background-color: var(--bg-sidebar);
+  background-color: var(--bg-card);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -91,7 +91,7 @@
 }
 
 .nav-item.active {
-  background-color: var(--accent-red-bg);
+  background-color: var(--primary-light);
   color: var(--primary);
   font-weight: 500;
 }

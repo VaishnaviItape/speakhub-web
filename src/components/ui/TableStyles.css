@@ -111,12 +111,8 @@
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-main);
-  background-color: #f8fafc;
+  background-color: var(--bg-main);
   white-space: nowrap;
-}
-
-[data-theme='dark'] .data-table th {
-  background-color: #1e293b;
 }
 
 .sort-icon {

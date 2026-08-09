@@ -359,9 +359,9 @@ const Attendance: React.FC = () => {
               <tbody>
                 {filteredStudents.map((student, idx) => (
                   <tr key={student.userId}>
-                    <td style={{ color: '#9ca3af', fontWeight: '600' }}>{idx + 1}</td>
-                    <td style={{ fontWeight: '700', color: '#111827' }}>{student.studentName}</td>
-                    <td style={{ color: '#4b5563' }}>{student.phone || '-'}</td>
+                    <td style={{ color: 'var(--text-light)', fontWeight: '600' }}>{idx + 1}</td>
+                    <td style={{ fontWeight: '700', color: 'var(--text-main)' }}>{student.studentName}</td>
+                    <td style={{ color: 'var(--text-muted)' }}>{student.phone || '-'}</td>
                     <td>
                       <div className="status-toggle-group">
                         <button
