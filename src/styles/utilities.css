@@ -1,0 +1,66 @@
+/* Pseudo-Tailwind Utilities */
+.flex { display: flex; }
+.inline-flex { display: inline-flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.gap-1 { gap: 4px; }
+.gap-1\.5 { gap: 6px; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
+.gap-6 { gap: 24px; }
+
+.w-8 { width: 32px; }
+.h-8 { height: 32px; }
+.rounded-full { border-radius: 9999px; }
+
+.text-xs { font-size: 12px; }
+.text-sm { font-size: 14px; }
+.font-bold { font-weight: bold; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }
+.font-mono { font-family: monospace; }
+.block { display: block; }
+
+.bg-rose-100 { background-color: #ffe4e6; }
+.text-rose-600 { color: #e11d48; }
+.text-rose-800 { color: #9f1239; }
+.border-rose-200 { border-color: #fecdd3; border-style: solid; border-width: 1px; }
+
+.bg-emerald-50 { background-color: #ecfdf5; }
+.bg-emerald-100 { background-color: #d1fae5; }
+.text-emerald-700 { color: #047857; }
+.text-emerald-800 { color: #065f46; }
+.border-emerald-200 { border-color: #a7f3d0; border-style: solid; border-width: 1px; }
+
+.bg-amber-100 { background-color: #fef3c7; }
+.text-amber-800 { color: #92400e; }
+.border-amber-200 { border-color: #fde68a; border-style: solid; border-width: 1px; }
+
+.bg-indigo-100 { background-color: #e0e7ff; }
+.text-indigo-800 { color: #3730a3; }
+.border-indigo-200 { border-color: #c7d2fe; border-style: solid; border-width: 1px; }
+
+.text-slate-900 { color: #0f172a; }
+.text-slate-800 { color: #1e293b; }
+.text-slate-700 { color: #334155; }
+.text-slate-500 { color: #64748b; }
+.text-slate-400 { color: #94a3b8; }
+.text-blue-800 { color: #1e40af; }
+.text-blue-400 { color: #60a5fa; }
+
+.px-3 { padding-left: 12px; padding-right: 12px; }
+.py-1 { padding-top: 4px; padding-bottom: 4px; }
+.py-1\.5 { padding-top: 6px; padding-bottom: 6px; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+.rounded-lg { border-radius: 8px; }
+
+.shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+.border { border-style: solid; border-width: 1px; }
+
+.italic { font-style: italic; }
+
+.cursor-pointer { cursor: pointer; }
+.transition-all { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }

@@ -157,7 +157,7 @@ const Exams: React.FC = () => {
 
   const resetForm = () => {
     setEditingId(null);
-    setCourseId(''); setBatchId(''); setTitle('');
+    setCourseId(''); setBatchId('all'); setTitle('');
     setChapter(''); setDescription(''); setInstructions(''); setExamType('MCQ');
     setDuration(''); setTotalMarks(''); setPassingMarks('');
     setNumberOfQuestions(''); setMarksPerQuestion('');
@@ -330,7 +330,7 @@ const Exams: React.FC = () => {
           
           <div className="grid grid-cols-2 gap-4">
             <Select label="Course" options={courses.map(c => ({label: c.courseName, value: c.documentId!}))} value={courseId} onChange={(e) => setCourseId(e.target.value)} required />
-            <Select label="Batch" options={batches.map(b => ({label: b.batchName, value: b.documentId!}))} value={batchId} onChange={(e) => setBatchId(e.target.value)} />
+            <Select label="Batch" options={[{label: 'All Batches', value: 'all'}, ...batches.map(b => ({label: b.batchName, value: b.documentId!}))]} value={batchId} onChange={(e) => setBatchId(e.target.value)} />
           </div>
 
           <div className="grid grid-cols-2 gap-4 mt-2">
@@ -344,14 +344,14 @@ const Exams: React.FC = () => {
           <Input label="Instructions for Students" value={instructions} onChange={(e) => setInstructions(e.target.value)} />
 
           <div className="grid grid-cols-3 gap-4 mt-2">
-            <Input type="number" label="Duration (Mins)" value={duration} onChange={(e) => setDuration(e.target.value)} required />
-            <Input type="number" label="Total Marks" value={totalMarks} onChange={(e) => setTotalMarks(e.target.value)} required />
-            <Input type="number" label="Passing Marks" value={passingMarks} onChange={(e) => setPassingMarks(e.target.value)} required />
+            <Input type="number" min="0" label="Duration (Mins)" value={duration} onChange={(e) => setDuration(e.target.value)} required />
+            <Input type="number" min="0" label="Total Marks" value={totalMarks} onChange={(e) => setTotalMarks(e.target.value)} required />
+            <Input type="number" min="0" label="Passing Marks" value={passingMarks} onChange={(e) => setPassingMarks(e.target.value)} required />
           </div>
 
           <div className="grid grid-cols-2 gap-4 mt-2">
-            <Input type="number" label="Number of Questions" value={numberOfQuestions} onChange={(e) => setNumberOfQuestions(e.target.value)} required />
-            <Input type="number" label="Marks Per Question" value={marksPerQuestion} onChange={(e) => setMarksPerQuestion(e.target.value)} required />
+            <Input type="number" min="0" label="Number of Questions" value={numberOfQuestions} onChange={(e) => setNumberOfQuestions(e.target.value)} required />
+            <Input type="number" min="0" label="Marks Per Question" value={marksPerQuestion} onChange={(e) => setMarksPerQuestion(e.target.value)} required />
           </div>
 
           <div className="grid grid-cols-2 gap-4 mt-4 mb-4 p-4 bg-gray-50 rounded-lg">
@@ -380,8 +380,8 @@ const Exams: React.FC = () => {
           <div className="mt-4 p-4 bg-red-50 rounded-lg border border-red-100">
             <h3 className="text-sm font-bold text-red-800 mb-2">Anti-Cheat / Full-Screen Mode</h3>
             <div className="grid grid-cols-3 gap-4">
-              <Input type="number" label="Max App Exits Allowed" value={maxViolationsAllowed} onChange={(e) => setMaxViolationsAllowed(e.target.value)} required />
-              <Input type="number" label="Max Time Away (Sec)" value={maxViolationDuration} onChange={(e) => setMaxViolationDuration(e.target.value)} required />
+              <Input type="number" min="0" label="Max App Exits Allowed" value={maxViolationsAllowed} onChange={(e) => setMaxViolationsAllowed(e.target.value)} required />
+              <Input type="number" min="0" label="Max Time Away (Sec)" value={maxViolationDuration} onChange={(e) => setMaxViolationDuration(e.target.value)} required />
               <Select 
                 label="Action on Violation" 
                 options={[

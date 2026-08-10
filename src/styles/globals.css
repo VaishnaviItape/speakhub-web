@@ -1,4 +1,6 @@
 @import './variables.css';
+@import './metrics-cards.css';
+@import './utilities.css';
 
 /* CSS Reset and Base Styles */
 *, *::before, *::after {
@@ -102,3 +104,4 @@ ul, ol {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+

@@ -346,52 +346,52 @@ const FeeReports: React.FC = () => {
       ) : (
         <div className="space-y-6">
           {/* Top 4 Analytics Overview Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="metric-cards-grid">
             {/* Card 1: Total Collections */}
-            <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 text-white p-5 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-indigo-200">Total Collection</p>
-                <h3 className="text-2xl font-extrabold mt-1">₹{totalCollection.toLocaleString()}</h3>
-                <span className="text-[11px] text-indigo-200 mt-1 block">All-time fee received</span>
+            <div className="metric-card indigo">
+              <div className="metric-card-content">
+                <div className="metric-card-title">Total Collection</div>
+                <div className="metric-card-value">₹{totalCollection.toLocaleString()}</div>
+                <div className="metric-card-subtitle">All-time fee received</div>
               </div>
-              <div className="p-3 bg-white/20 backdrop-blur-md rounded-xl text-white">
-                <IndianRupee size={24} />
+              <div className="metric-card-icon">
+                <IndianRupee />
               </div>
             </div>
 
             {/* Card 2: This Month Collection */}
-            <div className="bg-gradient-to-br from-emerald-500 to-teal-700 text-white p-5 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-emerald-100">This Month</p>
-                <h3 className="text-2xl font-extrabold mt-1">₹{thisMonthCollection.toLocaleString()}</h3>
-                <span className="text-[11px] text-emerald-100 mt-1 block">Collected this month</span>
+            <div className="metric-card emerald">
+              <div className="metric-card-content">
+                <div className="metric-card-title">This Month</div>
+                <div className="metric-card-value">₹{thisMonthCollection.toLocaleString()}</div>
+                <div className="metric-card-subtitle">Collected this month</div>
               </div>
-              <div className="p-3 bg-white/20 backdrop-blur-md rounded-xl text-white">
-                <TrendingUp size={24} />
+              <div className="metric-card-icon">
+                <TrendingUp />
               </div>
             </div>
 
             {/* Card 3: Total Pending Dues */}
-            <div className="bg-gradient-to-br from-rose-500 to-red-700 text-white p-5 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-rose-100">Total Pending Dues</p>
-                <h3 className="text-2xl font-extrabold mt-1">₹{totalPendingAmount.toLocaleString()}</h3>
-                <span className="text-[11px] text-rose-100 mt-1 block">Uncollected fees</span>
+            <div className="metric-card rose">
+              <div className="metric-card-content">
+                <div className="metric-card-title">Total Pending Dues</div>
+                <div className="metric-card-value">₹{totalPendingAmount.toLocaleString()}</div>
+                <div className="metric-card-subtitle">Uncollected fees</div>
               </div>
-              <div className="p-3 bg-white/20 backdrop-blur-md rounded-xl text-white">
-                <AlertCircle size={24} />
+              <div className="metric-card-icon">
+                <AlertCircle />
               </div>
             </div>
 
             {/* Card 4: Fee Defaulters Count */}
-            <div className="bg-gradient-to-br from-amber-500 to-orange-600 text-white p-5 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-amber-100">Overdue Students</p>
-                <h3 className="text-2xl font-extrabold mt-1">{defaulterCount} Students</h3>
-                <span className="text-[11px] text-amber-100 mt-1 block">Pending payment list</span>
+            <div className="metric-card amber">
+              <div className="metric-card-content">
+                <div className="metric-card-title">Overdue Students</div>
+                <div className="metric-card-value">{defaulterCount} Students</div>
+                <div className="metric-card-subtitle">Pending payment list</div>
               </div>
-              <div className="p-3 bg-white/20 backdrop-blur-md rounded-xl text-white">
-                <UserX size={24} />
+              <div className="metric-card-icon">
+                <UserX />
               </div>
             </div>
           </div>

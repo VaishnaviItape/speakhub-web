@@ -42,9 +42,7 @@ const HomeworkPage: React.FC = () => {
       const bSnap = await getDocs(query(collection(db, 'batches'), where('status', '==', 'active')));
       const activeBatches = bSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as Batch));
       setBatches(activeBatches);
-      if (activeBatches.length > 0 && activeBatches[0].documentId) {
-        setBatchId(activeBatches[0].documentId);
-      }
+      setBatchId('all');
     } catch (e) {
       console.error("Error fetching batches:", e);
     }
@@ -70,9 +68,7 @@ const HomeworkPage: React.FC = () => {
 
   const resetForm = () => {
     setEditingId(null);
-    if (batches.length > 0 && batches[0].documentId) {
-      setBatchId(batches[0].documentId);
-    }
+    setBatchId('all');
     setDueDate(new Date().toISOString().split('T')[0]);
     setTitle('');
     setContentType('text');
@@ -299,7 +295,7 @@ const HomeworkPage: React.FC = () => {
           <div className="grid grid-cols-2 gap-4">
             <Select 
               label="Target Batch *" 
-              options={batches.map(b => ({ label: b.batchName, value: b.documentId! }))} 
+              options={[{ label: 'All Batches', value: 'all' }, ...batches.map(b => ({ label: b.batchName, value: b.documentId! }))]} 
               value={batchId} 
               onChange={(e) => setBatchId(e.target.value)} 
               required 

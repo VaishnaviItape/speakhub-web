@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Eye, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Download, Eye, AlertTriangle, Users, Target, TrendingUp, CheckCircle, Award } from 'lucide-react';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import Modal from '../../components/ui/Modal';
 import { db } from '../../config/firebase';
@@ -182,28 +182,47 @@ const ExamResults: React.FC = () => {
       </div>
 
       {/* Analytics Cards */}
-      <div className="grid grid-cols-5 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <div className="text-sm text-gray-500 mb-1">Participation</div>
-          <div className="text-2xl font-bold text-gray-800">{stats.attempted} / {stats.totalEligible}</div>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <div className="text-sm text-gray-500 mb-1">Average Score</div>
-          <div className="text-2xl font-bold text-blue-600">{stats.average}</div>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <div className="text-sm text-gray-500 mb-1">Highest / Lowest</div>
-          <div className="text-2xl font-bold text-gray-800">{stats.highest} <span className="text-gray-400 text-lg">/</span> {stats.lowest}</div>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <div className="text-sm text-gray-500 mb-1">Pass Rate</div>
-          <div className="text-2xl font-bold text-green-600">
-            {stats.attempted ? Math.round((stats.passCount / stats.attempted) * 100) : 0}%
+      <div className="metric-cards-grid">
+        <div className="metric-card indigo">
+          <div className="metric-card-content">
+            <div className="metric-card-title">Participation</div>
+            <div className="metric-card-value">{stats.attempted} / {stats.totalEligible}</div>
           </div>
+          <div className="metric-card-icon"><Users /></div>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-yellow-200 bg-yellow-50">
-          <div className="text-sm text-yellow-700 mb-1">Batch Topper</div>
-          <div className="text-xl font-bold text-yellow-800 truncate">{stats.topStudent}</div>
+
+        <div className="metric-card blue">
+          <div className="metric-card-content">
+            <div className="metric-card-title">Average Score</div>
+            <div className="metric-card-value">{stats.average}</div>
+          </div>
+          <div className="metric-card-icon"><Target /></div>
+        </div>
+
+        <div className="metric-card rose">
+          <div className="metric-card-content">
+            <div className="metric-card-title">Highest / Lowest</div>
+            <div className="metric-card-value">{stats.highest} <span style={{fontSize: '20px', opacity: 0.7}}>/</span> {stats.lowest}</div>
+          </div>
+          <div className="metric-card-icon"><TrendingUp /></div>
+        </div>
+
+        <div className="metric-card emerald">
+          <div className="metric-card-content">
+            <div className="metric-card-title">Pass Rate</div>
+            <div className="metric-card-value">
+              {stats.attempted ? Math.round((stats.passCount / stats.attempted) * 100) : 0}%
+            </div>
+          </div>
+          <div className="metric-card-icon"><CheckCircle /></div>
+        </div>
+
+        <div className="metric-card amber">
+          <div className="metric-card-content">
+            <div className="metric-card-title">Batch Topper</div>
+            <div className="metric-card-value" style={{fontSize: '24px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '150px'}} title={stats.topStudent || ''}>{stats.topStudent || '-'}</div>
+          </div>
+          <div className="metric-card-icon"><Award /></div>
         </div>
       </div>
 

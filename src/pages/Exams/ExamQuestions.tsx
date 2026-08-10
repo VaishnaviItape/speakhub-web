@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, ArrowLeft, Upload, FileText, Download, Trash2, CheckCircle2, HelpCircle } from 'lucide-react';
+import { Plus, ArrowLeft, Upload, FileText, Download, Trash2, CheckCircle2, HelpCircle, Clock } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
@@ -112,7 +112,7 @@ const ExamQuestions: React.FC = () => {
       question,
       questionType,
       correctAnswer,
-      marks: Number(marks) || 1,
+      marks: Number(exam?.marksPerQuestion) || 1,
       explanation
     };
 
@@ -300,7 +300,7 @@ const ExamQuestions: React.FC = () => {
             optionC: optC,
             optionD: optD,
             correctAnswer: ans,
-            marks: m,
+            marks: Number(exam?.marksPerQuestion) || 1,
             explanation: exp
           });
         }
@@ -373,7 +373,7 @@ const ExamQuestions: React.FC = () => {
           optionC: optC,
           optionD: optD,
           correctAnswer: ['A','B','C','D'].includes(ans) ? ans : 'A',
-          marks: marksNum,
+          marks: Number(exam?.marksPerQuestion) || 1,
           explanation: expText
         });
       }
@@ -494,8 +494,8 @@ const ExamQuestions: React.FC = () => {
 
       {/* Exam Details Header Banner */}
       {exam && (
-        <div className="bg-white p-5 rounded-xl border border-indigo-100 shadow-sm mb-6 flex justify-between items-center flex-wrap gap-4">
-          <div>
+        <div className="mb-6 flex flex-col gap-6">
+          <div className="bg-white p-5 rounded-xl border border-indigo-100 shadow-sm">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded">
                 {exam.examType || 'MCQ'} Exam
@@ -511,28 +511,37 @@ const ExamQuestions: React.FC = () => {
                 </span>
               )}
             </div>
-            <h2 className="text-xl font-bold text-gray-800 mt-1">{exam.title}</h2>
-            {exam.chapter && <p className="text-sm text-gray-600">Chapter: {exam.chapter}</p>}
+            <h2 className="text-xl font-bold text-gray-800 mt-2">{exam.title}</h2>
+            {exam.chapter && <p className="text-sm text-gray-600 mt-1">Chapter: {exam.chapter}</p>}
           </div>
 
-          <div className="flex gap-6 bg-indigo-50/50 p-3 rounded-lg border border-indigo-100">
-            <div className="text-center">
-              <div className="text-xs font-medium text-gray-500">Uploaded Questions</div>
-              <div className="text-lg font-bold text-indigo-900">
-                {questions.length} <span className="text-xs text-gray-400">/ {targetCount || '∞'}</span>
+          <div className="metric-cards-grid" style={{ marginBottom: 0 }}>
+            <div className="metric-card indigo">
+              <div className="metric-card-content">
+                <div className="metric-card-title">Uploaded Questions</div>
+                <div className="metric-card-value">
+                  {questions.length} <span style={{fontSize: '20px', opacity: 0.7}}>/</span> {targetCount || '∞'}
+                </div>
               </div>
+              <div className="metric-card-icon"><HelpCircle /></div>
             </div>
 
-            <div className="text-center border-l border-indigo-200 pl-6">
-              <div className="text-xs font-medium text-gray-500">Total Marks</div>
-              <div className="text-lg font-bold text-emerald-700">
-                {totalQuestionMarks} <span className="text-xs text-gray-400">/ {targetMarks || '∞'}</span>
+            <div className="metric-card emerald">
+              <div className="metric-card-content">
+                <div className="metric-card-title">Total Marks</div>
+                <div className="metric-card-value">
+                  {totalQuestionMarks} <span style={{fontSize: '20px', opacity: 0.7}}>/</span> {targetMarks || '∞'}
+                </div>
               </div>
+              <div className="metric-card-icon"><CheckCircle2 /></div>
             </div>
 
-            <div className="text-center border-l border-indigo-200 pl-6">
-              <div className="text-xs font-medium text-gray-500">Duration</div>
-              <div className="text-lg font-bold text-gray-800">{exam.duration || 0} Mins</div>
+            <div className="metric-card amber">
+              <div className="metric-card-content">
+                <div className="metric-card-title">Duration</div>
+                <div className="metric-card-value">{exam.duration || 0} Mins</div>
+              </div>
+              <div className="metric-card-icon"><Clock /></div>
             </div>
           </div>
         </div>
@@ -594,7 +603,7 @@ const ExamQuestions: React.FC = () => {
             <Input label="Option D *" value={optionD} onChange={(e) => setOptionD(e.target.value)} required placeholder="Option D text" />
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mt-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+          <div className="mt-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
             <Select 
               label="Correct Answer *" 
               options={[
@@ -603,14 +612,6 @@ const ExamQuestions: React.FC = () => {
               ]} 
               value={correctAnswer}
               onChange={(e) => setCorrectAnswer(e.target.value)}
-              required
-            />
-
-            <Input 
-              type="number"
-              label="Marks *" 
-              value={marks}
-              onChange={(e) => setMarks(e.target.value)}
               required
             />
           </div>

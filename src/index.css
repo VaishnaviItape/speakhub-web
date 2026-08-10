@@ -1,3 +1,4 @@
+
 :root {
   /* Application Colors */
   --bg-main: #f4f7fe; /* Light grayish-blue for app background */
@@ -164,3 +165,4 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
