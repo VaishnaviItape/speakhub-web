@@ -70,7 +70,7 @@ service cloud.firestore {
       allow write: if isAdmin() || isTeacher();
     }
 
-    match /homeworkSubmissions/{submissionId} {
+    match /homework_submissions/{submissionId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update, delete: if isAdmin() || isTeacher() || (isSignedIn() && resource.data.studentId == request.auth.uid);
@@ -82,19 +82,19 @@ service cloud.firestore {
       allow write: if isAdmin() || isTeacher();
     }
 
-    match /examQuestions/{questionId} {
+    match /exam_questions/{questionId} {
       allow read: if isSignedIn();
       allow write: if isAdmin() || isTeacher();
     }
 
-    match /examAttempts/{attemptId} {
+    match /exam_attempts/{attemptId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update, delete: if isAdmin() || isTeacher() || (isSignedIn() && resource.data.studentId == request.auth.uid);
     }
 
     // --- FEES & FINANCIAL TRANSACTIONS ---
-    match /feePlans/{planId} {
+    match /fee_plans/{planId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
@@ -104,13 +104,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    match /feeTransactions/{transactionId} {
+    match /fee_transactions/{transactionId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
     // --- CONTENT VIEWS & ANALYTICS ---
-    match /contentViews/{viewId} {
+    match /content_views/{viewId} {
       allow read, write: if isSignedIn();
     }
 
