@@ -13,7 +13,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.role == 'admin' ||
+        request.auth.token.get('role', '') == 'admin' ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
          getUserData().role == 'admin')
       );
@@ -21,7 +21,7 @@ service cloud.firestore {
 
     function isTeacher() {
       return isSignedIn() && (
-        request.auth.token.role == 'teacher' ||
+        request.auth.token.get('role', '') == 'teacher' ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
          getUserData().role == 'teacher')
       );
@@ -32,13 +32,15 @@ service cloud.firestore {
       // Authenticated users can read user docs (needed for authentication query & profile lookups)
       allow read: if isSignedIn();
       // Admin can create/update/delete any user document. Users can update their own profile.
-      allow create, update, delete: if isAdmin() || (isSignedIn() && (request.auth.uid == userId || resource.data.uid == request.auth.uid));
+      allow create: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow update, delete: if isAdmin() || (isSignedIn() && (request.auth.uid == userId || resource.data.uid == request.auth.uid));
     }
 
     // --- STUDENTS ---
     match /students/{studentId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin() || isTeacher();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() || isTeacher();
     }
 
     // --- COURSES & SUBJECTS ---

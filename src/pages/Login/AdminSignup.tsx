@@ -4,7 +4,7 @@ import { Mail, KeyRound, User, Phone, UserPlus, AlertCircle, Eye, EyeOff } from 
 import logo from '../../assets/logo.png';
 import './Login.css';
 import { auth, db } from '../../config/firebase';
-import { createUserWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signOut as firebaseSignOut, deleteUser, User as FirebaseAuthUser } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { checkMobileExists } from '../../utils/phoneValidation';
 import { validateName, validateEmail, validatePhoneNumber } from '../../utils/validation';
@@ -37,6 +37,7 @@ const AdminSignup: React.FC = () => {
     setError('');
     setIsLoading(true);
 
+    let createdUser: FirebaseAuthUser | null = null;
     try {
       if (mobile.trim()) {
         const mobileCheck = await checkMobileExists(mobile.trim());
@@ -48,6 +49,7 @@ const AdminSignup: React.FC = () => {
       }
 
       const userCred = await createUserWithEmailAndPassword(auth, email, password);
+      createdUser = userCred.user;
       const uid = userCred.user.uid;
 
       await setDoc(doc(db, 'users', uid), {
@@ -69,6 +71,14 @@ const AdminSignup: React.FC = () => {
       alert("Admin account created successfully! Please log in with your new credentials.");
       navigate('/login');
     } catch (err: any) {
+      if (createdUser) {
+        try {
+          await deleteUser(createdUser);
+        } catch (cleanupErr) {
+          console.error("Failed to cleanup auth user after db error", cleanupErr);
+        }
+      }
+      
       if (err.code === 'auth/email-already-in-use') {
         setError('This email is already in use.');
       } else if (err.code === 'auth/weak-password') {
