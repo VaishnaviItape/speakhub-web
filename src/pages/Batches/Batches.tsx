@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, ChevronDown } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import type { Batch, Course, User } from '../../types/models';
 import { db } from '../../config/firebase';
-import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, where, Timestamp, arrayUnion } from 'firebase/firestore';
+import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, where, arrayUnion } from 'firebase/firestore';
 import { validateBatchName } from '../../utils/validation';
 
 const Batches: React.FC = () => {
@@ -266,7 +266,7 @@ const Batches: React.FC = () => {
           />
           <Select 
             label="Assign Teacher" 
-            options={teachers.map(t => ({ label: t.name || t.email, value: t.documentId || '' }))} 
+            options={teachers.map(t => ({ label: t.name || t.email || '', value: t.documentId || '' }))} 
             value={teacherId}
             onChange={(e) => setTeacherId(e.target.value)}
             required

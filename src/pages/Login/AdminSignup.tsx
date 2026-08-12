@@ -4,7 +4,8 @@ import { Mail, KeyRound, User, Phone, UserPlus, AlertCircle, Eye, EyeOff } from 
 import logo from '../../assets/logo.png';
 import './Login.css';
 import { auth, db } from '../../config/firebase';
-import { createUserWithEmailAndPassword, signOut as firebaseSignOut, deleteUser, User as FirebaseAuthUser } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signOut as firebaseSignOut, deleteUser } from 'firebase/auth';
+import type { User as FirebaseAuthUser } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { checkMobileExists } from '../../utils/phoneValidation';
 import { validateName, validateEmail, validatePhoneNumber } from '../../utils/validation';

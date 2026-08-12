@@ -34,11 +34,11 @@ const ExamQuestions: React.FC = () => {
   const [optionC, setOptionC] = useState('');
   const [optionD, setOptionD] = useState('');
   const [correctAnswer, setCorrectAnswer] = useState('A');
-  const [marks, setMarks] = useState('1');
+  const [, setMarks] = useState('1');
   const [explanation, setExplanation] = useState('');
 
   // Bulk CSV Upload State
-  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [, setCsvFile] = useState<File | null>(null);
   const [parsedCsvQuestions, setParsedCsvQuestions] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -287,7 +287,7 @@ const ExamQuestions: React.FC = () => {
         const optD = values[4] || '';
         const rawAns = (values[5] || 'A').toUpperCase().trim();
         const ans = ['A','B','C','D'].includes(rawAns) ? rawAns : 'A';
-        const m = Number(values[6]) || 1;
+
         const exp = values[7] || '';
 
         if (qText && optA && optB) {
@@ -351,7 +351,6 @@ const ExamQuestions: React.FC = () => {
       const cMatch = block.match(/(?:C:|Option C:)\s*(.*?)(?=\n[D]\:|\nANS:|\nCorrect:|$)/i);
       const dMatch = block.match(/(?:D:|Option D:)\s*(.*?)(?=\nANS:|\nCorrect:|$)/i);
       const ansMatch = block.match(/(?:ANS:|Answer:|Correct:)\s*([A-D])/i);
-      const marksMatch = block.match(/(?:MARKS:|Marks:)\s*(\d+)/i);
       const expMatch = block.match(/(?:EXP:|Explanation:)\s*(.*)/i);
 
       const questionText = qMatch ? qMatch[1].trim() : '';
@@ -360,7 +359,7 @@ const ExamQuestions: React.FC = () => {
       const optC = cMatch ? cMatch[1].trim() : '';
       const optD = dMatch ? dMatch[1].trim() : '';
       const ans = ansMatch ? ansMatch[1].toUpperCase().trim() : 'A';
-      const marksNum = marksMatch ? Number(marksMatch[1]) : 1;
+
       const expText = expMatch ? expMatch[1].trim() : '';
 
       if (questionText && optA && optB) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, ChevronDown } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
@@ -145,7 +145,7 @@ const Teachers: React.FC = () => {
     const parts = (teacher.name || '').split(' ');
     setFirstName(parts[0] || '');
     setLastName(parts.slice(1).join(' ') || '');
-    setEmail(teacher.email);
+    setEmail(teacher.email || '');
     setMobile(teacher.mobile || '');
     setStatus(teacher.status as 'active' | 'inactive');
     setEditingId(teacher.documentId || null);

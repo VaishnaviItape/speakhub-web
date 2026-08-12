@@ -15,6 +15,8 @@ export interface User {
   parentOrHusbandName?: string;
   joiningDate?: Timestamp | Date | string;
   status: 'active' | 'inactive' | 'pending';
+  courseIds?: string[];
+  batchIds?: string[];
   isDemoMode?: boolean;
   demoStartDate?: Timestamp | Date;
   demoEndDate?: Timestamp | Date;
@@ -116,6 +118,7 @@ export interface Homework {
   publishDate?: Timestamp | Date;
   publishTime?: string;
   status: 'draft' | 'scheduled' | 'published' | 'closed';
+  createdAt?: Timestamp | Date;
 }
 
 export interface HomeworkSubmission {

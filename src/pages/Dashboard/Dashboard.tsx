@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { Users, GraduationCap, BookOpen, CalendarDays, TrendingUp, Activity, UserPlus, Clock } from 'lucide-react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import { Users, GraduationCap, BookOpen, CalendarDays, Activity, UserPlus, Clock } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Link } from 'react-router-dom';
 import './Dashboard.css';
 
@@ -80,10 +80,6 @@ const Dashboard: React.FC = () => {
     { name: 'Batches', value: stats.batches, color: '#f43f5e' }
   ].filter(d => d.value > 0);
 
-  const barData = [
-    { name: 'Students', count: stats.students },
-    { name: 'Teachers', count: stats.teachers },
-  ];
 
   return (
     <div className="page-container">

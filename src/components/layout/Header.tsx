@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Search, Sun, Moon, ChevronDown } from 'lucide-react';
+import { Menu, Search, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import './Header.css';
 const Header: React.FC = () => {

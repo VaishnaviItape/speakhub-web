@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, MessageCircle, Calendar, Clock, DollarSign } from 'lucide-react';
+import { Plus, MessageCircle, Calendar, Clock } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
@@ -13,6 +13,7 @@ import ReceiptTemplate from './ReceiptTemplate';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface StudentFeeRecord {
+  documentId?: string;
   studentId: string;
   studentName: string;
   courseId: string;
@@ -142,8 +143,8 @@ const Fees: React.FC = () => {
         const studentTx = transactions
           .filter(t => t.studentId === student.documentId)
           .sort((a, b) => {
-            const dA = a.paymentDate?.seconds || 0;
-            const dB = b.paymentDate?.seconds || 0;
+            const dA = (a.paymentDate as any)?.seconds || 0;
+            const dB = (b.paymentDate as any)?.seconds || 0;
             return dB - dA;
           });
 
@@ -157,12 +158,13 @@ const Fees: React.FC = () => {
         return {
           studentId: student.documentId!,
           studentName: student.name || student.email || 'Student',
+          documentId: student.documentId,
           courseId: courseId,
           courseName: course?.courseName || 'Unassigned',
           monthlyFee: course?.monthlyFee || 0,
           joiningDate: jInfo.display,
           joiningDateRaw: jInfo.raw,
-          lastPaymentDate: lastTx?.paymentDate ? new Date(lastTx.paymentDate.seconds * 1000) : undefined,
+          lastPaymentDate: lastTx?.paymentDate ? new Date((lastTx.paymentDate as any)?.seconds * 1000) : undefined,
           lastPaidMonth: lastTx?.billingPeriod,
           nextDueDate: lastTx?.nextDueDate ? formatJoiningDateDisplay(lastTx.nextDueDate).display : computedNextDue
         };
@@ -271,7 +273,7 @@ const Fees: React.FC = () => {
       const tSnap = await getDocs(query(collection(db, 'fee_transactions'), where('studentId', '==', row.studentId)));
       if (!tSnap.empty) {
         const txs = tSnap.docs.map(d => d.data() as FeeTransaction);
-        txs.sort((a, b) => (b.paymentDate?.seconds || 0) - (a.paymentDate?.seconds || 0));
+        txs.sort((a, b) => ((b.paymentDate as any)?.seconds || 0) - ((a.paymentDate as any)?.seconds || 0));
         setPrintedTransaction(txs[0]);
       } else {
         setPrintedTransaction({

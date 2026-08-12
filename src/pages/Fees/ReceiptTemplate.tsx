@@ -9,7 +9,7 @@ interface ReceiptTemplateProps {
   plan?: { planName?: string };
 }
 
-const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ transaction, student, course, plan }) => {
+const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ transaction, student, course }) => {
   const formatDateDisplay = (dateVal?: any): string => {
     if (!dateVal) return 'N/A';
     let d: Date;

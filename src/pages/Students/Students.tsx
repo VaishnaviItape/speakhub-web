@@ -7,10 +7,10 @@ import DataTable, { type Column } from '../../components/ui/DataTable';
 import type { Course, Batch } from '../../types/models';
 import { db } from '../../config/firebase';
 import { collection, query, where, getDocs, updateDoc, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { secondaryAuth } from '../../config/secondaryFirebase';
-import { auth } from '../../config/firebase';
-import { sendEmail } from '../../utils/emailService';
+
+
 import { checkMobileExists } from '../../utils/phoneValidation';
 import { validateName, validatePhoneNumber } from '../../utils/validation';
 import '../../components/ui/TableStyles.css';

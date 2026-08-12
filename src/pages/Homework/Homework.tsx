@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, CheckSquare, Edit, Trash2, Calendar, FileText, Link, Upload, CheckCircle2 } from 'lucide-react';
+import { Plus, CheckSquare, Edit, Trash2, Calendar, FileText, Upload } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
@@ -8,7 +8,7 @@ import DataTable, { type Column } from '../../components/ui/DataTable';
 import { db } from '../../config/firebase';
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, serverTimestamp } from 'firebase/firestore';
 import { uploadFile } from '../../utils/storageService';
-import type { Homework, Batch, Course } from '../../types/models';
+import type { Homework, Batch } from '../../types/models';
 import '../../components/ui/TableStyles.css';
 
 const HomeworkPage: React.FC = () => {

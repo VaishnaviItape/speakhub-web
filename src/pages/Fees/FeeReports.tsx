@@ -5,7 +5,6 @@ import {
   IndianRupee, 
   AlertCircle, 
   Search, 
-  Filter, 
   MessageCircle, 
   Calendar, 
   Printer, 
@@ -17,7 +16,6 @@ import {
 import { db } from '../../config/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import type { FeeTransaction, User, Course } from '../../types/models';
-import DataTable, { type Column } from '../../components/ui/DataTable';
 import '../../components/ui/TableStyles.css';
 
 interface DefaulterRecord {
@@ -174,8 +172,8 @@ const FeeReports: React.FC = () => {
         const studentTx = transactions
           .filter(t => t.studentId === student.documentId)
           .sort((a, b) => {
-            const dA = a.paymentDate?.seconds || 0;
-            const dB = b.paymentDate?.seconds || 0;
+            const dA = (a.paymentDate as any)?.seconds || 0;
+            const dB = (b.paymentDate as any)?.seconds || 0;
             return dB - dA;
           });
 
@@ -221,7 +219,7 @@ const FeeReports: React.FC = () => {
           courseName: course?.courseName || 'Unassigned',
           monthlyFee: monthlyFee,
           joiningDate: jInfo.display,
-          lastPaidDate: lastTx?.paymentDate ? new Date(lastTx.paymentDate.seconds * 1000).toLocaleDateString() : undefined,
+          lastPaidDate: lastTx?.paymentDate ? new Date((lastTx.paymentDate as any).seconds * 1000).toLocaleDateString() : undefined,
           lastPaidMonth: lastTx?.billingPeriod,
           nextDueDate: nextDueDisplay,
           status,

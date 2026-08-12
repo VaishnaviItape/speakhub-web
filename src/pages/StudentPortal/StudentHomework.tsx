@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Calendar, CheckCircle } from 'lucide-react';
+import { FileText, Calendar } from 'lucide-react';
 import { db } from '../../config/firebase';
-import { collection, query, where, getDocs, doc, getDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import './StudentPortal.css';
 

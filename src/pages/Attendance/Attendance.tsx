@@ -7,16 +7,13 @@ import {
   Save, 
   UserCheck, 
   Search, 
-  Filter, 
   Download, 
-  Users, 
-  CheckSquare, 
-  Square 
+  Users 
 } from 'lucide-react';
 import Select from '../../components/forms/Select';
 import Input from '../../components/forms/Input';
 import { db } from '../../config/firebase';
-import { collection, query, where, getDocs, doc, setDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import type { Batch } from '../../types/models';
 import { useAuth } from '../../contexts/AuthContext';
 import '../../components/ui/TableStyles.css';
@@ -49,7 +46,7 @@ const Attendance: React.FC = () => {
   const [hasLoadedAttendance, setHasLoadedAttendance] = useState(false);
 
   // Bulk Date Range State
-  const [isRangeModalOpen, setIsRangeModalOpen] = useState(false);
+  const [, setIsRangeModalOpen] = useState(false);
   const [rangeBatchId, setRangeBatchId] = useState('');
   const [fromDate, setFromDate] = useState('2026-08-01');
   const [toDate, setToDate] = useState(new Date().toISOString().split('T')[0]);
@@ -314,17 +311,7 @@ const Attendance: React.FC = () => {
     }
   };
 
-  const handleOpenRangeModal = () => {
-    const bId = selectedBatchId || (batches.length > 0 ? batches[0].documentId || '' : '');
-    setRangeBatchId(bId);
-    setFromDate('2026-08-01');
-    setToDate(todayStr);
-    setModalSearchQuery('');
-    setIsRangeModalOpen(true);
-    if (bId) {
-      loadRangeStudents(bId);
-    }
-  };
+
 
   const handleApplyRangeAttendance = async () => {
     const targetBatchId = rangeBatchId || selectedBatchId;

@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, CheckCircle, Clock, Calendar, FileText } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+
 import { db } from '../../config/firebase';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import './StudentPortal.css';
 
 const StudentExams: React.FC = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   
   // State for exam listing

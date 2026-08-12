@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { HelpCircle, ChevronDown, Check, Trash2, CalendarPlus } from 'lucide-react';
+import { Check, CalendarPlus } from 'lucide-react';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import Modal from '../../components/ui/Modal';
 import Select from '../../components/forms/Select';
 import { db } from '../../config/firebase';
-import { collection, query, getDocs, doc, updateDoc, deleteDoc, orderBy, where } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, deleteDoc, orderBy, where, addDoc } from 'firebase/firestore';
 import '../../components/ui/TableStyles.css';
 
 interface Inquiry {
@@ -22,6 +22,7 @@ interface Inquiry {
 interface Batch {
   documentId: string;
   batchName: string;
+  courseId?: string;
   courseName?: string;
 }
 

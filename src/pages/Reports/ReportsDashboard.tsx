@@ -8,8 +8,7 @@ import {
   CreditCard,
   Briefcase,
   Users,
-  ArrowRight,
-  PieChart,
+  ArrowRight
 } from "lucide-react";
 import { ReportConfig } from "./ReportConfig";
 import "./ReportsDashboard.css";
@@ -24,15 +23,7 @@ const iconMap: Record<string, React.ReactNode> = {
   Users: <Users size={20} />,
 };
 
-const iconMapLarge: Record<string, React.ReactNode> = {
-  GraduationCap: <GraduationCap size={24} />,
-  Calendar: <Calendar size={24} />,
-  BookOpen: <BookOpen size={24} />,
-  FileText: <FileText size={24} />,
-  CreditCard: <CreditCard size={24} />,
-  Briefcase: <Briefcase size={24} />,
-  Users: <Users size={24} />,
-};
+
 
 const ReportsDashboard: React.FC = () => {
   return (

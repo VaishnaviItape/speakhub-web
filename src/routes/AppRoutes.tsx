@@ -10,7 +10,6 @@ import AdminLayout from '../layouts/AdminLayout/AdminLayout';
 import Login from '../pages/Login/Login';
 import ChangePassword from '../pages/Login/ChangePassword';
 import AdminSignup from '../pages/Login/AdminSignup';
-import StudentRegister from '../pages/Login/StudentRegister';
 
 // Main Pages
 import Dashboard from '../pages/Dashboard/Dashboard';
@@ -47,13 +46,6 @@ import ReportViewer from '../pages/Reports/ReportViewer';
 import Enquiries from '../pages/Enquiries/Enquiries';
 
 // Student Pages
-import StudentDashboard from '../pages/StudentPortal/StudentDashboard';
-import StudentExams from '../pages/StudentPortal/StudentExams';
-import StudentProfile from '../pages/StudentPortal/StudentProfile';
-import StudentCourses from '../pages/StudentPortal/StudentCourses';
-import StudentHomework from '../pages/StudentPortal/StudentHomework';
-import StudentAttendance from '../pages/StudentPortal/StudentAttendance';
-import StudentLayout from '../layouts/StudentLayout/StudentLayout';
 
 // Attendance
 import Attendance from '../pages/Attendance/Attendance';

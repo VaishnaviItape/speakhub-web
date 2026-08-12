@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Eye, AlertTriangle, Users, Target, TrendingUp, CheckCircle, Award } from 'lucide-react';
+import { ArrowLeft, Eye, AlertTriangle, Users, Target, TrendingUp, CheckCircle, Award } from 'lucide-react';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import Modal from '../../components/ui/Modal';
 import { db } from '../../config/firebase';

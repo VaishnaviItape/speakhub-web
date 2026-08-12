@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MoreHorizontal, ArrowUpDown, ChevronDown } from 'lucide-react';
+import { Search, MoreHorizontal, ArrowUpDown } from 'lucide-react';
 import './DataTable.css';
 
 export interface Column<T> {
