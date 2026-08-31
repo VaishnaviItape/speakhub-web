@@ -86,10 +86,10 @@ const HomeworkPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      let finalAttachmentUrl = pdfLink.trim();
+      let finalAttachmentUrl = contentType === 'pdf' ? pdfLink.trim() : '';
 
       // If user uploaded a file, upload to storage
-      if (file) {
+      if (contentType === 'pdf' && file) {
         finalAttachmentUrl = await uploadFile(file, 'homework_attachments');
       }
 

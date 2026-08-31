@@ -1,25 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, ChevronDown } from 'lucide-react';
+import { Plus, Upload, Download, RefreshCw, Users, CheckCircle2, UserX, Sparkles, FileSpreadsheet } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import type { Course, Batch } from '../../types/models';
 import { db } from '../../config/firebase';
-import { collection, query, where, getDocs, updateDoc, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { secondaryAuth } from '../../config/secondaryFirebase';
-
-
 import { checkMobileExists } from '../../utils/phoneValidation';
 import { validateName, validatePhoneNumber } from '../../utils/validation';
 import '../../components/ui/TableStyles.css';
+import './Students.css';
+
+interface ParsedCsvStudent {
+  name: string;
+  phone: string;
+  parentName: string;
+  courseName: string;
+  batchName: string;
+  joiningDate: string;
+  address: string;
+  isValid: boolean;
+  validationError?: string;
+  matchedCourseId?: string;
+  matchedBatchId?: string;
+}
 
 const Students: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form State
+  // Filter State
+  const [selectedCourseFilter, setSelectedCourseFilter] = useState('all');
+  const [selectedBatchFilter, setSelectedBatchFilter] = useState('all');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Single Student Form State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -33,6 +54,12 @@ const Students: React.FC = () => {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [demoStartDate, setDemoStartDate] = useState('');
   const [demoEndDate, setDemoEndDate] = useState('');
+
+  // Bulk Upload State
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [parsedRows, setParsedRows] = useState<ParsedCsvStudent[]>([]);
+  const [isUploadingBulk, setIsUploadingBulk] = useState(false);
+  const [bulkUploadSummary, setBulkUploadSummary] = useState<string | null>(null);
 
   // Data
   const [students, setStudents] = useState<any[]>([]);
@@ -81,6 +108,28 @@ const Students: React.FC = () => {
     }
   };
 
+  const generateStudentPassword = (nameStr: string) => {
+    const cleanName = nameStr.trim().split(' ')[0].toLowerCase().replace(/[^a-z]/g, '');
+    const prefix = cleanName.length >= 4 ? cleanName.substring(0, 4) : cleanName.padEnd(4, 'x');
+    return `${prefix}2003`;
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setFirstName('');
+    setLastName('');
+    setPhone('');
+    setAddress('');
+    setParentOrHusbandName('');
+    setJoiningDate(new Date().toISOString().split('T')[0]);
+    setCourseId('');
+    setBatchId('');
+    setStatus('active');
+    setIsDemoMode(false);
+    setDemoStartDate('');
+    setDemoEndDate('');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -112,11 +161,13 @@ const Students: React.FC = () => {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       if (phone) {
         const mobileCheck = await checkMobileExists(phone, editingId);
         if (mobileCheck.exists) {
           alert(mobileCheck.message || "This mobile number is already registered to another user.");
+          setIsSubmitting(false);
           return;
         }
       }
@@ -131,6 +182,7 @@ const Students: React.FC = () => {
         email: authEmail,
         address: address,
         parentOrHusbandName: parentOrHusbandName,
+        parentName: parentOrHusbandName,
         joiningDate: joiningDate ? new Date(joiningDate) : new Date(),
         role: 'student',
         courseIds: courseId ? [courseId] : [],
@@ -143,17 +195,10 @@ const Students: React.FC = () => {
         demoEndDate: isDemoMode && demoEndDate ? new Date(demoEndDate) : null,
       };
 
-      const generateStudentPassword = (nameStr: string) => {
-        const cleanName = nameStr.trim().split(' ')[0].toLowerCase().replace(/[^a-z]/g, '');
-        const prefix = cleanName.length >= 4 ? cleanName.substring(0, 4) : cleanName.padEnd(4, 'x');
-        return `${prefix}2003`;
-      };
-
       if (!editingId) {
         // Create new user
         updates.createdAt = new Date();
         updates.forcePasswordChange = true;
-
         const defaultPassword = generateStudentPassword(firstName);
         updates.plainPassword = defaultPassword;
 
@@ -163,8 +208,7 @@ const Students: React.FC = () => {
           const newUserRef = doc(db, 'users', userCredential.user.uid);
           await setDoc(newUserRef, updates);
 
-          alert(`Student Created Successfully!\n\nPlease share these login credentials with the student:\nPhone Number: ${phone}\nPassword: ${defaultPassword}`);
-
+          alert(`Student Created Successfully!\n\nLogin Credentials:\nPhone: ${phone}\nPassword: ${defaultPassword}`);
           setStudents([...students, { documentId: userCredential.user.uid, ...updates }]);
         } catch (authError: any) {
           if (authError.code === 'auth/email-already-in-use') {
@@ -176,94 +220,50 @@ const Students: React.FC = () => {
         }
       } else {
         // Edit existing user
-        let isApproving = false;
-        const studentToEdit = students.find(s => s.documentId === editingId);
-
-        if (studentToEdit && studentToEdit.status === 'pending' && status === 'active') {
-          isApproving = true;
-        }
-
         const userRef = doc(db, 'users', editingId);
-
-        if (isApproving) {
-          const studentPhone = studentToEdit.phone || studentToEdit.mobile || phone;
-          if (studentPhone) {
-            try {
-              const studentAuthEmail = `${studentPhone.replace(/[^0-9]/g, '')}@speakhub.com`;
-              const defaultPassword = generateStudentPassword(studentToEdit.name || firstName);
-              await createUserWithEmailAndPassword(secondaryAuth, studentAuthEmail, defaultPassword);
-
-              updates.forcePasswordChange = true;
-              updates.plainPassword = defaultPassword;
-
-              alert(`Student Approved Successfully!\n\nPlease share these login credentials with the student:\nPhone Number: ${studentPhone}\nPassword: ${defaultPassword}`);
-            } catch (authError: any) {
-              if (authError.code === 'auth/email-already-in-use') {
-                console.log("User already exists in Firebase Auth, just updating Firestore.");
-                alert(`Student Approved Successfully!\n\nNote: The phone number ${studentPhone} already has an account set up.`);
-              } else {
-                throw authError;
-              }
-            }
-          }
-        }
-
-        await updateDoc(userRef, updates);
+        await setDoc(userRef, updates, { merge: true });
         setStudents(students.map(s => s.documentId === editingId ? { ...s, ...updates } : s));
       }
 
       setIsModalOpen(false);
       resetForm();
     } catch (error: any) {
-      console.error('Error saving student:', error);
-      alert('Failed to save student: ' + error.message);
+      console.error("Error saving student:", error);
+      alert("Failed to save student: " + error.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const resetForm = () => {
-    setEditingId(null);
-    setFirstName('');
-    setLastName('');
-    setPhone('');
-    setAddress('');
-    setParentOrHusbandName('');
-    setJoiningDate(new Date().toISOString().split('T')[0]);
-    setCourseId('');
-    setBatchId('');
-    setStatus('active');
-  };
-
   const handleEdit = (student: any) => {
-    const names = student.name ? student.name.split(' ') : [''];
     setEditingId(student.documentId);
-    setFirstName(names[0] || '');
-    setLastName(names.slice(1).join(' ') || '');
+    const nameParts = (student.name || '').split(' ');
+    setFirstName(nameParts[0] || '');
+    setLastName(nameParts.slice(1).join(' ') || '');
     setPhone(student.phone || student.mobile || '');
     setAddress(student.address || '');
     setParentOrHusbandName(student.parentOrHusbandName || student.parentName || '');
 
-    if (student.joiningDate?.toDate) {
-      setJoiningDate(student.joiningDate.toDate().toISOString().split('T')[0]);
-    } else if (student.joiningDate) {
-      const dStr = String(student.joiningDate);
-      setJoiningDate(dStr.includes('T') ? dStr.split('T')[0] : dStr);
+    if (student.joiningDate) {
+      const d = student.joiningDate?.toDate ? student.joiningDate.toDate() : new Date(student.joiningDate);
+      setJoiningDate(!isNaN(d.getTime()) ? d.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
     } else {
       setJoiningDate(new Date().toISOString().split('T')[0]);
     }
 
-    setCourseId(student.courseIds?.[0] || '');
-    setBatchId(student.batchIds?.[0] || '');
-    setStatus(student.status || 'pending');
+    setCourseId(student.courseIds?.[0] || student.courseId || '');
+    setBatchId(student.batchIds?.[0] || student.batchId || '');
+    setStatus(student.status || 'active');
     setIsDemoMode(student.isDemoMode || false);
 
-    setDemoStartDate(student.demoStartDate?.toDate ? student.demoStartDate.toDate().toISOString().split('T')[0] : (student.demoStartDate instanceof Date ? student.demoStartDate.toISOString().split('T')[0] : ''));
-    setDemoEndDate(student.demoEndDate?.toDate ? student.demoEndDate.toDate().toISOString().split('T')[0] : (student.demoEndDate instanceof Date ? student.demoEndDate.toISOString().split('T')[0] : ''));
+    setDemoStartDate(student.demoStartDate?.toDate ? student.demoStartDate.toDate().toISOString().split('T')[0] : '');
+    setDemoEndDate(student.demoEndDate?.toDate ? student.demoEndDate.toDate().toISOString().split('T')[0] : '');
 
     setIsModalOpen(true);
   };
 
   const handleDelete = async (student: any) => {
-    if (window.confirm(`Are you sure you want to delete ${student.name}?`)) {
+    if (window.confirm(`Are you sure you want to delete "${student.name}"?`)) {
       try {
         await deleteDoc(doc(db, 'users', student.documentId));
         setStudents(students.filter(s => s.documentId !== student.documentId));
@@ -273,59 +273,243 @@ const Students: React.FC = () => {
     }
   };
 
+  // --- Bulk CSV Upload Handling ---
+  const downloadSampleCsvTemplate = () => {
+    const headers = "FullName,PhoneNumber,ParentOrHusbandName,CourseName,BatchName,JoiningDate(YYYY-MM-DD),Address\n";
+    const sample1 = "Aarav Sharma,9876543210,Ramesh Sharma,Spoken English,Morning Batch 9AM,2026-08-31,Pune Maharashtra\n";
+    const sample2 = "Pooja Patil,9876543211,Suresh Patil,Abacus & Vedic Maths,Evening Batch 5PM,2026-08-31,Kolhapur Maharashtra\n";
+    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(headers + sample1 + sample2);
+    const link = document.createElement("a");
+    link.setAttribute("href", csvContent);
+    link.setAttribute("download", "speakhub_students_sample_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const parseCsvText = (text: string) => {
+    const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length <= 1) {
+      alert("CSV file appears to be empty or has only headers.");
+      return;
+    }
+
+    const rows: ParsedCsvStudent[] = [];
+    // Skip header line
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      // Match comma separation handling quotes
+      const parts = line.split(',').map(p => p.replace(/^["']|["']$/g, '').trim());
+      const name = parts[0] || '';
+      const phone = (parts[1] || '').replace(/[^0-9]/g, '');
+      const parentName = parts[2] || '';
+      const courseName = parts[3] || '';
+      const batchName = parts[4] || '';
+      const joiningDate = parts[5] || new Date().toISOString().split('T')[0];
+      const address = parts[6] || '';
+
+      // Match course & batch
+      const matchedCourse = courses.find(c => c.courseName.toLowerCase() === courseName.toLowerCase());
+      const matchedBatch = batches.find(b => b.batchName.toLowerCase() === batchName.toLowerCase());
+
+      let isValid = true;
+      let validationError = '';
+
+      if (!name || name.length < 2) {
+        isValid = false;
+        validationError = 'Name too short';
+      } else if (!phone || phone.length !== 10) {
+        isValid = false;
+        validationError = '10-digit phone required';
+      }
+
+      rows.push({
+        name,
+        phone,
+        parentName,
+        courseName,
+        batchName,
+        joiningDate,
+        address,
+        isValid,
+        validationError,
+        matchedCourseId: matchedCourse?.documentId,
+        matchedBatchId: matchedBatch?.documentId
+      });
+    }
+
+    setParsedRows(rows);
+  };
+
+  const handleCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvFile(file);
+    setBulkUploadSummary(null);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) parseCsvText(content);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleProcessBulkUpload = async () => {
+    const validRows = parsedRows.filter(r => r.isValid);
+    if (validRows.length === 0) {
+      alert("No valid student rows to upload. Please review errors.");
+      return;
+    }
+
+    setIsUploadingBulk(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const row of validRows) {
+      try {
+        const cleanPhone = row.phone;
+        const authEmail = `${cleanPhone}@speakhub.com`;
+        const defaultPassword = generateStudentPassword(row.name);
+
+        const newStudentData: any = {
+          name: row.name,
+          phone: cleanPhone,
+          mobile: cleanPhone,
+          email: authEmail,
+          parentOrHusbandName: row.parentName,
+          parentName: row.parentName,
+          address: row.address,
+          joiningDate: row.joiningDate ? new Date(row.joiningDate) : new Date(),
+          role: 'student',
+          courseIds: row.matchedCourseId ? [row.matchedCourseId] : [],
+          batchIds: row.matchedBatchId ? [row.matchedBatchId] : [],
+          courseId: row.matchedCourseId || '',
+          batchId: row.matchedBatchId || '',
+          status: 'active',
+          plainPassword: defaultPassword,
+          forcePasswordChange: true,
+          createdAt: new Date()
+        };
+
+        // Create Auth Account
+        try {
+          const cred = await createUserWithEmailAndPassword(secondaryAuth, authEmail, defaultPassword);
+          newStudentData.uid = cred.user.uid;
+          await setDoc(doc(db, 'users', cred.user.uid), newStudentData);
+        } catch (authErr: any) {
+          // If auth already exists, write/merge by phone query or custom id
+          const customId = `student_${cleanPhone}`;
+          await setDoc(doc(db, 'users', customId), newStudentData, { merge: true });
+        }
+
+        successCount++;
+      } catch (err) {
+        console.error("Failed to import student row:", row, err);
+        failCount++;
+      }
+    }
+
+    setIsUploadingBulk(false);
+    setBulkUploadSummary(`✅ Bulk Upload Complete! Successfully created ${successCount} student account(s). ${failCount > 0 ? `(${failCount} failed)` : ''}`);
+    fetchStudents();
+  };
+
+  // --- Export Filtered Students to CSV ---
+  const handleExportFilteredCSV = () => {
+    if (filteredStudents.length === 0) {
+      alert("No students to export.");
+      return;
+    }
+
+    const headers = "StudentName,Phone,ParentName,Course,Batch,JoiningDate,Status\n";
+    const rows = filteredStudents.map(s => {
+      const cName = courses.find(c => c.documentId === (s.courseIds?.[0] || s.courseId))?.courseName || 'Unassigned';
+      const bName = batches.find(b => b.documentId === (s.batchIds?.[0] || s.batchId))?.batchName || 'Unassigned';
+      const jDate = s.joiningDate?.toDate ? s.joiningDate.toDate().toLocaleDateString('en-GB') : (s.joiningDate || '-');
+      return `"${s.name || ''}","${s.phone || s.mobile || ''}","${s.parentOrHusbandName || s.parentName || ''}","${cName}","${bName}","${jDate}","${s.status || 'active'}"`;
+    }).join('\n');
+
+    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(headers + rows);
+    const link = document.createElement("a");
+    link.setAttribute("href", csvContent);
+    link.setAttribute("download", `speakhub_students_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Filtered Students Computation
+  const filteredStudents = students.filter(student => {
+    // 1. Course Filter
+    const studentCourseId = student.courseIds?.[0] || student.courseId;
+    if (selectedCourseFilter !== 'all' && studentCourseId !== selectedCourseFilter) {
+      return false;
+    }
+
+    // 2. Batch Filter
+    const studentBatchId = student.batchIds?.[0] || student.batchId;
+    if (selectedBatchFilter !== 'all' && studentBatchId !== selectedBatchFilter) {
+      return false;
+    }
+
+    // 3. Status Filter
+    if (selectedStatusFilter === 'active' && student.status !== 'active') return false;
+    if (selectedStatusFilter === 'inactive' && student.status !== 'inactive') return false;
+    if (selectedStatusFilter === 'pending' && student.status !== 'pending') return false;
+    if (selectedStatusFilter === 'demo' && !student.isDemoMode) return false;
+
+    // 4. Search Query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchesName = (student.name || '').toLowerCase().includes(q);
+      const matchesPhone = (student.phone || student.mobile || '').includes(q);
+      const matchesParent = (student.parentOrHusbandName || student.parentName || '').toLowerCase().includes(q);
+      return matchesName || matchesPhone || matchesParent;
+    }
+
+    return true;
+  });
+
   const columns: Column<any>[] = [
     {
       key: 'name',
-      header: 'Name',
-      render: (row) => <span className="font-medium">{row.name}</span>
-    },
-    {
-      key: 'parentOrHusbandName',
-      header: 'Parent / Husband Name',
-      render: (row) => <span className="text-gray-700 font-medium">{row.parentOrHusbandName || row.parentName || '-'}</span>
-    },
-    {
-      key: 'phone',
-      header: 'Phone / Address',
+      header: 'Student Name',
       render: (row) => (
         <div>
-          <div className="font-medium">{row.phone || row.mobile || '-'}</div>
-          <div style={{ fontSize: '0.75rem', color: '#a3aed0' }}>{row.address || 'No address provided'}</div>
+          <div className="font-bold text-slate-900 dark:text-white text-sm">{row.name}</div>
+          <div className="text-xs text-slate-400 font-medium">Phone: {row.phone || row.mobile || '-'}</div>
         </div>
       )
     },
     {
-      key: 'joiningDate',
-      header: 'Date of Joining',
-      render: (row) => {
-        if (!row.joiningDate) return <span className="text-gray-400">-</span>;
-        const d = row.joiningDate?.toDate ? row.joiningDate.toDate() : new Date(row.joiningDate);
-        return <span className="text-xs text-gray-700 font-medium">{isNaN(d.getTime()) ? '-' : d.toLocaleDateString('en-GB')}</span>;
-      }
+      key: 'parentOrHusbandName',
+      header: 'Parent / Guardian',
+      render: (row) => <span className="text-slate-700 dark:text-slate-300 font-medium text-xs">{row.parentOrHusbandName || row.parentName || '-'}</span>
     },
     {
       key: 'courseId',
-      header: 'Course / Batch',
+      header: 'Course & Batch',
       render: (row) => {
-        const courseName = courses.find(c => c.documentId === row.courseIds?.[0])?.courseName || 'Unassigned';
-        const batchName = batches.find(b => b.documentId === row.batchIds?.[0])?.batchName || 'Unassigned';
+        const courseName = courses.find(c => c.documentId === (row.courseIds?.[0] || row.courseId))?.courseName || 'Unassigned';
+        const batchName = batches.find(b => b.documentId === (row.batchIds?.[0] || row.batchId))?.batchName || 'Unassigned';
         return (
           <div>
-            <div>{courseName}</div>
-            <div style={{ fontSize: '0.75rem', color: '#a3aed0' }}>{batchName}</div>
+            <div className="font-semibold text-xs text-indigo-600 dark:text-indigo-400">{courseName}</div>
+            <div className="text-[11px] text-slate-500 font-medium">{batchName}</div>
           </div>
         );
       }
     },
-    // {
-    //   key: 'plainPassword',
-    //   header: 'Initial Password',
-    //   render: (row) => (
-    //     <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border border-gray-200">
-    //       {row.plainPassword || 'Changed/Unknown'}
-    //     </span>
-    //   )
-    // },
+    {
+      key: 'joiningDate',
+      header: 'Joining Date',
+      render: (row) => {
+        if (!row.joiningDate) return <span className="text-slate-400 text-xs">-</span>;
+        const d = row.joiningDate?.toDate ? row.joiningDate.toDate() : new Date(row.joiningDate);
+        return <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{isNaN(d.getTime()) ? '-' : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>;
+      }
+    },
     {
       key: 'status',
       header: 'Status',
@@ -335,153 +519,333 @@ const Students: React.FC = () => {
         if (row.status === 'pending') badgeClass = 'pending';
         return (
           <div className="flex flex-col gap-1 items-start">
-            <button className={`dt-badge ${badgeClass}`}>
-              {row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : 'Unknown'} <ChevronDown size={14} />
-            </button>
+            <span className={`dt-badge ${badgeClass}`}>
+              {row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : 'Active'}
+            </span>
             {row.isDemoMode && (
-              <span className="text-[10px] bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded">DEMO</span>
+              <span className="text-[10px] bg-purple-100 text-purple-800 font-extrabold px-2 py-0.5 rounded-full border border-purple-200">
+                DEMO
+              </span>
             )}
           </div>
-        )
+        );
       }
     }
   ];
 
   return (
     <div className="page-container">
-      <div className="page-header flex justify-between items-center w-full">
+      {/* Top Header */}
+      <div className="student-master-header">
         <div>
-          <h1 className="page-title">Students & Approvals</h1>
+          <h1 className="page-title">Student Master &amp; Directory</h1>
           <div className="breadcrumbs">
-            <span>Dashboard</span> <span className="separator">/</span> <span className="current">Students</span>
+            <span>Dashboard</span> <span className="separator">/</span> <span className="current">Student Master</span>
           </div>
         </div>
-        <button
-          className="btn flex items-center justify-center gap-2 bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded-md font-medium transition-colors"
-          onClick={() => { resetForm(); setIsModalOpen(true); }}
-        >
-          <Plus size={18} />
-          Add Student
-        </button>
+
+        <div className="student-header-actions">
+          <button
+            type="button"
+            className="btn-add-student"
+            onClick={() => { resetForm(); setIsModalOpen(true); }}
+          >
+            <Plus size={18} />
+            Add New Student
+          </button>
+
+          <button
+            type="button"
+            className="btn-bulk-upload"
+            onClick={() => { setCsvFile(null); setParsedRows([]); setBulkUploadSummary(null); setIsBulkModalOpen(true); }}
+          >
+            <Upload size={16} />
+            Bulk CSV Upload
+          </button>
+
+          <button
+            type="button"
+            className="btn-export-csv"
+            onClick={handleExportFilteredCSV}
+          >
+            <Download size={16} />
+            Export CSV
+          </button>
+        </div>
       </div>
 
+      {/* Filter & Summary Card */}
+      <div className="student-filter-card">
+        {/* Metric Pills */}
+        <div className="student-stats-row">
+          <button 
+            type="button" 
+            className={`student-stat-pill all ${selectedStatusFilter === 'all' ? 'selected' : ''}`}
+            onClick={() => setSelectedStatusFilter('all')}
+          >
+            <Users size={14} /> Total Students: <strong>{students.length}</strong>
+          </button>
+
+          <button 
+            type="button" 
+            className={`student-stat-pill active ${selectedStatusFilter === 'active' ? 'selected' : ''}`}
+            onClick={() => setSelectedStatusFilter('active')}
+          >
+            <CheckCircle2 size={14} /> Active: <strong>{students.filter(s => s.status === 'active').length}</strong>
+          </button>
+
+          <button 
+            type="button" 
+            className={`student-stat-pill inactive ${selectedStatusFilter === 'inactive' ? 'selected' : ''}`}
+            onClick={() => setSelectedStatusFilter('inactive')}
+          >
+            <UserX size={14} /> Inactive: <strong>{students.filter(s => s.status === 'inactive' || s.status === 'pending').length}</strong>
+          </button>
+
+          <button 
+            type="button" 
+            className={`student-stat-pill demo ${selectedStatusFilter === 'demo' ? 'selected' : ''}`}
+            onClick={() => setSelectedStatusFilter('demo')}
+          >
+            <Sparkles size={14} /> Demo Students: <strong>{students.filter(s => s.isDemoMode).length}</strong>
+          </button>
+        </div>
+
+        {/* Filter Dropdowns Grid */}
+        <div className="student-filters-grid">
+          <Select
+            label="Filter by Course"
+            options={[{ label: 'All Courses', value: 'all' }, ...courses.map(c => ({ label: c.courseName, value: c.documentId! }))]}
+            value={selectedCourseFilter}
+            onChange={(e) => setSelectedCourseFilter(e.target.value)}
+          />
+
+          <Select
+            label="Filter by Batch"
+            options={[{ label: 'All Batches', value: 'all' }, ...batches.map(b => ({ label: b.batchName, value: b.documentId! }))]}
+            value={selectedBatchFilter}
+            onChange={(e) => setSelectedBatchFilter(e.target.value)}
+          />
+
+          <Select
+            label="Filter by Status"
+            options={[
+              { label: 'All Statuses', value: 'all' },
+              { label: 'Active Students', value: 'active' },
+              { label: 'Inactive Students', value: 'inactive' },
+              { label: 'Pending Approval', value: 'pending' },
+              { label: 'Demo Mode Students', value: 'demo' }
+            ]}
+            value={selectedStatusFilter}
+            onChange={(e) => setSelectedStatusFilter(e.target.value)}
+          />
+
+          <Input
+            label="Search Student"
+            placeholder="Search by Name, Phone, or Parent..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+
+          <button
+            type="button"
+            className="btn"
+            style={{ backgroundColor: '#f1f5f9', color: '#475569', height: '42px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '0.8rem' }}
+            onClick={() => { setSelectedCourseFilter('all'); setSelectedBatchFilter('all'); setSelectedStatusFilter('all'); setSearchQuery(''); }}
+          >
+            <RefreshCw size={14} /> Reset
+          </button>
+        </div>
+      </div>
+
+      {/* Main Students Data Table */}
       <DataTable
-        title="Student Records"
-        data={students}
+        title={`Student Directory (${filteredStudents.length} Students)`}
+        data={filteredStudents}
         columns={columns}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        searchPlaceholder="Search students..."
+        searchPlaceholder="Search student name, phone, course..."
         isLoading={isLoading}
       />
 
-      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetForm(); }} title="Manage Student">
-        <form onSubmit={handleSubmit} className="modal-form">
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="First Name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              required
-            />
-            <Input
-              label="Last Name"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-            />
+      {/* MODAL 1: Add / Edit Single Student */}
+      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetForm(); }} title={editingId ? "Edit Student Details" : "Register New Student"}>
+        <form onSubmit={handleSubmit} className="modal-form" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', maxHeight: '75vh', overflowY: 'auto', paddingRight: '6px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+            <Input label="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+            <Input label="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <Input
-              label="Parent / Husband Name"
-              value={parentOrHusbandName}
-              onChange={(e) => setParentOrHusbandName(e.target.value)}
-              placeholder="e.g. Vishnu Itape"
-            />
-            <Input
-              label="Date of Joining"
-              type="date"
-              value={joiningDate}
-              onChange={(e) => setJoiningDate(e.target.value)}
-              required
-            />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+            <Input label="Mobile / WhatsApp Number" type="tel" maxLength={10} placeholder="10-digit number" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+            <Input label="Parent / Guardian / Husband Name" value={parentOrHusbandName} onChange={(e) => setParentOrHusbandName(e.target.value)} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <Input
-              label="Phone Number"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required={!editingId}
-              placeholder="e.g. 9876543210"
-            />
-            <Input
-              label="Address"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Full address"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
             <Select
-              label="Assign Course"
-              options={[
-                { label: 'Select Course', value: '' },
-                ...courses.map(c => ({ label: c.courseName, value: c.documentId || '' }))
-              ]}
+              label="Assigned Course"
+              options={[{ label: 'Select Course', value: '' }, ...courses.map(c => ({ label: c.courseName, value: c.documentId! }))]}
               value={courseId}
               onChange={(e) => setCourseId(e.target.value)}
+              required
             />
+
             <Select
-              label="Assign Batch"
-              options={[
-                { label: 'Select Batch', value: '' },
-                ...batches
-                  .filter(b => !courseId || b.courseId === courseId) // Optionally filter batches by selected course
-                  .map(b => ({ label: b.batchName, value: b.documentId || '' }))
-              ]}
+              label="Assigned Batch"
+              options={[{ label: 'Select Batch', value: '' }, ...batches.map(b => ({ label: b.batchName, value: b.documentId! }))]}
               value={batchId}
               onChange={(e) => setBatchId(e.target.value)}
+              required
             />
           </div>
 
-          <Select
-            label="Status"
-            options={[
-              { label: 'Pending', value: 'pending' },
-              { label: 'Active (Approve)', value: 'active' },
-              { label: 'Inactive', value: 'inactive' }
-            ]}
-            value={status}
-            onChange={(e) => setStatus(e.target.value as any)}
-          />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+            <Input label="Date of Joining" type="date" value={joiningDate} onChange={(e) => setJoiningDate(e.target.value)} required />
+            <Select
+              label="Account Status"
+              options={[
+                { label: 'Active', value: 'active' },
+                { label: 'Inactive', value: 'inactive' },
+                { label: 'Pending Approval', value: 'pending' }
+              ]}
+              value={status}
+              onChange={(e) => setStatus(e.target.value as any)}
+              required
+            />
+          </div>
 
-          {status === 'active' && students.find(s => s.documentId === editingId)?.status === 'pending' && (
-            <p className="text-sm text-green-600 mt-2 font-medium">
-              Approving this student will generate a default password credentials notification.
-            </p>
-          )}
+          <Input label="Residential Address" placeholder="City, Area, Address details..." value={address} onChange={(e) => setAddress(e.target.value)} />
 
-          <div className="mt-4 p-4 border border-purple-200 bg-purple-50 rounded-lg">
-            <label className="flex items-center gap-2 mb-3 cursor-pointer">
-              <input type="checkbox" checked={isDemoMode} onChange={(e) => setIsDemoMode(e.target.checked)} className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500" />
-              <span className="font-medium text-purple-800">Enable Demo Period</span>
+          {/* Demo Mode Toggle */}
+          <div style={{ backgroundColor: '#faf5ff', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e9d5ff' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 700, color: '#6b21a8', cursor: 'pointer' }}>
+              <input type="checkbox" checked={isDemoMode} onChange={(e) => setIsDemoMode(e.target.checked)} style={{ accentColor: '#7c3aed' }} />
+              <span>Enable Demo Access for Student</span>
             </label>
 
             {isDemoMode && (
-              <div className="grid grid-cols-2 gap-4">
-                <Input label="Demo Start Date" type="date" value={demoStartDate} onChange={(e) => setDemoStartDate(e.target.value)} required />
-                <Input label="Demo End Date" type="date" value={demoEndDate} onChange={(e) => setDemoEndDate(e.target.value)} required />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', marginTop: '0.75rem' }}>
+                <Input label="Demo Start Date" type="date" value={demoStartDate} onChange={(e) => setDemoStartDate(e.target.value)} required={isDemoMode} />
+                <Input label="Demo End Date" type="date" value={demoEndDate} onChange={(e) => setDemoEndDate(e.target.value)} required={isDemoMode} />
               </div>
             )}
           </div>
 
-          <div className="modal-actions">
-            <button type="submit" className="btn btn-success">Save Student</button>
+          <div className="modal-actions" style={{ marginTop: '0.75rem' }}>
+            <button type="button" className="btn" style={{ backgroundColor: '#e2e8f0', color: '#334155' }} onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting} style={{ fontWeight: 800 }}>
+              {isSubmitting ? 'Saving Student...' : (editingId ? 'Update Student' : 'Create & Register Student')}
+            </button>
           </div>
         </form>
+      </Modal>
+
+      {/* MODAL 2: Bulk CSV Upload */}
+      <Modal isOpen={isBulkModalOpen} onClose={() => setIsBulkModalOpen(false)} title="Bulk Upload Students (CSV)">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '75vh', overflowY: 'auto', paddingRight: '6px' }}>
+          {/* Step 1: Sample Download */}
+          <div className="bulk-sample-banner">
+            <div>
+              <strong style={{ fontSize: '0.85rem', color: '#1e40af', display: 'block' }}>1. Download Sample Excel/CSV Template</strong>
+              <span style={{ fontSize: '0.75rem', color: '#3b82f6' }}>Includes pre-formatted columns (Name, Phone, Course, Batch, etc.)</span>
+            </div>
+            <button
+              type="button"
+              className="btn"
+              style={{ backgroundColor: '#ffffff', color: '#1e40af', border: '1.5px solid #93c5fd', fontWeight: 800, fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              onClick={downloadSampleCsvTemplate}
+            >
+              <Download size={14} /> Download Sample CSV
+            </button>
+          </div>
+
+          {/* Step 2: Dropzone */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+              2. Select or Drop Your CSV File
+            </label>
+            <div className="bulk-dropzone" onClick={() => document.getElementById('bulk-csv-input')?.click()}>
+              <FileSpreadsheet size={32} style={{ color: 'var(--primary, #e11d48)', margin: '0 auto 0.5rem auto' }} />
+              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#1e293b' }}>
+                {csvFile ? csvFile.name : 'Click to select CSV File or drag & drop here'}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem' }}>
+                {csvFile ? `${(csvFile.size / 1024).toFixed(1)} KB` : 'Supports UTF-8 formatted CSV files'}
+              </div>
+              <input
+                id="bulk-csv-input"
+                type="file"
+                accept=".csv,text/csv"
+                style={{ display: 'none' }}
+                onChange={handleCsvFileChange}
+              />
+            </div>
+          </div>
+
+          {/* Step 3: Parsed Preview */}
+          {parsedRows.length > 0 && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>
+                  Parsed Records Preview ({parsedRows.filter(r => r.isValid).length} Valid / {parsedRows.length} Total)
+                </span>
+              </div>
+
+              <div className="bulk-preview-wrapper">
+                <table className="bulk-preview-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Name</th>
+                      <th>Phone</th>
+                      <th>Course</th>
+                      <th>Batch</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parsedRows.map((row, idx) => (
+                      <tr key={idx} style={{ backgroundColor: row.isValid ? 'transparent' : '#fff1f2' }}>
+                        <td>{idx + 1}</td>
+                        <td style={{ fontWeight: 600 }}>{row.name}</td>
+                        <td>{row.phone}</td>
+                        <td>{row.courseName}</td>
+                        <td>{row.batchName}</td>
+                        <td>
+                          {row.isValid ? (
+                            <span style={{ color: '#059669', fontWeight: 700, fontSize: '0.75rem' }}>✓ Ready</span>
+                          ) : (
+                            <span style={{ color: '#e11d48', fontWeight: 700, fontSize: '0.75rem' }}>{row.validationError}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {bulkUploadSummary && (
+            <div style={{ backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46', padding: '0.85rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 700 }}>
+              {bulkUploadSummary}
+            </div>
+          )}
+
+          <div className="modal-actions" style={{ marginTop: '0.75rem' }}>
+            <button type="button" className="btn" style={{ backgroundColor: '#e2e8f0', color: '#334155' }} onClick={() => setIsBulkModalOpen(false)}>Close</button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={isUploadingBulk || parsedRows.filter(r => r.isValid).length === 0}
+              style={{ fontWeight: 800 }}
+              onClick={handleProcessBulkUpload}
+            >
+              {isUploadingBulk ? 'Uploading Students...' : `Import ${parsedRows.filter(r => r.isValid).length} Student(s)`}
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -74,11 +74,11 @@ const Sidebar: React.FC = () => {
           <nav className="nav-menu">
             <NavLink to="/students" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
               <GraduationCap size={18} />
-              <span>Students & Approvals</span>
+              <span>Student Master / Directory</span>
             </NavLink>
             <NavLink to="/enquiries" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
               <HelpCircle size={18} />
-              <span>Enquiries & Leads</span>
+              <span>Enquiries &amp; Leads</span>
             </NavLink>
             <NavLink to="/attendance" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
               <Calendar size={18} />
