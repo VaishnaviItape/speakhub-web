@@ -63,13 +63,13 @@
     z-index: 1;
   }
 
-  /* Header Wrapper with Brand Primary Red Accent */
+  /* Header Wrapper with Brand Primary Accent */
   .receipt-header-wrapper {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     padding-bottom: 16px;
-    border-bottom: 3px solid #E31837;
+    border-bottom: 3px solid #4F46E5;
     margin-bottom: 16px;
   }
 
@@ -88,7 +88,7 @@
   .brand-title {
     font-size: 24px;
     font-weight: 800;
-    color: #E31837;
+    color: #4F46E5;
     margin: 0;
     letter-spacing: -0.02em;
     line-height: 1.1;
@@ -112,13 +112,13 @@
     margin: 0;
   }
 
-  /* Main Title Bar with Primary Red Tone */
+  /* Main Title Bar with Primary Tone */
   .receipt-title-bar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: #fff0f0;
-    border: 1px solid #fecdd3;
+    background-color: #eef2ff;
+    border: 1px solid #c7d2fe;
     padding: 10px 16px;
     border-radius: 8px;
     margin-bottom: 16px;
@@ -127,7 +127,7 @@
   .receipt-main-title {
     font-size: 16px;
     font-weight: 800;
-    color: #E31837;
+    color: #4F46E5;
     margin: 0;
     letter-spacing: 0.05em;
   }
@@ -178,7 +178,7 @@
   .section-subtitle {
     font-size: 11px;
     font-weight: 800;
-    color: #991b1b;
+    color: #3730a3;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin: 0 0 8px 0;
@@ -234,13 +234,13 @@
   }
 
   .receipt-table th {
-    background-color: #fff0f0;
-    color: #991b1b;
+    background-color: #eef2ff;
+    color: #3730a3;
     font-weight: 800;
     text-transform: uppercase;
     font-size: 11px;
     padding: 8px 12px;
-    border-bottom: 2px solid #E31837;
+    border-bottom: 2px solid #4F46E5;
   }
 
   .receipt-table td {
@@ -256,25 +256,25 @@
   }
 
   .receipt-table tfoot td {
-    background-color: #fff0f0;
+    background-color: #eef2ff;
     padding: 10px 12px;
-    border-top: 2px solid #E31837;
+    border-top: 2px solid #4F46E5;
     font-size: 13px;
   }
 
   .total-cell {
     font-size: 16px;
-    color: #E31837;
+    color: #4F46E5;
     font-weight: 800;
   }
 
-  /* Next Due Date Banner with Primary Red Theme */
+  /* Next Due Date Banner with Primary Theme */
   .receipt-due-banner {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: #fff0f0;
-    border: 2px solid #E31837;
+    background-color: #eef2ff;
+    border: 2px solid #4F46E5;
     border-radius: 10px;
     padding: 12px 18px;
     margin-bottom: 20px;
@@ -293,14 +293,14 @@
   .due-banner-title {
     font-size: 12px;
     font-weight: 800;
-    color: #991b1b;
+    color: #3730a3;
     display: block;
     letter-spacing: 0.05em;
   }
 
   .due-banner-sub {
     font-size: 10px;
-    color: #be123c;
+    color: #4338ca;
     display: block;
     margin-top: 2px;
   }
@@ -308,11 +308,11 @@
   .due-banner-date {
     font-size: 16px;
     font-weight: 800;
-    color: #E31837;
+    color: #4F46E5;
     background-color: #ffffff;
     padding: 6px 14px;
     border-radius: 8px;
-    border: 1px solid #fecdd3;
+    border: 1px solid #c7d2fe;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   }
 
