@@ -26,6 +26,7 @@ import Employees from '../pages/Employees/Employees';
 import Roles from '../pages/Settings/Roles';
 
 // Resources & Exams
+import Videos from '../pages/Videos/Videos';
 import Notes from '../pages/Notes/Notes';
 import Homework from '../pages/Homework/Homework';
 import HomeworkReview from '../pages/Homework/HomeworkReview';
@@ -94,6 +95,7 @@ const AppRoutes: React.FC = () => {
           
           <Route path="/courses" element={<Courses />} />
           <Route path="/batches" element={<Batches />} />
+          <Route path="/videos" element={<Videos />} />
           
           <Route path="/students" element={<Students />} />
           <Route path="/attendance" element={<Attendance />} />

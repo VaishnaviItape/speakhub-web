@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, KeyRound, User, Phone, UserPlus, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, User, Phone, UserPlus, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import logo from '../../assets/logo.png';
 import './Login.css';
 import { auth, db } from '../../config/firebase';
@@ -35,6 +35,11 @@ const AdminSignup: React.FC = () => {
       if (!mobVal.isValid) { setError(mobVal.error || ''); return; }
     }
 
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
     setError('');
     setIsLoading(true);
 
@@ -49,14 +54,14 @@ const AdminSignup: React.FC = () => {
         }
       }
 
-      const userCred = await createUserWithEmailAndPassword(auth, email, password);
+      const userCred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       createdUser = userCred.user;
       const uid = userCred.user.uid;
 
       await setDoc(doc(db, 'users', uid), {
         uid,
-        name,
-        email,
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
         mobile: mobile.trim(),
         phone: mobile.trim(),
         role: 'admin',
@@ -66,10 +71,10 @@ const AdminSignup: React.FC = () => {
         updatedAt: serverTimestamp()
       });
 
-      // Sign out so they are forced to log in properly (avoids data fetch race conditions)
+      // Sign out so they log in with credentials
       await firebaseSignOut(auth);
 
-      alert("Admin account created successfully! Please log in with your new credentials.");
+      alert("Admin account created successfully! Please log in with your credentials.");
       navigate('/login');
     } catch (err: any) {
       if (createdUser) {
@@ -81,11 +86,11 @@ const AdminSignup: React.FC = () => {
       }
       
       if (err.code === 'auth/email-already-in-use') {
-        setError('This email is already in use.');
+        setError('This email is already registered. Please sign in or use another email.');
       } else if (err.code === 'auth/weak-password') {
         setError('Password should be at least 6 characters.');
       } else {
-        setError('Failed to create account. ' + err.message);
+        setError('Failed to create account. ' + (err.message || 'Please try again.'));
       }
     } finally {
       setIsLoading(false);
@@ -94,79 +99,132 @@ const AdminSignup: React.FC = () => {
 
   return (
     <div className="login-container">
-      <div className="login-card" style={{ maxWidth: '450px' }}>
+      <div className="login-card" style={{ maxWidth: '400px' }}>
+        {/* Brand Header */}
         <div className="login-header">
-          <div className="login-logo-container">
+          <div className="login-brand">
             <img src={logo} alt="Speak Hub Logo" className="login-logo-img" />
-            <span className="login-logo-text">Speak Hub</span>
+            <span className="login-brand-name">Speak Hub</span>
           </div>
           <h1 className="login-title">Register Admin</h1>
-          <p className="login-subtitle">Create the first Super Admin account</p>
+          <p className="login-subtitle">Create an administrator account</p>
         </div>
 
         {error && (
           <div className="login-error">
-            <AlertCircle size={18} />
+            <AlertCircle size={16} />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSignup}>
-          <div className="login-form-group">
-            <label className="login-form-label">Full Name *</label>
-            <div className="login-input-wrapper">
-              <User className="login-input-icon" />
-              <input type="text" className="login-input" placeholder="e.g. John Doe" value={name} onChange={(e) => setName(e.target.value)} required />
-            </div>
-          </div>
-
-          <div className="login-form-group">
-            <label className="login-form-label">Email Address *</label>
-            <div className="login-input-wrapper">
-              <Mail className="login-input-icon" />
-              <input type="email" className="login-input" placeholder="e.g. admin@speakhub.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-          </div>
-
-          <div className="login-form-group">
-            <label className="login-form-label">Mobile Number</label>
-            <div className="login-input-wrapper">
-              <Phone className="login-input-icon" />
-              <input type="text" className="login-input" placeholder="+1 234 567 890" value={mobile} onChange={(e) => setMobile(e.target.value)} />
-            </div>
-          </div>
-
-          <div className="login-form-group">
-            <label className="login-form-label">Password *</label>
-            <div className="login-input-wrapper">
-              <KeyRound className="login-input-icon" />
+        <form onSubmit={handleSignup} className="login-form">
+          <div className="login-field">
+            <label className="login-label" htmlFor="admin-name">
+              Full Name *
+            </label>
+            <div className="login-input-box">
+              <User className="login-icon" size={17} />
               <input
-                type={showPassword ? 'text' : 'password'}
+                id="admin-name"
+                type="text"
                 className="login-input"
-                style={{ paddingRight: '2.75rem' }}
-                placeholder="Min 6 characters"
+                placeholder="e.g. Rahul Sharma"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="login-field">
+            <label className="login-label" htmlFor="admin-email">
+              Email Address *
+            </label>
+            <div className="login-input-box">
+              <Mail className="login-icon" size={17} />
+              <input
+                id="admin-email"
+                type="email"
+                className="login-input"
+                placeholder="admin@speakhub.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="login-field">
+            <label className="login-label" htmlFor="admin-mobile">
+              Mobile Number (Optional)
+            </label>
+            <div className="login-input-box">
+              <Phone className="login-icon" size={17} />
+              <input
+                id="admin-mobile"
+                type="tel"
+                className="login-input"
+                placeholder="10-digit mobile number"
+                value={mobile}
+                onChange={(e) => setMobile(e.target.value)}
+                autoComplete="tel"
+              />
+            </div>
+          </div>
+
+          <div className="login-field">
+            <label className="login-label" htmlFor="admin-password">
+              Password *
+            </label>
+            <div className="login-input-box">
+              <Lock className="login-icon" size={17} />
+              <input
+                id="admin-password"
+                type={showPassword ? 'text' : 'password'}
+                className="login-input login-input-password"
+                placeholder="Create password (min 6 chars)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
                 required
               />
               <button
                 type="button"
-                className="login-toggle-eye"
+                className="login-eye-btn"
                 onClick={() => setShowPassword(!showPassword)}
                 tabIndex={-1}
+                aria-label="Toggle password visibility"
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
 
-          <button type="submit" className="login-button" disabled={isLoading}>
-            {isLoading ? <span className="loader">Creating...</span> : <><UserPlus size={20} /> Create Admin</>}
+          <button 
+            type="submit" 
+            className="login-submit-btn" 
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <span className="login-spinner" />
+            ) : (
+              <>
+                <UserPlus size={16} />
+                <span>Create Admin Account</span>
+              </>
+            )}
           </button>
         </form>
 
-        <div className="demo-credentials" style={{ marginTop: '20px' }}>
-          <p>Already have an account? <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 'bold', textDecoration: 'none' }}>Sign In here</Link></p>
+        <div className="login-footer">
+          <p>
+            Already have an account?{' '}
+            <Link to="/login" className="login-footer-link">
+              Sign In
+            </Link>
+          </p>
         </div>
       </div>
     </div>

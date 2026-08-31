@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Phone, KeyRound, LogIn, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, LogIn, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import logo from '../../assets/logo.png';
 import './Login.css';
 
 const Login: React.FC = () => {
-  const [mobile, setMobile] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -17,8 +17,8 @@ const Login: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!mobile.trim() || !password) {
-      setError('Please enter your mobile number and password.');
+    if (!identifier.trim() || !password) {
+      setError('Please enter your email or mobile and password.');
       return;
     }
 
@@ -26,7 +26,7 @@ const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const result = await loginWithEmail(mobile.trim(), password);
+      const result = await loginWithEmail(identifier.trim(), password);
       
       if (result.success) {
         if (result.forcePasswordChange) {
@@ -47,83 +47,95 @@ const Login: React.FC = () => {
   return (
     <div className="login-container">
       <div className="login-card">
+        {/* Brand Header */}
         <div className="login-header">
-          <div className="login-logo-container">
+          <div className="login-brand">
             <img src={logo} alt="Speak Hub Logo" className="login-logo-img" />
-            <span className="login-logo-text">Speak Hub</span>
+            <span className="login-brand-name">Speak Hub</span>
           </div>
-          <h1 className="login-title">Welcome Back</h1>
-          <p className="login-subtitle">Sign in to access Admin & Teacher portal</p>
+          <h1 className="login-title">Welcome back</h1>
+          <p className="login-subtitle">Sign in to access your portal</p>
         </div>
 
         {error && (
           <div className="login-error">
-            <AlertCircle size={18} />
+            <AlertCircle size={16} />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleLogin}>
-          <div className="login-form-group">
-            <label className="login-form-label" htmlFor="mobile">Email</label>
-            <div className="login-input-wrapper">
-              <Phone className="login-input-icon" />
+        <form onSubmit={handleLogin} className="login-form">
+          <div className="login-field">
+            <label className="login-label" htmlFor="identifier">
+              Email or Mobile
+            </label>
+            <div className="login-input-box">
+              <Mail className="login-icon" size={17} />
               <input
-                id="mobile"
+                id="identifier"
                 type="text"
                 className="login-input"
-                placeholder="Enter email"
-                value={mobile}
-                onChange={(e) => setMobile(e.target.value)}
+                placeholder="name@speakhub.com or phone"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                autoComplete="username"
                 required
               />
             </div>
           </div>
 
-          <div className="login-form-group">
-            <label className="login-form-label" htmlFor="password">Password</label>
-            <div className="login-input-wrapper">
-              <KeyRound className="login-input-icon" />
+          <div className="login-field">
+            <div className="login-label-row">
+              <label className="login-label" htmlFor="password">
+                Password
+              </label>
+            </div>
+            <div className="login-input-box">
+              <Lock className="login-icon" size={17} />
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
-                className="login-input"
-                style={{ paddingRight: '2.75rem' }}
+                className="login-input login-input-password"
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
                 required
               />
               <button
                 type="button"
-                className="login-toggle-eye"
+                className="login-eye-btn"
                 onClick={() => setShowPassword(!showPassword)}
                 tabIndex={-1}
+                aria-label="Toggle password visibility"
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
 
           <button 
             type="submit" 
-            className="login-button"
+            className="login-submit-btn"
             disabled={isLoading}
           >
             {isLoading ? (
-              <span className="loader">Logging in...</span>
+              <span className="login-spinner" />
             ) : (
               <>
-                <LogIn size={20} />
-                Sign In
+                <LogIn size={16} />
+                <span>Sign In</span>
               </>
             )}
           </button>
         </form>
 
-        <div className="demo-credentials" style={{ marginTop: '20px' }}>
-          <p style={{ marginTop: '10px' }}>
-            New deployment? <Link to="/register-admin" style={{ color: 'var(--primary)', fontWeight: 'bold', textDecoration: 'none' }}>Register an Admin Account</Link>
+        <div className="login-footer">
+          <p>
+            New deployment?{' '}
+            <Link to="/register-admin" className="login-footer-link">
+              Register Admin
+            </Link>
           </p>
         </div>
       </div>

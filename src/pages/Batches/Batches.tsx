@@ -21,6 +21,7 @@ const Batches: React.FC = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [meetingLink, setMeetingLink] = useState('');
+  const [youtubeVideoUrl, setYoutubeVideoUrl] = useState('');
   const [status, setStatus] = useState<'active' | 'completed' | 'inactive'>('active');
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -87,11 +88,13 @@ const Batches: React.FC = () => {
     setIsSaving(true);
 
     try {
-      const batchData = {
+      const batchData: any = {
         batchName,
         courseId,
         teacherId,
         meetingLink,
+        youtubeVideoUrl: youtubeVideoUrl.trim(),
+        demoVideoUrl: youtubeVideoUrl.trim(),
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
         status
@@ -103,6 +106,23 @@ const Batches: React.FC = () => {
       } else {
         const docRef = await addDoc(collection(db, 'batches'), batchData);
         newBatchId = docRef.id;
+      }
+
+      // If a YouTube video is attached, also sync to youtube_videos collection
+      if (youtubeVideoUrl.trim()) {
+        try {
+          await addDoc(collection(db, 'youtube_videos'), {
+            title: `${batchName} - Introduction & Demo Lecture`,
+            youtubeUrl: youtubeVideoUrl.trim(),
+            category: 'New Batch Demo',
+            batchId: newBatchId,
+            batchName: batchName,
+            description: `Official introduction & orientation video for batch: ${batchName}`,
+            createdAt: new Date()
+          });
+        } catch (vErr) {
+          console.warn("Could not sync youtube_videos collection", vErr);
+        }
       }
 
       // Assign the batch to the teacher's profile
@@ -134,15 +154,17 @@ const Batches: React.FC = () => {
     setStartDate('');
     setEndDate('');
     setMeetingLink('');
+    setYoutubeVideoUrl('');
     setStatus('active');
     setEditingId(null);
   };
 
-  const handleEdit = (batch: Batch) => {
+  const handleEdit = (batch: any) => {
     setBatchName(batch.batchName);
     setCourseId(batch.courseId);
     setTeacherId(batch.teacherId);
     setMeetingLink(batch.meetingLink || '');
+    setYoutubeVideoUrl(batch.youtubeVideoUrl || batch.demoVideoUrl || '');
     setStatus(batch.status);
     
     // Format dates for input[type="date"]
@@ -292,6 +314,13 @@ const Batches: React.FC = () => {
             placeholder="e.g. Zoom or Google Meet link"
             value={meetingLink}
             onChange={(e) => setMeetingLink(e.target.value)}
+          />
+          <Input 
+            label="YouTube Orientation / Demo Video Link (Optional)" 
+            type="url"
+            placeholder="e.g. https://youtu.be/Uhg80b2TJVs"
+            value={youtubeVideoUrl}
+            onChange={(e) => setYoutubeVideoUrl(e.target.value)}
           />
           <Select 
             label="Status" 

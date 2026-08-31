@@ -102,6 +102,10 @@ const Sidebar: React.FC = () => {
         <div className="nav-group">
           <span className="nav-group-title">LEARNING & EXAMS</span>
           <nav className="nav-menu">
+            <NavLink to="/videos" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+              <FileText size={18} />
+              <span>YouTube Videos</span>
+            </NavLink>
             <NavLink to="/notes" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
               <FileText size={18} />
               <span>Study Notes</span>
