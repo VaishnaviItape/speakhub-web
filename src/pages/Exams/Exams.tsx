@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, ChevronDown } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
@@ -8,6 +8,7 @@ import DataTable, { type Column } from '../../components/ui/DataTable';
 import { db } from '../../config/firebase';
 import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, where } from 'firebase/firestore';
 import { sendEmail } from '../../utils/emailService';
+import { formatIndianDateTime, formatIndianScheduleRange } from '../../utils/dateTime';
 import type { Exam, Course, Batch } from '../../types/models';
 import '../../components/ui/TableStyles.css';
 
@@ -91,13 +92,16 @@ const Exams: React.FC = () => {
       const usersQ = query(collection(db, 'users'), where('batchIds', 'array-contains', exam.batchId), where('status', '==', 'active'));
       const usersSnap = await getDocs(usersQ);
       
+      const startFormatted = formatIndianDateTime(exam.startDate);
+      const endFormatted = formatIndianDateTime(exam.endDate);
+
       usersSnap.forEach(userDoc => {
         const userData = userDoc.data();
         if (userData.email) {
           sendEmail(
             userData.email,
             `New Exam Available: ${exam.title}`,
-            `Hello ${userData.name},\n\nA new exam "${exam.title}" has been published and is scheduled from ${new Date(exam.startDate as any).toLocaleString()} to ${new Date(exam.endDate as any).toLocaleString()}.\n\nPlease ensure you log in to the mobile app and complete it before the deadline.\n\nBest of luck,\nSpeak Hub Academy`
+            `Hello ${userData.name},\n\nA new exam "${exam.title}" has been published and is scheduled from ${startFormatted} to ${endFormatted} (Indian Standard Time).\n\nPlease ensure you log in to the Speak Hub mobile app and complete it before the deadline.\n\nBest of luck,\nSpeak Hub Academy`
           );
         }
       });
@@ -115,18 +119,27 @@ const Exams: React.FC = () => {
       return;
     }
 
+    const qCount = Number(numberOfQuestions) || 0;
+    let finalStatus = status;
+
+    // Strict questions check before publishing
+    if ((status === 'published' || status === 'scheduled') && qCount <= 0 && !editingId) {
+      alert("Note: This exam currently has 0 questions assigned. It will be saved as 'Draft'. Please click 'Upload MCQ Questions' after creating to add questions before publishing to students.");
+      finalStatus = 'draft';
+    }
+
     const examData: any = {
       courseId, batchId, title, chapter, description, instructions, examType,
       duration: Number(duration),
       totalMarks: Number(totalMarks),
       passingMarks: Number(passingMarks),
-      numberOfQuestions: Number(numberOfQuestions),
+      numberOfQuestions: qCount,
       marksPerQuestion: Number(marksPerQuestion),
       negativeMarking, shuffleQuestions, shuffleOptions, allowReview, showResultImmediately,
       maxViolationsAllowed: Number(maxViolationsAllowed),
       maxViolationDuration: Number(maxViolationDuration),
       violationAction,
-      status,
+      status: finalStatus,
       startDate: startDate ? new Date(startDate).toISOString() : null,
       endDate: endDate ? new Date(endDate).toISOString() : null,
     };
@@ -135,7 +148,7 @@ const Exams: React.FC = () => {
       if (editingId) {
         const oldExam = exams.find(e => e.documentId === editingId);
         await updateDoc(doc(db, 'exams', editingId), examData);
-        if (oldExam && oldExam.status !== 'published' && status === 'published') {
+        if (oldExam && oldExam.status !== 'published' && finalStatus === 'published') {
           await handlePublishEmail(examData as Exam);
         }
       } else {
@@ -143,7 +156,7 @@ const Exams: React.FC = () => {
           ...examData,
           createdAt: serverTimestamp()
         });
-        if (status === 'published') {
+        if (finalStatus === 'published') {
           await handlePublishEmail({ documentId: docRef.id, ...examData } as Exam);
         }
       }
@@ -221,31 +234,56 @@ const Exams: React.FC = () => {
       header: 'Exam Title',
       render: (row) => (
         <div>
-          <span className="font-medium">{row.title}</span>
-          <div className="text-xs text-blue-600 font-bold mt-1">{row.examType}</div>
+          <span className="font-semibold text-gray-900">{row.title}</span>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">{row.examType}</span>
+            {row.chapter && <span className="text-xs text-gray-500 font-medium">Ch: {row.chapter}</span>}
+          </div>
         </div>
       )
     },
     {
       key: 'courseInfo',
-      header: 'Target',
+      header: 'Target Batch',
       render: (row) => {
         const cName = courses.find(c => c.documentId === row.courseId)?.courseName || row.courseId || 'All Courses';
         const bName = batches.find(b => b.documentId === row.batchId)?.batchName || row.batchId || 'All Batches';
         return (
-          <div>
-            <div className="text-sm font-medium">{cName} - {bName}</div>
+          <div className="text-xs">
+            <div className="font-semibold text-gray-800">{bName}</div>
+            <div className="text-gray-500">{cName}</div>
           </div>
-        )
+        );
+      }
+    },
+    {
+      key: 'questionsCount',
+      header: 'Questions Assigned',
+      render: (row) => {
+        const count = Number(row.numberOfQuestions) || 0;
+        return (
+          <div className="flex flex-col gap-1">
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+              count > 0 ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+            }`}>
+              {count > 0 ? `${count} Questions` : '0 Qs (Pending)'}
+            </span>
+            {count === 0 && (
+              <span className="text-[10px] text-amber-600 font-medium">Upload Qs to publish</span>
+            )}
+          </div>
+        );
       }
     },
     {
       key: 'schedule',
-      header: 'Schedule',
+      header: 'Schedule (Indian AM/PM)',
       render: (row) => (
-        <div className="text-xs">
-          {row.startDate ? new Date(row.startDate as any).toLocaleDateString() : 'Unscheduled'}<br/>
-          {row.duration} mins
+        <div className="text-xs space-y-0.5">
+          <div className="font-semibold text-gray-900">
+            {formatIndianScheduleRange(row.startDate, row.endDate)}
+          </div>
+          <div className="text-gray-500 font-medium">⏱️ {row.duration} mins</div>
         </div>
       )
     },
@@ -253,10 +291,11 @@ const Exams: React.FC = () => {
       key: 'marks',
       header: 'Marks',
       render: (row) => (
-        <div>
+        <div className="text-xs">
           <span className="text-green-600 font-bold">{row.passingMarks}</span>
-          <span className="text-[var(--text-muted)] mx-1">/</span>
-          <span className="text-[var(--text-main)] font-bold">{row.totalMarks}</span>
+          <span className="text-gray-400 mx-1">/</span>
+          <span className="text-gray-900 font-bold">{row.totalMarks}</span>
+          <div className="text-[11px] text-gray-500 mt-0.5">Pass / Total</div>
         </div>
       )
     },
@@ -264,15 +303,23 @@ const Exams: React.FC = () => {
       key: 'status',
       header: 'Status',
       render: (row) => {
+        const count = Number(row.numberOfQuestions) || 0;
+        if (count === 0 && (row.status === 'published' || row.status === 'scheduled')) {
+          return (
+            <span className="dt-badge pending">
+              Pending Questions
+            </span>
+          );
+        }
         let sc = 'pending';
-        if(row.status === 'published' || row.status === 'completed') sc = 'active';
-        if(row.status === 'cancelled') sc = 'inactive';
+        if (row.status === 'published' || row.status === 'completed') sc = 'active';
+        if (row.status === 'cancelled') sc = 'inactive';
         
         return (
-          <button className={`dt-badge ${sc}`}>
-            {row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : 'Draft'} <ChevronDown size={14} />
-          </button>
-        )
+          <span className={`dt-badge ${sc}`}>
+            {row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : 'Draft'}
+          </span>
+        );
       }
     },
     {
@@ -282,14 +329,14 @@ const Exams: React.FC = () => {
         <div className="flex flex-col gap-2">
           <Link 
             to={`/exams/${row.documentId}/questions`} 
-            className="bg-indigo-600 text-white hover:bg-indigo-700 px-3 py-1.5 rounded text-xs font-bold text-center transition-colors shadow-sm flex items-center justify-center gap-1"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-xs font-bold text-center transition-colors shadow-sm flex items-center justify-center gap-1"
           >
-            Upload MCQ Questions
+            Upload MCQ Questions ({Number(row.numberOfQuestions) || 0})
           </Link>
           {(row.status === 'published' || row.status === 'completed') && (
             <Link 
               to={`/exams/${row.documentId}/results`} 
-              className="bg-green-50 text-green-700 hover:bg-green-100 px-3 py-1.5 rounded text-xs font-bold text-center transition-colors border border-green-100"
+              className="bg-green-50 text-green-700 hover:bg-green-100 px-3 py-1.5 rounded text-xs font-bold text-center transition-colors border border-green-200"
             >
               View Results
             </Link>

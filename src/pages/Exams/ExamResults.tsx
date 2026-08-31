@@ -5,6 +5,7 @@ import DataTable, { type Column } from '../../components/ui/DataTable';
 import Modal from '../../components/ui/Modal';
 import { db } from '../../config/firebase';
 import { collection, query, where, getDocs, doc, getDoc, writeBatch } from 'firebase/firestore';
+import { formatIndianDateTime } from '../../utils/dateTime';
 import type { Exam, ExamAttempt, ExamQuestion } from '../../types/models';
 
 const getGrade = (percentage: number) => {
@@ -135,6 +136,15 @@ const ExamResults: React.FC = () => {
     { key: 'marks', header: 'Marks', render: (row) => row.attempt ? `${row.attempt.score} / ${exam?.totalMarks}` : '-' },
     { key: 'grade', header: 'Grade', render: (row) => row.attempt ? <span className="font-bold">{row.attempt.grade}</span> : '-' },
     {
+      key: 'submittedAt',
+      header: 'Submitted (Indian Time)',
+      render: (row) => row.attempt?.submittedAt ? (
+        <span className="text-xs text-gray-700 font-medium">{formatIndianDateTime(row.attempt.submittedAt)}</span>
+      ) : (
+        <span className="text-gray-400 text-xs">-</span>
+      )
+    },
+    {
       key: 'security',
       header: 'Security Logs',
       render: (row) => {
@@ -158,7 +168,7 @@ const ExamResults: React.FC = () => {
       key: 'actions',
       header: 'Review',
       render: (row) => row.attempt ? (
-        <button className="text-blue-600 hover:text-blue-800 flex items-center gap-1" onClick={() => { setSelectedAttempt(row); setIsReviewOpen(true); }}>
+        <button className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-xs font-bold" onClick={() => { setSelectedAttempt(row); setIsReviewOpen(true); }}>
           <Eye size={16} /> View
         </button>
       ) : null

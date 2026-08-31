@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, ArrowLeft, Upload, FileText, Download, Trash2, CheckCircle2, HelpCircle, Clock } from 'lucide-react';
+import { Plus, ArrowLeft, Upload, FileText, Download, Trash2, CheckCircle2, HelpCircle, Clock, Send, Calendar } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import { db } from '../../config/firebase';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, getDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { formatIndianScheduleRange } from '../../utils/dateTime';
 import type { ExamQuestion, Exam } from '../../types/models';
 import '../../components/ui/TableStyles.css';
 
@@ -91,10 +92,44 @@ const ExamQuestions: React.FC = () => {
         list.push({ documentId: docSnap.id, ...docSnap.data() } as ExamQuestion);
       });
       setQuestions(list);
+
+      // Auto-sync question count to parent exam document in Firestore
+      if (examId) {
+        const updates: any = {
+          numberOfQuestions: list.length,
+        };
+        if (list.length === 0 && exam?.status === 'published') {
+          updates.status = 'draft';
+        }
+        await updateDoc(doc(db, 'exams', examId), updates);
+        setExam(prev => prev ? ({ ...prev, ...updates }) : null);
+      }
     } catch (error) {
       console.error('Error fetching questions:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handlePublishNow = async () => {
+    if (!examId || !exam) return;
+    if (questions.length === 0) {
+      alert("Cannot publish exam: Please upload or add at least 1 question first.");
+      return;
+    }
+    if (!exam.startDate || !exam.endDate) {
+      alert("Please set Start Date and End Date for the exam in Exam Management before publishing.");
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'exams', examId), {
+        status: 'published',
+        numberOfQuestions: questions.length
+      });
+      setExam(prev => prev ? ({ ...prev, status: 'published', numberOfQuestions: questions.length }) : null);
+      alert("Exam published successfully! Students in the assigned batch will now be able to view and take this exam on the mobile app.");
+    } catch (e: any) {
+      alert("Failed to publish exam: " + e.message);
     }
   };
 
@@ -493,25 +528,58 @@ const ExamQuestions: React.FC = () => {
 
       {/* Exam Details Header Banner */}
       {exam && (
-        <div className="mb-6 flex flex-col gap-6">
-          <div className="bg-white p-5 rounded-xl border border-indigo-100 shadow-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded">
-                {exam.examType || 'MCQ'} Exam
-              </span>
-              {batchName && (
-                <span className="text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded">
-                  Batch: {batchName}
+        <div className="mb-6 flex flex-col gap-4">
+          <div className="bg-white p-5 rounded-xl border border-indigo-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold uppercase tracking-wider bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded">
+                  {exam.examType || 'MCQ'} Exam
                 </span>
+                {batchName && (
+                  <span className="text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded">
+                    Batch: {batchName}
+                  </span>
+                )}
+                {courseName && (
+                  <span className="text-xs font-medium text-gray-500">
+                    Course: {courseName}
+                  </span>
+                )}
+                <span className={`text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded ${
+                  exam.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                }`}>
+                  Status: {exam.status ? exam.status.toUpperCase() : 'DRAFT'}
+                </span>
+              </div>
+              <h2 className="text-xl font-bold text-gray-800 mt-2">{exam.title}</h2>
+              <div className="flex items-center gap-3 text-xs text-gray-600 mt-1 flex-wrap">
+                <span className="flex items-center gap-1 font-medium text-gray-700">
+                  <Calendar size={13} className="text-indigo-600" /> 
+                  Schedule: {formatIndianScheduleRange(exam.startDate, exam.endDate)}
+                </span>
+                {exam.chapter && <span>• Chapter: {exam.chapter}</span>}
+              </div>
+            </div>
+
+            {/* Publishing Status & Action */}
+            <div className="flex flex-col items-end gap-1.5">
+              {exam.status !== 'published' ? (
+                <button
+                  onClick={handlePublishNow}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg shadow-sm flex items-center gap-1.5 transition-all"
+                  title="Publish exam so students can view and take it on the mobile app"
+                >
+                  <Send size={14} /> Publish to Mobile App
+                </button>
+              ) : (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                  <CheckCircle2 size={15} className="text-emerald-600" /> Published & Visible on Mobile
+                </div>
               )}
-              {courseName && (
-                <span className="text-xs font-medium text-gray-500">
-                  Course: {courseName}
-                </span>
+              {questions.length === 0 && (
+                <span className="text-[11px] text-amber-600 font-medium">Add questions to publish</span>
               )}
             </div>
-            <h2 className="text-xl font-bold text-gray-800 mt-2">{exam.title}</h2>
-            {exam.chapter && <p className="text-sm text-gray-600 mt-1">Chapter: {exam.chapter}</p>}
           </div>
 
           <div className="metric-cards-grid" style={{ marginBottom: 0 }}>

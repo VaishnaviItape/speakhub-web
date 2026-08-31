@@ -8,6 +8,7 @@ import type { Batch, Course, User } from '../../types/models';
 import { db } from '../../config/firebase';
 import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, where, arrayUnion } from 'firebase/firestore';
 import { validateBatchName } from '../../utils/validation';
+import { formatIndianDate } from '../../utils/dateTime';
 
 const Batches: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -200,9 +201,7 @@ const Batches: React.FC = () => {
 
   const formatDate = (dateValue: any) => {
     if (!dateValue) return 'N/A';
-    if (dateValue instanceof Date) return dateValue.toLocaleDateString();
-    if (dateValue.toDate) return dateValue.toDate().toLocaleDateString();
-    return new Date(dateValue).toLocaleDateString();
+    return formatIndianDate(dateValue);
   };
 
   const columns: Column<Batch>[] = [
