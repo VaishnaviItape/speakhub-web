@@ -549,96 +549,104 @@ const Attendance: React.FC = () => {
 
       {/* TAB 2: BULK DATE RANGE ATTENDANCE VIEW */}
       {activeTab === 'bulk' ? (
-        <div className="space-y-6">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Top Control Panel */}
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-xl">
-                  <Calendar size={22} />
+          <div className="bulk-config-card">
+            <div className="bulk-config-header">
+              <div className="bulk-config-header-left">
+                <div className="bulk-config-icon-box">
+                  <CalendarRange size={24} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  <h3 className="bulk-config-title">
                     Bulk Date Range Configuration
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="bulk-config-subtitle">
                     Select target batch, date range, status, and choose which students to apply bulk attendance for.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-              <Select
-                label="Target Batch *"
-                options={[
-                  { label: 'Select Batch', value: '' },
-                  ...batches.map(b => ({ label: b.batchName, value: b.documentId || '' }))
-                ]}
-                value={rangeBatchId}
-                onChange={(e) => {
-                  const bId = e.target.value;
-                  setRangeBatchId(bId);
-                  loadRangeStudents(bId);
-                }}
-              />
+            <div className="bulk-config-grid">
+              <div>
+                <Select
+                  label="Target Batch *"
+                  options={[
+                    { label: 'Select Batch', value: '' },
+                    ...batches.map(b => ({ label: b.batchName, value: b.documentId || '' }))
+                  ]}
+                  value={rangeBatchId}
+                  onChange={(e) => {
+                    const bId = e.target.value;
+                    setRangeBatchId(bId);
+                    loadRangeStudents(bId);
+                  }}
+                />
+              </div>
 
-              <Input
-                type="date"
-                label="From Date *"
-                value={fromDate}
-                max={todayStr}
-                onChange={(e) => setFromDate(e.target.value)}
-              />
+              <div>
+                <Input
+                  type="date"
+                  label="From Date *"
+                  value={fromDate}
+                  max={todayStr}
+                  onChange={(e) => setFromDate(e.target.value)}
+                />
+              </div>
 
-              <Input
-                type="date"
-                label="To Date *"
-                value={toDate}
-                max={todayStr}
-                onChange={(e) => setToDate(e.target.value)}
-              />
+              <div>
+                <Input
+                  type="date"
+                  label="To Date *"
+                  value={toDate}
+                  max={todayStr}
+                  onChange={(e) => setToDate(e.target.value)}
+                />
+              </div>
 
-              <Select
-                label="Attendance Status *"
-                options={[
-                  { label: '🟢 Present', value: 'present' },
-                  { label: '🔴 Absent', value: 'absent' },
-                  { label: '🟡 Late', value: 'late' }
-                ]}
-                value={rangeStatus}
-                onChange={(e) => setRangeStatus(e.target.value as any)}
-              />
+              <div>
+                <Select
+                  label="Attendance Status *"
+                  options={[
+                    { label: '🟢 Present', value: 'present' },
+                    { label: '🔴 Absent', value: 'absent' },
+                    { label: '🟡 Late', value: 'late' }
+                  ]}
+                  value={rangeStatus}
+                  onChange={(e) => setRangeStatus(e.target.value as any)}
+                />
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-slate-100 dark:border-slate-700">
-              <div className="flex items-center gap-6">
-                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
+            <div className="bulk-config-footer">
+              <div className="bulk-checkbox-group">
+                <label className="bulk-checkbox-label">
                   <input
                     type="checkbox"
                     checked={excludeSundays}
                     onChange={(e) => setExcludeSundays(e.target.checked)}
-                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    className="bulk-checkbox-input"
                   />
                   <span>Exclude Sundays (Skip Sundays)</span>
                 </label>
 
-                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
+                <label className="bulk-checkbox-label">
                   <input
                     type="checkbox"
                     checked={excludeSaturdays}
                     onChange={(e) => setExcludeSaturdays(e.target.checked)}
-                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    className="bulk-checkbox-input"
                   />
                   <span>Exclude Saturdays (Skip Saturdays)</span>
                 </label>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="text-xs text-slate-600 dark:text-slate-300 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 px-3.5 py-2 rounded-xl flex items-center gap-2">
-                  <Users className="text-indigo-600" size={16} />
+              <div className="bulk-footer-actions">
+                <div className="bulk-status-badge">
+                  <Users size={16} color="var(--primary, #e11d48)" />
                   <span>
-                    Status: <strong className="text-indigo-600 dark:text-indigo-400">{rangeStatus.toUpperCase()}</strong> | Selected: <strong className="text-slate-900 dark:text-white">{selectedStudentIds.length} Students</strong>
+                    Status: <strong style={{ color: 'var(--primary, #e11d48)' }}>{rangeStatus.toUpperCase()}</strong> | Selected: <strong>{selectedStudentIds.length} Students</strong>
                   </span>
                 </div>
 
@@ -646,7 +654,7 @@ const Attendance: React.FC = () => {
                   type="button"
                   onClick={handleApplyRangeAttendance}
                   disabled={isApplyingRange || selectedStudentIds.length === 0}
-                  className="btn bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 font-bold px-6 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer text-xs"
+                  className="btn-apply-bulk"
                 >
                   <Save size={16} />
                   {isApplyingRange ? 'Applying Bulk Attendance...' : `Apply Bulk Attendance (${selectedStudentIds.length} Students)`}
@@ -663,23 +671,23 @@ const Attendance: React.FC = () => {
                   <Users size={20} />
                 </div>
                 <h3 className="premium-title">Students Selection Sheet</h3>
-                <span className="text-xs bg-indigo-100 text-indigo-800 font-bold px-3 py-1 rounded-full border border-indigo-200 shadow-sm">
+                <span className="attendance-tab-badge" style={{ backgroundColor: '#fff1f2', color: 'var(--primary, #e11d48)', padding: '4px 10px', fontSize: '0.75rem' }}>
                   {selectedStudentIds.length} of {rangeStudents.length} Selected
                 </span>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   onClick={() => setSelectedStudentIds(rangeStudents.map(s => s.userId))}
-                  className="btn bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold text-xs px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                  className="bulk-select-btn"
                 >
                   Select All ({rangeStudents.length})
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedStudentIds([])}
-                  className="btn bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                  className="bulk-deselect-btn"
                 >
                   Deselect All
                 </button>

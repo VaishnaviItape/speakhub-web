@@ -354,3 +354,230 @@
   color: var(--primary, #e11d48);
 }
 
+/* Bulk Date Range Configuration Card */
+.bulk-config-card {
+  background-color: var(--bg-card, #ffffff);
+  border-radius: 1.5rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  padding: 1.75rem;
+  margin-bottom: 1.75rem;
+}
+
+[data-theme='dark'] .bulk-config-card {
+  background-color: #111c44;
+  border-color: #2b3674;
+}
+
+.bulk-config-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.bulk-config-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.bulk-config-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background-color: #fff1f2;
+  color: var(--primary, #e11d48);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-theme='dark'] .bulk-config-icon-box {
+  background-color: rgba(225, 29, 72, 0.15);
+  color: #fda4af;
+}
+
+.bulk-config-title {
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--text-main, #0f172a);
+  margin: 0;
+}
+
+.bulk-config-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted, #64748b);
+  margin: 0.2rem 0 0 0;
+}
+
+/* 4-column responsive grid for batch & dates */
+.bulk-config-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr;
+  gap: 1.25rem;
+  align-items: end;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .bulk-config-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .bulk-config-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bulk-config-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+}
+
+.bulk-checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.bulk-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: var(--text-main, #334155);
+  cursor: pointer;
+  padding: 0.4rem 0.8rem;
+  background-color: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+[data-theme='dark'] .bulk-checkbox-label {
+  background-color: #0b1437;
+  border-color: #2b3674;
+  color: #cbd5e1;
+}
+
+.bulk-checkbox-label:hover {
+  border-color: var(--primary, #e11d48);
+}
+
+.bulk-checkbox-input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary, #e11d48);
+  cursor: pointer;
+}
+
+.bulk-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  flex-wrap: wrap;
+}
+
+.bulk-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: #475569;
+  background-color: #f1f5f9;
+  padding: 0.55rem 1rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+[data-theme='dark'] .bulk-status-badge {
+  background-color: #0b1437;
+  border-color: #2b3674;
+  color: #cbd5e1;
+}
+
+.btn-apply-bulk {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background-color: var(--primary, #e11d48);
+  color: #ffffff;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 800;
+  padding: 0.65rem 1.4rem;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btn-apply-bulk:hover:not(:disabled) {
+  background-color: var(--primary-hover, #be123c);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(225, 29, 72, 0.35);
+}
+
+.btn-apply-bulk:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Students Selection Sheet Header Actions */
+.bulk-select-btn {
+  padding: 0.45rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background-color: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+[data-theme='dark'] .bulk-select-btn {
+  background-color: #0b1437;
+  border-color: #2b3674;
+  color: #94a3b8;
+}
+
+.bulk-select-btn:hover {
+  background-color: #fff1f2;
+  color: var(--primary, #e11d48);
+  border-color: #fecdd3;
+}
+
+.bulk-deselect-btn {
+  padding: 0.45rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 10px;
+  border: 1px solid #fee2e2;
+  background-color: #fff5f5;
+  color: #dc2626;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bulk-deselect-btn:hover {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+
