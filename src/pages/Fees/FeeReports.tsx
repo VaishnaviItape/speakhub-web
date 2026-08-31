@@ -17,6 +17,7 @@ import { db } from '../../config/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import type { FeeTransaction, User, Course } from '../../types/models';
 import '../../components/ui/TableStyles.css';
+import '../Attendance/Attendance.css';
 
 interface DefaulterRecord {
   studentId: string;
@@ -399,31 +400,33 @@ const FeeReports: React.FC = () => {
           </div>
 
           {/* 2 Navigation Tabs: Pending Dues Sheet vs Payment History */}
-          <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 w-fit">
+          <div className="attendance-nav-tabs">
             <button
               type="button"
               onClick={() => setActiveReportTab('pending')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeReportTab === 'pending'
-                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md border border-slate-200/60 dark:border-slate-700'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
+              className={`attendance-tab-btn ${activeReportTab === 'pending' ? 'active' : ''}`}
             >
-              <AlertCircle size={16} />
-              📋 Pending Dues & Defaulters Sheet ({defaulterList.filter(d => d.status === 'overdue').length})
+              <span className="attendance-tab-icon">
+                <AlertCircle size={18} />
+              </span>
+              <span>Pending Dues &amp; Defaulters Sheet</span>
+              <span className="attendance-tab-badge">
+                {defaulterList.filter(d => d.status === 'overdue').length} Overdue
+              </span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveReportTab('history')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeReportTab === 'history'
-                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md border border-slate-200/60 dark:border-slate-700'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
+              className={`attendance-tab-btn ${activeReportTab === 'history' ? 'active' : ''}`}
             >
-              <CreditCard size={16} />
-              💳 Payment History ({transactionList.length})
+              <span className="attendance-tab-icon">
+                <CreditCard size={18} />
+              </span>
+              <span>Payment History</span>
+              <span className="attendance-tab-badge">
+                {transactionList.length} Receipts
+              </span>
             </button>
           </div>
 

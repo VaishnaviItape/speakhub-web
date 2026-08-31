@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, BookOpen, Layers, Link as LinkIcon, Calendar as CalendarIcon } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
@@ -131,12 +131,20 @@ const Notes: React.FC = () => {
         finalFileUrl = await uploadFile(file, 'notes');
       }
 
+      let fullPublishDate = new Date();
+      if (publishDate) {
+        const [hh, mm] = (publishTime || '00:00').split(':');
+        fullPublishDate = new Date(publishDate);
+        fullPublishDate.setHours(Number(hh) || 0, Number(mm) || 0, 0, 0);
+      }
+
       const noteData: Partial<Note> = {
         courseId, batchId, teacherId, topic, partChapter, title, description,
         fileUrl: finalFileUrl,
         externalVideoLink, youtubeLink, referenceLink,
-        publishDate: publishDate ? new Date(publishDate) : new Date(),
-        publishTime, status
+        publishDate: fullPublishDate,
+        publishTime: publishTime || '00:00',
+        status
       };
 
       if (editingId) {
@@ -282,53 +290,61 @@ const Notes: React.FC = () => {
       />
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Notes" : "Upload Study Notes"}>
-        <form onSubmit={handleSubmit} className="modal-form" style={{maxHeight: '75vh', overflowY: 'auto', paddingRight: '10px'}}>
+        <form onSubmit={handleSubmit} className="modal-form" style={{ maxHeight: '75vh', overflowY: 'auto', paddingRight: '6px', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           
-          <div className="mb-6">
-            <h4 className="font-semibold text-gray-800 border-b pb-2 mb-4 text-sm flex items-center gap-2">
-              <span className="w-1.5 h-4 bg-blue-600 rounded-full"></span> Target Assignment
-            </h4>
-            <div className="grid grid-cols-2 gap-4">
+          {/* Section 1: Target Assignment */}
+          <div style={{ backgroundColor: 'var(--bg-main, #f8fafc)', padding: '1rem', borderRadius: '14px', border: '1px solid var(--border-color, #e2e8f0)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.85rem', color: 'var(--primary, #e11d48)', fontWeight: '800', fontSize: '0.875rem' }}>
+              <BookOpen size={16} />
+              <span>Target Assignment</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
               <Select label="Course" options={[{label: 'Select Course', value: ''}, ...courses.map(c => ({label: c.courseName, value: c.documentId!}))]} value={courseId} onChange={(e) => setCourseId(e.target.value)} required />
               <Select label="Batch" options={[{label: 'Select Batch', value: ''}, ...batches.map(b => ({label: b.batchName, value: b.documentId!}))]} value={batchId} onChange={(e) => setBatchId(e.target.value)} required />
               <Select label="Teacher" options={[{label: 'Select Teacher', value: ''}, ...teachers.map(t => ({label: t.name!, value: t.documentId!}))]} value={teacherId} onChange={(e) => setTeacherId(e.target.value)} required />
             </div>
           </div>
 
-          <div className="mb-6">
-            <h4 className="font-semibold text-gray-800 border-b pb-2 mb-4 text-sm flex items-center gap-2">
-              <span className="w-1.5 h-4 bg-indigo-600 rounded-full"></span> Content Hierarchy
-            </h4>
+          {/* Section 2: Content Hierarchy */}
+          <div style={{ backgroundColor: 'var(--bg-main, #f8fafc)', padding: '1rem', borderRadius: '14px', border: '1px solid var(--border-color, #e2e8f0)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.85rem', color: '#6366f1', fontWeight: '800', fontSize: '0.875rem' }}>
+              <Layers size={16} />
+              <span>Content Hierarchy &amp; Info</span>
+            </div>
             <Input label="Title" placeholder="e.g. Chapter 1: Grammar Rules" value={title} onChange={(e) => setTitle(e.target.value)} required />
-            <div className="grid grid-cols-2 gap-4 mt-4">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.75rem' }}>
               <Input label="Topic" placeholder="e.g. Algebra" value={topic} onChange={(e) => setTopic(e.target.value)} />
               <Input label="Part / Chapter" placeholder="e.g. Chapter 4" value={partChapter} onChange={(e) => setPartChapter(e.target.value)} />
             </div>
-            <div className="mt-4">
+            <div style={{ marginTop: '0.75rem' }}>
               <Input label="Description" placeholder="Briefly describe the contents..." value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
           </div>
 
-          <div className="mb-6">
-            <h4 className="font-semibold text-gray-800 border-b pb-2 mb-4 text-sm flex items-center gap-2">
-              <span className="w-1.5 h-4 bg-orange-500 rounded-full"></span> Media & Attachments
-            </h4>
-            <div className="grid gap-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
+          {/* Section 3: Media & Attachments */}
+          <div style={{ backgroundColor: 'var(--bg-main, #f8fafc)', padding: '1rem', borderRadius: '14px', border: '1px solid var(--border-color, #e2e8f0)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.85rem', color: '#f59e0b', fontWeight: '800', fontSize: '0.875rem' }}>
+              <LinkIcon size={16} />
+              <span>Media &amp; Attachments</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <Input label="Google Drive / Document Link" placeholder="https://docs.google.com/..." value={referenceLink} onChange={(e) => setReferenceLink(e.target.value)} required />
               <Input label="YouTube Link (Optional)" placeholder="https://youtube.com/..." value={youtubeLink} onChange={(e) => setYoutubeLink(e.target.value)} />
               <Input label="External Video Link (Optional)" placeholder="https://vimeo.com/..." value={externalVideoLink} onChange={(e) => setExternalVideoLink(e.target.value)} />
             </div>
           </div>
 
-          <div className="mb-6">
-            <h4 className="font-semibold text-gray-800 border-b pb-2 mb-4 text-sm flex items-center gap-2">
-              <span className="w-1.5 h-4 bg-green-500 rounded-full"></span> Publishing & Status
-            </h4>
-            <div className="grid grid-cols-2 gap-4">
+          {/* Section 4: Publishing & Status */}
+          <div style={{ backgroundColor: 'var(--bg-main, #f8fafc)', padding: '1rem', borderRadius: '14px', border: '1px solid var(--border-color, #e2e8f0)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.85rem', color: '#10b981', fontWeight: '800', fontSize: '0.875rem' }}>
+              <CalendarIcon size={16} />
+              <span>Publishing &amp; Status</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               <Input label="Publish Date" type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} />
               <Input label="Publish Time" type="time" value={publishTime} onChange={(e) => setPublishTime(e.target.value)} />
             </div>
-            <div className="mt-4">
+            <div style={{ marginTop: '0.75rem' }}>
               <Select 
                 label="Status" 
                 options={[
@@ -343,10 +359,10 @@ const Notes: React.FC = () => {
             </div>
           </div>
 
-          <div className="modal-actions">
-            <button type="button" className="btn bg-gray-200 text-gray-800" onClick={() => setIsModalOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : (editingId ? 'Update Notes' : 'Save & Publish')}
+          <div className="modal-actions" style={{ marginTop: '0.5rem' }}>
+            <button type="button" className="btn" style={{ backgroundColor: '#e2e8f0', color: '#334155' }} onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting} style={{ fontWeight: '800' }}>
+              {isSubmitting ? 'Saving...' : (editingId ? 'Update Notes' : 'Save & Publish Notes')}
             </button>
           </div>
         </form>

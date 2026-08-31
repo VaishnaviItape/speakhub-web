@@ -1,0 +1,182 @@
+/* Fees.css - Modern Styling for Fees & Modal */
+
+.fees-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.fees-header-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-main, #0f172a);
+  margin: 0;
+}
+
+.fees-header-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted, #64748b);
+  margin: 0.2rem 0 0 0;
+}
+
+/* Modal Form Specifics */
+.fee-modal-student-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 0.85rem 1.15rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+[data-theme='dark'] .fee-modal-student-card {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-color: #334155;
+}
+
+.fee-student-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.825rem;
+  color: #475569;
+  font-weight: 600;
+}
+
+[data-theme='dark'] .fee-student-meta-item {
+  color: #cbd5e1;
+}
+
+.fee-student-meta-item strong {
+  color: #0f172a;
+}
+
+[data-theme='dark'] .fee-student-meta-item strong {
+  color: #ffffff;
+}
+
+.fee-student-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background-color: #fff1f2;
+  color: var(--primary, #e11d48);
+  padding: 0.3rem 0.75rem;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  border: 1px solid #fecdd3;
+}
+
+[data-theme='dark'] .fee-student-meta-pill {
+  background-color: rgba(225, 29, 72, 0.15);
+  border-color: rgba(225, 29, 72, 0.3);
+  color: #fda4af;
+}
+
+.fee-modal-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.fee-modal-grid-3 {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .fee-modal-grid-2, .fee-modal-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Next Due Date Calculation Banner */
+.fee-due-date-banner {
+  background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+  border: 1px solid #a7f3d0;
+  border-radius: 14px;
+  padding: 0.85rem 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  gap: 0.75rem;
+}
+
+[data-theme='dark'] .fee-due-date-banner {
+  background: linear-gradient(135deg, #064e3b 0%, #022c22 100%);
+  border-color: #047857;
+}
+
+.fee-due-date-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: #065f46;
+}
+
+[data-theme='dark'] .fee-due-date-label {
+  color: #6ee7b7;
+}
+
+.fee-due-date-badge {
+  background-color: #ffffff;
+  color: #047857;
+  font-size: 0.875rem;
+  font-weight: 800;
+  padding: 0.35rem 0.85rem;
+  border-radius: 10px;
+  border: 1.5px solid #6ee7b7;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.15);
+  letter-spacing: 0.2px;
+}
+
+[data-theme='dark'] .fee-due-date-badge {
+  background-color: #0f172a;
+  color: #34d399;
+  border-color: #059669;
+}
+
+.fee-modal-submit-btn {
+  width: 100%;
+  padding: 0.85rem 1.5rem;
+  background: linear-gradient(135deg, var(--primary, #e11d48) 0%, #be123c 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.28);
+  transition: all 0.2s ease;
+  margin-top: 0.75rem;
+}
+
+.fee-modal-submit-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(225, 29, 72, 0.38);
+}
+
+.fee-modal-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}

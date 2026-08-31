@@ -10,12 +10,13 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 const Input: React.FC<InputProps> = ({ label, error, className = '', type, ...props }) => {
   const [showPassword, setShowPassword] = useState(false);
   const isPassword = type === 'password';
+  const cleanLabel = label && label.endsWith('*') ? label.slice(0, -1).trim() : label;
 
   return (
     <div className={`form-group ${className}`}>
       {label && (
         <label className="form-label">
-          {label} {props.required && <span className="text-red-500 ml-1">*</span>}
+          {cleanLabel} {props.required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
       <div style={{ position: 'relative', width: '100%' }}>

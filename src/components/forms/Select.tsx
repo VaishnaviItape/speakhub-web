@@ -13,11 +13,12 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 const Select: React.FC<SelectProps> = ({ label, options, error, className = '', ...props }) => {
+  const cleanLabel = label && label.endsWith('*') ? label.slice(0, -1).trim() : label;
   return (
     <div className={`form-group ${className}`}>
       {label && (
         <label className="form-label">
-          {label} {props.required && <span className="text-red-500 ml-1">*</span>}
+          {cleanLabel} {props.required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
       <select className={`form-select ${error ? 'border-red-500' : ''}`} {...props}>

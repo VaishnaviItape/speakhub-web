@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, MessageCircle, Calendar, Clock } from 'lucide-react';
+import { Plus, MessageCircle, Calendar, Clock, Printer, CreditCard } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
@@ -9,6 +9,7 @@ import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'fire
 import type { FeeTransaction, User, Course } from '../../types/models';
 import { validatePositiveNumber } from '../../utils/validation';
 import '../../components/ui/TableStyles.css';
+import './Fees.css';
 import ReceiptTemplate from './ReceiptTemplate';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -434,10 +435,10 @@ const Fees: React.FC = () => {
 
       {/* Record Payment Modal */}
       <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Record Monthly Fee">
-        <form onSubmit={handleRecordPayment} className="modal-form space-y-4">
+        <form onSubmit={handleRecordPayment} className="modal-form" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
           
           <Select 
-            label="Select Student *" 
+            label="Select Student" 
             options={feeRecords.map(r => ({label: `${r.studentName} (${r.courseName} - ₹${r.monthlyFee}/mo)`, value: r.studentId}))} 
             value={paymentStudentId}
             onChange={(e) => setPaymentStudentId(e.target.value)}
@@ -446,17 +447,21 @@ const Fees: React.FC = () => {
 
           {/* Student Info Card */}
           {selectedRecord && (
-            <div className="bg-slate-50 dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-1">
-              <div className="flex justify-between items-center text-slate-700 dark:text-slate-300">
-                <span>📅 <strong>Joining Date:</strong> {selectedRecord.joiningDate || '01 Jan 2026'}</span>
-                <span>💰 <strong>Course Fee:</strong> ₹{selectedRecord.monthlyFee} / month</span>
+            <div className="fee-modal-student-card">
+              <div className="fee-student-meta-item">
+                <Calendar size={15} color="var(--primary, #e11d48)" />
+                <span>Joining Date: <strong>{selectedRecord.joiningDate || '01 Jan 2026'}</strong></span>
+              </div>
+              <div className="fee-student-meta-pill">
+                <CreditCard size={14} />
+                <span>Course Fee: ₹{selectedRecord.monthlyFee} / month</span>
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="fee-modal-grid-2">
             <Select 
-              label="Fee For How Many Months? *" 
+              label="Fee For How Many Months?" 
               options={[
                 { label: '1 Month', value: '1' },
                 { label: '2 Months', value: '2' },
@@ -472,7 +477,7 @@ const Fees: React.FC = () => {
             />
 
             <Select 
-              label="Starting Billing Month *" 
+              label="Starting Billing Month" 
               options={generateMonthOptions()} 
               value={billingPeriod} 
               onChange={(e) => setBillingPeriod(e.target.value)} 
@@ -482,19 +487,20 @@ const Fees: React.FC = () => {
 
           {/* Dynamic Next Due Date Calculation Banner */}
           {selectedRecord && calculatedDueDate && (
-            <div className="bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs flex items-center justify-between">
-              <span className="text-emerald-800 dark:text-emerald-300 font-bold flex items-center gap-1.5">
-                <Clock size={15} /> Calculated Next Due Date (after {numberOfMonths} {numberOfMonths === 1 ? 'month' : 'months'}):
+            <div className="fee-due-date-banner">
+              <span className="fee-due-date-label">
+                <Clock size={16} /> 
+                <span>Calculated Next Due Date (after {numberOfMonths} {numberOfMonths === 1 ? 'month' : 'months'}):</span>
               </span>
-              <span className="text-emerald-900 dark:text-emerald-200 font-extrabold text-sm bg-white dark:bg-slate-900 px-3 py-1 rounded-lg border border-emerald-300 dark:border-emerald-700 shadow-sm">
+              <span className="fee-due-date-badge">
                 {calculatedDueDate}
               </span>
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="fee-modal-grid-3">
             <Input 
-              label={`Total Fee Amount (₹) (${numberOfMonths} ${numberOfMonths === 1 ? 'month' : 'months'}) *`} 
+              label={`Total Fee (₹) (${numberOfMonths} ${numberOfMonths === 1 ? 'month' : 'months'})`} 
               type="number" 
               min="0"
               value={amountPaid} 
@@ -517,9 +523,9 @@ const Fees: React.FC = () => {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="fee-modal-grid-2">
             <Select 
-              label="Payment Mode *" 
+              label="Payment Mode" 
               options={[
                 { label: 'Cash', value: 'Cash' }, 
                 { label: 'UPI', value: 'UPI' }, 
@@ -543,11 +549,10 @@ const Fees: React.FC = () => {
             onChange={(e) => setTransactionNumber(e.target.value)} 
           />
 
-          <div className="modal-actions mt-6">
-            <button type="submit" className="btn btn-success font-bold" disabled={isSaving}>
-              {isSaving ? "Processing Payment..." : `Record Payment (₹${amountPaid}) & Print Receipt`}
-            </button>
-          </div>
+          <button type="submit" className="fee-modal-submit-btn" disabled={isSaving}>
+            <Printer size={18} />
+            {isSaving ? "Processing Payment..." : `Record Payment (₹${amountPaid}) & Print Receipt`}
+          </button>
         </form>
       </Modal>
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, ShieldAlert, Settings2 } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
@@ -15,7 +15,7 @@ import '../../components/ui/TableStyles.css';
 const Exams: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Form State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [courseId, setCourseId] = useState('');
@@ -25,19 +25,19 @@ const Exams: React.FC = () => {
   const [description, setDescription] = useState('');
   const [instructions, setInstructions] = useState('');
   const [examType, setExamType] = useState<'MCQ' | 'Reading' | 'Speaking' | 'Abacus'>('MCQ');
-  
+
   const [duration, setDuration] = useState('');
   const [totalMarks, setTotalMarks] = useState('');
   const [passingMarks, setPassingMarks] = useState('');
   const [numberOfQuestions, setNumberOfQuestions] = useState('');
   const [marksPerQuestion, setMarksPerQuestion] = useState('');
-  
+
   const [negativeMarking, setNegativeMarking] = useState(false);
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
   const [shuffleOptions, setShuffleOptions] = useState(false);
   const [allowReview, setAllowReview] = useState(true);
   const [showResultImmediately, setShowResultImmediately] = useState(true);
-  
+
   // Anti-Cheat State
   const [maxViolationsAllowed, setMaxViolationsAllowed] = useState('3');
   const [maxViolationDuration, setMaxViolationDuration] = useState('30');
@@ -91,7 +91,7 @@ const Exams: React.FC = () => {
     try {
       const usersQ = query(collection(db, 'users'), where('batchIds', 'array-contains', exam.batchId), where('status', '==', 'active'));
       const usersSnap = await getDocs(usersQ);
-      
+
       const startFormatted = formatIndianDateTime(exam.startDate);
       const endFormatted = formatIndianDateTime(exam.endDate);
 
@@ -112,7 +112,7 @@ const Exams: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Status validation
     if ((status === 'scheduled' || status === 'published') && (!startDate || !endDate)) {
       alert("Please provide Start and End Dates for Scheduled/Published exams.");
@@ -199,18 +199,18 @@ const Exams: React.FC = () => {
     setShuffleOptions(exam.shuffleOptions || false);
     setAllowReview(exam.allowReview !== false);
     setShowResultImmediately(exam.showResultImmediately !== false);
-    
+
     setMaxViolationsAllowed(exam.maxViolationsAllowed?.toString() || '3');
     setMaxViolationDuration(exam.maxViolationDuration?.toString() || '30');
     setViolationAction(exam.violationAction || 'AutoSubmit');
-    
+
     // Formatting date for datetime-local input
     const formatDt = (dt: any) => {
       if (!dt) return '';
       const d = new Date(dt);
-      return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+      return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     };
-    
+
     setStartDate(formatDt(exam.startDate));
     setEndDate(formatDt(exam.endDate));
     setStatus(exam.status || 'draft');
@@ -256,25 +256,25 @@ const Exams: React.FC = () => {
         );
       }
     },
-    {
-      key: 'questionsCount',
-      header: 'Questions Assigned',
-      render: (row) => {
-        const count = Number(row.numberOfQuestions) || 0;
-        return (
-          <div className="flex flex-col gap-1">
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
-              count > 0 ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
-            }`}>
-              {count > 0 ? `${count} Questions` : '0 Qs (Pending)'}
-            </span>
-            {count === 0 && (
-              <span className="text-[10px] text-amber-600 font-medium">Upload Qs to publish</span>
-            )}
-          </div>
-        );
-      }
-    },
+    // {
+    //   key: 'questionsCount',
+    //   header: 'Questions Assigned',
+    //   render: (row) => {
+    //     const count = Number(row.numberOfQuestions) || 0;
+    //     return (
+    //       <div className="flex flex-col gap-1">
+    //         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+    //           count > 0 ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+    //         }`}>
+    //           {count > 0 ? `${count} Questions` : '0 Qs (Pending)'}
+    //         </span>
+    //         {count === 0 && (
+    //           <span className="text-[10px] text-amber-600 font-medium">Upload Qs to publish</span>
+    //         )}
+    //       </div>
+    //     );
+    //   }
+    // },
     {
       key: 'schedule',
       header: 'Schedule (Indian AM/PM)',
@@ -314,7 +314,7 @@ const Exams: React.FC = () => {
         let sc = 'pending';
         if (row.status === 'published' || row.status === 'completed') sc = 'active';
         if (row.status === 'cancelled') sc = 'inactive';
-        
+
         return (
           <span className={`dt-badge ${sc}`}>
             {row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : 'Draft'}
@@ -327,15 +327,15 @@ const Exams: React.FC = () => {
       header: 'Manage',
       render: (row) => (
         <div className="flex flex-col gap-2">
-          <Link 
-            to={`/exams/${row.documentId}/questions`} 
+          <Link
+            to={`/exams/${row.documentId}/questions`}
             className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-xs font-bold text-center transition-colors shadow-sm flex items-center justify-center gap-1"
           >
             Upload MCQ Questions ({Number(row.numberOfQuestions) || 0})
           </Link>
           {(row.status === 'published' || row.status === 'completed') && (
-            <Link 
-              to={`/exams/${row.documentId}/results`} 
+            <Link
+              to={`/exams/${row.documentId}/results`}
               className="bg-green-50 text-green-700 hover:bg-green-100 px-3 py-1.5 rounded text-xs font-bold text-center transition-colors border border-green-200"
             >
               View Results
@@ -361,10 +361,10 @@ const Exams: React.FC = () => {
         </button>
       </div>
 
-      <DataTable 
-        title="All Exams" 
-        data={exams} 
-        columns={columns} 
+      <DataTable
+        title="All Exams"
+        data={exams}
+        columns={columns}
         onEdit={handleEdit}
         onDelete={handleDelete}
         searchPlaceholder="Search exams..."
@@ -372,97 +372,111 @@ const Exams: React.FC = () => {
       />
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Exam" : "Create New Exam"}>
-        <form onSubmit={handleSubmit} className="modal-form" style={{maxHeight: '70vh', overflowY: 'auto', paddingRight: '10px'}}>
+        <form onSubmit={handleSubmit} className="modal-form" style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '10px' }}>
           <Input label="Exam Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-          
+
           <div className="grid grid-cols-2 gap-4">
-            <Select label="Course" options={courses.map(c => ({label: c.courseName, value: c.documentId!}))} value={courseId} onChange={(e) => setCourseId(e.target.value)} required />
-            <Select label="Batch" options={[{label: 'All Batches', value: 'all'}, ...batches.map(b => ({label: b.batchName, value: b.documentId!}))]} value={batchId} onChange={(e) => setBatchId(e.target.value)} />
+            <Select label="Course" options={courses.map(c => ({ label: c.courseName, value: c.documentId! }))} value={courseId} onChange={(e) => setCourseId(e.target.value)} required />
+            <Select label="Batch" options={[{ label: 'All Batches', value: 'all' }, ...batches.map(b => ({ label: b.batchName, value: b.documentId! }))]} value={batchId} onChange={(e) => setBatchId(e.target.value)} />
           </div>
 
           <div className="grid grid-cols-2 gap-4 mt-2">
             <Input label="Chapter/Topic (Optional)" value={chapter} onChange={(e) => setChapter(e.target.value)} />
             <Select label="Exam Type" options={[
-              {label: 'MCQ', value: 'MCQ'}, {label: 'Reading', value: 'Reading'}, {label: 'Speaking', value: 'Speaking'}, {label: 'Abacus', value: 'Abacus'}
+              { label: 'MCQ', value: 'MCQ' }, { label: 'Reading', value: 'Reading' }, { label: 'Speaking', value: 'Speaking' }, { label: 'Abacus', value: 'Abacus' }
             ]} value={examType} onChange={(e) => setExamType(e.target.value as any)} required />
           </div>
 
           <Input label="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
           <Input label="Instructions for Students" value={instructions} onChange={(e) => setInstructions(e.target.value)} />
 
-          <div className="grid grid-cols-3 gap-4 mt-2">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginTop: '0.5rem' }}>
             <Input type="number" min="0" label="Duration (Mins)" value={duration} onChange={(e) => setDuration(e.target.value)} required />
             <Input type="number" min="0" label="Total Marks" value={totalMarks} onChange={(e) => setTotalMarks(e.target.value)} required />
             <Input type="number" min="0" label="Passing Marks" value={passingMarks} onChange={(e) => setPassingMarks(e.target.value)} required />
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mt-2">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.5rem' }}>
             <Input type="number" min="0" label="Number of Questions" value={numberOfQuestions} onChange={(e) => setNumberOfQuestions(e.target.value)} required />
             <Input type="number" min="0" label="Marks Per Question" value={marksPerQuestion} onChange={(e) => setMarksPerQuestion(e.target.value)} required />
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mt-4 mb-4 p-4 bg-gray-50 rounded-lg">
-            <label className="flex items-center space-x-2">
-              <input type="checkbox" checked={negativeMarking} onChange={(e) => setNegativeMarking(e.target.checked)} />
-              <span className="text-sm">Negative Marking</span>
-            </label>
-            <label className="flex items-center space-x-2">
-              <input type="checkbox" checked={shuffleQuestions} onChange={(e) => setShuffleQuestions(e.target.checked)} />
-              <span className="text-sm">Shuffle Questions</span>
-            </label>
-            <label className="flex items-center space-x-2">
-              <input type="checkbox" checked={shuffleOptions} onChange={(e) => setShuffleOptions(e.target.checked)} />
-              <span className="text-sm">Shuffle Options</span>
-            </label>
-            <label className="flex items-center space-x-2">
-              <input type="checkbox" checked={allowReview} onChange={(e) => setAllowReview(e.target.checked)} />
-              <span className="text-sm">Allow Reviewing Answers</span>
-            </label>
-            <label className="flex items-center space-x-2">
-              <input type="checkbox" checked={showResultImmediately} onChange={(e) => setShowResultImmediately(e.target.checked)} />
-              <span className="text-sm">Show Result Immediately</span>
-            </label>
-          </div>
-
-          <div className="mt-4 p-4 bg-red-50 rounded-lg border border-red-100">
-            <h3 className="text-sm font-bold text-red-800 mb-2">Anti-Cheat / Full-Screen Mode</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <Input type="number" min="0" label="Max App Exits Allowed" value={maxViolationsAllowed} onChange={(e) => setMaxViolationsAllowed(e.target.value)} required />
-              <Input type="number" min="0" label="Max Time Away (Sec)" value={maxViolationDuration} onChange={(e) => setMaxViolationDuration(e.target.value)} required />
-              <Select 
-                label="Action on Violation" 
-                options={[
-                  {label: 'Auto Submit Exam', value: 'AutoSubmit'}, 
-                  {label: 'Lock Exam', value: 'Lock'},
-                  {label: 'Mark as Suspicious', value: 'MarkSuspicious'}
-                ]} 
-                value={violationAction}
-                onChange={(e) => setViolationAction(e.target.value as any)}
-                required
-              />
+          {/* Exam Rules & Options Pill Grid */}
+          <div style={{ backgroundColor: 'var(--bg-main, #f8fafc)', padding: '1rem', borderRadius: '14px', border: '1px solid var(--border-color, #e2e8f0)', marginTop: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem', color: '#6366f1', fontWeight: 800, fontSize: '0.875rem' }}>
+              <Settings2 size={16} />
+              <span>Exam Rules &amp; Experience</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.825rem', fontWeight: 600, padding: '8px 12px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
+                <input type="checkbox" checked={negativeMarking} onChange={(e) => setNegativeMarking(e.target.checked)} style={{ accentColor: 'var(--primary, #e11d48)' }} />
+                <span>Negative Marking</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.825rem', fontWeight: 600, padding: '8px 12px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
+                <input type="checkbox" checked={shuffleQuestions} onChange={(e) => setShuffleQuestions(e.target.checked)} style={{ accentColor: 'var(--primary, #e11d48)' }} />
+                <span>Shuffle Questions</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.825rem', fontWeight: 600, padding: '8px 12px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
+                <input type="checkbox" checked={shuffleOptions} onChange={(e) => setShuffleOptions(e.target.checked)} style={{ accentColor: 'var(--primary, #e11d48)' }} />
+                <span>Shuffle Options</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.825rem', fontWeight: 600, padding: '8px 12px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
+                <input type="checkbox" checked={allowReview} onChange={(e) => setAllowReview(e.target.checked)} style={{ accentColor: 'var(--primary, #e11d48)' }} />
+                <span>Allow Reviewing Answers</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.825rem', fontWeight: 600, padding: '8px 12px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #e2e8f0', cursor: 'pointer', gridColumn: 'span 2' }}>
+                <input type="checkbox" checked={showResultImmediately} onChange={(e) => setShowResultImmediately(e.target.checked)} style={{ accentColor: 'var(--primary, #e11d48)' }} />
+                <span>Show Result Immediately after Submission</span>
+              </label>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mt-4">
+          {/* Anti-Cheat / Full-Screen Mode Card */}
+          <div style={{ backgroundColor: '#fff5f5', padding: '1rem', borderRadius: '14px', border: '1px solid #fed7d7', marginTop: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem', color: '#c53030', fontWeight: 800, fontSize: '0.875rem' }}>
+              <ShieldAlert size={16} />
+              <span>Anti-Cheat &amp; Violation Security</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <Input type="number" min="0" label="Max App Exits Allowed" value={maxViolationsAllowed} onChange={(e) => setMaxViolationsAllowed(e.target.value)} required />
+              <Input type="number" min="0" label="Max Time Away (Sec)" value={maxViolationDuration} onChange={(e) => setMaxViolationDuration(e.target.value)} required />
+            </div>
+            <Select
+              label="Action on Violation"
+              options={[
+                { label: 'Auto Submit Exam', value: 'AutoSubmit' },
+                { label: 'Lock Exam', value: 'Lock' },
+                { label: 'Mark as Suspicious', value: 'MarkSuspicious' }
+              ]}
+              value={violationAction}
+              onChange={(e) => setViolationAction(e.target.value as any)}
+              required
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.75rem' }}>
             <Input type="datetime-local" label="Start Date & Time" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             <Input type="datetime-local" label="End Date & Time" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
 
-          <Select 
-            label="Status" 
-            options={[
-              {label: 'Draft', value: 'draft'}, 
-              {label: 'Scheduled', value: 'scheduled'},
-              {label: 'Published', value: 'published'},
-              {label: 'Completed', value: 'completed'},
-              {label: 'Cancelled', value: 'cancelled'}
-            ]} 
-            value={status}
-            onChange={(e) => setStatus(e.target.value as any)}
-          />
-          
-          <div className="modal-actions mt-4">
-            <button type="submit" className="btn btn-success">Save Exam</button>
+          <div style={{ marginTop: '0.75rem' }}>
+            <Select
+              label="Status"
+              options={[
+                { label: 'Draft', value: 'draft' },
+                { label: 'Scheduled', value: 'scheduled' },
+                { label: 'Published', value: 'published' },
+                { label: 'Completed', value: 'completed' },
+                { label: 'Cancelled', value: 'cancelled' }
+              ]}
+              value={status}
+              onChange={(e) => setStatus(e.target.value as any)}
+            />
+          </div>
+
+          <div className="modal-actions" style={{ marginTop: '0.75rem' }}>
+            <button type="button" className="btn" style={{ backgroundColor: '#e2e8f0', color: '#334155' }} onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button type="submit" className="btn btn-primary" style={{ fontWeight: 800 }}>Save &amp; Configure Exam</button>
           </div>
         </form>
       </Modal>

@@ -25,12 +25,14 @@ const HomeworkPage: React.FC = () => {
   // Simple Form State
   const [batchId, setBatchId] = useState('');
   const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [publishDate, setPublishDate] = useState('');
+  const [publishTime, setPublishTime] = useState('');
   const [title, setTitle] = useState('');
   const [contentType, setContentType] = useState<'text' | 'pdf'>('text');
   const [instructions, setInstructions] = useState('');
   const [pdfLink, setPdfLink] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [status, setStatus] = useState<'published' | 'draft'>('published');
+  const [status, setStatus] = useState<'published' | 'scheduled' | 'draft'>('published');
 
   useEffect(() => {
     fetchBatches();
@@ -53,11 +55,6 @@ const HomeworkPage: React.FC = () => {
     try {
       const snap = await getDocs(collection(db, 'homeworks'));
       const hwList = snap.docs.map(d => ({ documentId: d.id, ...d.data() } as Homework));
-      hwList.sort((a, b) => {
-        const dA = a.dueDate ? (a.dueDate instanceof Date ? a.dueDate.getTime() : (a.dueDate as any)?.seconds * 1000) : 0;
-        const dB = b.dueDate ? (b.dueDate instanceof Date ? b.dueDate.getTime() : (b.dueDate as any)?.seconds * 1000) : 0;
-        return dB - dA;
-      });
       setHomeworks(hwList);
     } catch (e) {
       console.error("Error fetching homeworks:", e);
@@ -70,6 +67,8 @@ const HomeworkPage: React.FC = () => {
     setEditingId(null);
     setBatchId('all');
     setDueDate(new Date().toISOString().split('T')[0]);
+    setPublishDate('');
+    setPublishTime('');
     setTitle('');
     setContentType('text');
     setInstructions('');
@@ -80,12 +79,6 @@ const HomeworkPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!batchId) {
-      alert("Please select a target batch.");
-      return;
-    }
-
     if (!title.trim()) {
       alert("Please enter a homework title.");
       return;
@@ -102,6 +95,13 @@ const HomeworkPage: React.FC = () => {
 
       const selectedBatch = batches.find(b => b.documentId === batchId);
 
+      let fullPublishDate = new Date();
+      if (publishDate) {
+        const [hh, mm] = (publishTime || '00:00').split(':');
+        fullPublishDate = new Date(publishDate);
+        fullPublishDate.setHours(Number(hh) || 0, Number(mm) || 0, 0, 0);
+      }
+
       const hwData: Partial<Homework> = {
         batchId,
         courseId: selectedBatch?.courseId || '',
@@ -112,8 +112,9 @@ const HomeworkPage: React.FC = () => {
         submissionType: contentType === 'pdf' ? ['PDF', 'Document'] : ['Text', 'Image'],
         dueDate: dueDate ? new Date(dueDate) : new Date(),
         dueTime: '23:59',
-        publishDate: serverTimestamp() as any,
-        status: status === 'published' ? 'published' : 'draft',
+        publishDate: fullPublishDate,
+        publishTime: publishTime || '00:00',
+        status: status,
         createdAt: serverTimestamp() as any
       };
 
@@ -136,7 +137,7 @@ const HomeworkPage: React.FC = () => {
 
   const handleEdit = (hw: Homework) => {
     setEditingId(hw.documentId!);
-    setBatchId(hw.batchId || '');
+    setBatchId(hw.batchId || 'all');
     setTitle(hw.title || '');
     setInstructions(hw.instructions || hw.description || '');
     setPdfLink(hw.attachmentUrl || '');
@@ -153,7 +154,21 @@ const HomeworkPage: React.FC = () => {
       }
     }
     setDueDate(dDateStr);
-    setStatus(hw.status === 'published' ? 'published' : 'draft');
+
+    let pDateStr = '';
+    const rawPDate = hw.publishDate as any;
+    if (rawPDate) {
+      if (rawPDate instanceof Date) {
+        pDateStr = rawPDate.toISOString().split('T')[0];
+      } else if (rawPDate.seconds) {
+        pDateStr = new Date(rawPDate.seconds * 1000).toISOString().split('T')[0];
+      } else if (typeof rawPDate === 'string') {
+        pDateStr = rawPDate.split('T')[0];
+      }
+    }
+    setPublishDate(pDateStr);
+    setPublishTime((hw as any).publishTime || '');
+    setStatus(hw.status === 'published' ? 'published' : (hw.status === 'scheduled' ? 'scheduled' : 'draft'));
     setIsModalOpen(true);
   };
 
@@ -227,9 +242,9 @@ const HomeworkPage: React.FC = () => {
         <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
           row.status === 'published' 
             ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
-            : 'bg-slate-100 text-slate-700 border-slate-200'
+            : (row.status === 'scheduled' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-700 border-slate-200')
         }`}>
-          {row.status === 'published' ? '🟢 Published' : '⚪ Draft'}
+          {row.status === 'published' ? '🟢 Published' : (row.status === 'scheduled' ? '🟡 Scheduled' : '⚪ Draft')}
         </span>
       )
     },
@@ -288,13 +303,13 @@ const HomeworkPage: React.FC = () => {
         isLoading={isLoading}
       />
 
-      {/* Simplified Assign Homework Modal */}
+      {/* Assign Homework Modal */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Homework" : "Assign Homework"}>
-        <form onSubmit={handleSubmit} className="modal-form space-y-4">
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '75vh', overflowY: 'auto', paddingRight: '6px' }}>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
             <Select 
-              label="Target Batch *" 
+              label="Target Batch" 
               options={[{ label: 'All Batches', value: 'all' }, ...batches.map(b => ({ label: b.batchName, value: b.documentId! }))]} 
               value={batchId} 
               onChange={(e) => setBatchId(e.target.value)} 
@@ -302,7 +317,7 @@ const HomeworkPage: React.FC = () => {
             />
 
             <Input 
-              label="Select Due Date *" 
+              label="Select Due Date" 
               type="date" 
               value={dueDate} 
               onChange={(e) => setDueDate(e.target.value)} 
@@ -311,7 +326,7 @@ const HomeworkPage: React.FC = () => {
           </div>
 
           <Input 
-            label="Homework Title / Topic *" 
+            label="Homework Title / Topic" 
             placeholder="e.g. Present Tense Practice Worksheet" 
             value={title} 
             onChange={(e) => setTitle(e.target.value)} 
@@ -319,42 +334,77 @@ const HomeworkPage: React.FC = () => {
           />
 
           {/* Format Choice: Text Instructions OR PDF / File */}
-          <div className="space-y-2">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-              Homework Content Type *
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main, #334155)', marginBottom: '0.5rem' }}>
+              Homework Content Format <span style={{ color: '#ef4444' }}>*</span>
             </label>
-            <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-white cursor-pointer">
-                <input 
-                  type="radio" 
-                  name="contentType" 
-                  checked={contentType === 'text'} 
-                  onChange={() => setContentType('text')}
-                  className="accent-indigo-600" 
-                />
-                ✍️ Text Instructions
-              </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setContentType('text')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  border: contentType === 'text' ? '2px solid var(--primary, #e11d48)' : '1px solid #e2e8f0',
+                  backgroundColor: contentType === 'text' ? '#fff1f2' : '#ffffff',
+                  color: contentType === 'text' ? 'var(--primary, #e11d48)' : '#64748b',
+                  fontWeight: 800,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <FileText size={16} />
+                <span>Text Instructions</span>
+              </button>
 
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-white cursor-pointer">
-                <input 
-                  type="radio" 
-                  name="contentType" 
-                  checked={contentType === 'pdf'} 
-                  onChange={() => setContentType('pdf')}
-                  className="accent-indigo-600" 
-                />
-                📄 PDF / Document Attachment Link
-              </label>
+              <button
+                type="button"
+                onClick={() => setContentType('pdf')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  border: contentType === 'pdf' ? '2px solid var(--primary, #e11d48)' : '1px solid #e2e8f0',
+                  backgroundColor: contentType === 'pdf' ? '#fff1f2' : '#ffffff',
+                  color: contentType === 'pdf' ? 'var(--primary, #e11d48)' : '#64748b',
+                  fontWeight: 800,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Upload size={16} />
+                <span>PDF / Document Attachment</span>
+              </button>
             </div>
           </div>
 
           {contentType === 'text' ? (
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Homework Instructions & Questions *
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main, #334155)', marginBottom: '0.35rem' }}>
+                Homework Instructions &amp; Questions <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <textarea 
-                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm min-h-[100px]"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--bg-main, #ffffff)',
+                  color: 'var(--text-main, #0f172a)',
+                  fontSize: '0.875rem',
+                  minHeight: '120px',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
                 placeholder="Type the homework tasks or questions for the students..."
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
@@ -362,7 +412,7 @@ const HomeworkPage: React.FC = () => {
               />
             </div>
           ) : (
-            <div className="space-y-3 bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
               <Input 
                 label="Direct PDF Link / URL" 
                 placeholder="https://drive.google.com/file/d/sample.pdf or file link" 
@@ -370,49 +420,54 @@ const HomeworkPage: React.FC = () => {
                 onChange={(e) => setPdfLink(e.target.value)} 
               />
 
-              <div className="text-center py-2">
-                <span className="text-xs text-slate-400 font-bold uppercase">— OR Upload PDF File —</span>
+              <div style={{ textAlign: 'center', margin: '0.25rem 0' }}>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase' }}>— OR Upload PDF File —</span>
               </div>
 
-              <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 p-4 rounded-xl text-center bg-white dark:bg-slate-950">
-                <Upload className="mx-auto text-indigo-600 mb-1" size={24} />
+              <div style={{ border: '2px dashed #cbd5e1', padding: '1rem', borderRadius: '12px', textAlign: 'center', backgroundColor: '#ffffff' }}>
+                <Upload style={{ margin: '0 auto 0.35rem auto', color: 'var(--primary, #e11d48)' }} size={24} />
                 <input 
                   type="file" 
                   accept=".pdf,.doc,.docx,image/*"
                   onChange={(e) => setFile(e.target.files?.[0] || null)} 
-                  className="w-full text-xs text-slate-500 cursor-pointer" 
+                  style={{ width: '100%', fontSize: '0.8rem', color: '#64748b', cursor: 'pointer' }}
                 />
-                <p className="text-xs text-slate-400 mt-1">Upload PDF or worksheet file</p>
+                <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.35rem' }}>Upload PDF or worksheet file</p>
               </div>
             </div>
           )}
 
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+            <Input 
+              label="Publish Date (Optional)" 
+              type="date" 
+              value={publishDate} 
+              onChange={(e) => setPublishDate(e.target.value)} 
+            />
+            <Input 
+              label="Publish Time (Optional)" 
+              type="time" 
+              value={publishTime} 
+              onChange={(e) => setPublishTime(e.target.value)} 
+            />
+          </div>
+
           <Select 
-            label="Publish Status *" 
+            label="Publish Status" 
             options={[
               { label: '🟢 Published (Visible to Students)', value: 'published' },
+              { label: '🟡 Scheduled (Auto-publish on Date & Time)', value: 'scheduled' },
               { label: '⚪ Save as Draft', value: 'draft' }
             ]} 
-            value={status}
-            onChange={(e) => setStatus(e.target.value as any)}
-            required
+            value={status} 
+            onChange={(e) => setStatus(e.target.value as any)} 
+            required 
           />
 
-          <div className="modal-actions mt-6">
-            <button 
-              type="button" 
-              className="btn bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold" 
-              onClick={() => setIsModalOpen(false)}
-            >
-              Cancel
-            </button>
-
-            <button 
-              type="submit" 
-              className="btn btn-success font-bold flex items-center gap-2" 
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Assigning..." : (editingId ? "Update Assignment" : "Assign Homework")}
+          <div className="modal-actions" style={{ marginTop: '0.5rem' }}>
+            <button type="button" className="btn" style={{ backgroundColor: '#e2e8f0', color: '#334155' }} onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmitting} style={{ fontWeight: 800 }}>
+              {isSubmitting ? 'Saving Homework...' : (editingId ? 'Update Assignment' : 'Assign to Batch')}
             </button>
           </div>
         </form>
