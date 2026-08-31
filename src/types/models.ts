@@ -13,6 +13,8 @@ export interface User {
   phone?: string;
   address?: string;
   parentOrHusbandName?: string;
+  dob?: Timestamp | Date | string;
+  dateOfBirth?: Timestamp | Date | string;
   joiningDate?: Timestamp | Date | string;
   status: 'active' | 'inactive' | 'pending';
   courseIds?: string[];
@@ -35,6 +37,8 @@ export interface Student {
   lastName: string;
   phone?: string;
   address?: string;
+  dob?: Timestamp | Date | string;
+  dateOfBirth?: Timestamp | Date | string;
   parentName?: string;
   parentOrHusbandName?: string;
   parentMobile?: string;

@@ -18,6 +18,7 @@ interface ParsedCsvStudent {
   name: string;
   phone: string;
   parentName: string;
+  dob?: string;
   courseName: string;
   batchName: string;
   joiningDate: string;
@@ -47,6 +48,7 @@ const Students: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [parentOrHusbandName, setParentOrHusbandName] = useState('');
+  const [dob, setDob] = useState('');
   const [joiningDate, setJoiningDate] = useState(new Date().toISOString().split('T')[0]);
   const [courseId, setCourseId] = useState('');
   const [batchId, setBatchId] = useState('');
@@ -108,10 +110,20 @@ const Students: React.FC = () => {
     }
   };
 
-  const generateStudentPassword = (nameStr: string) => {
-    const cleanName = nameStr.trim().split(' ')[0].toLowerCase().replace(/[^a-z]/g, '');
-    const prefix = cleanName.length >= 4 ? cleanName.substring(0, 4) : cleanName.padEnd(4, 'x');
-    return `${prefix}2003`;
+  const generateStudentPassword = (nameStr: string, dobInput?: string | Date | any) => {
+    const cleanName = nameStr.trim().split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+    let birthYear = '2003';
+
+    if (dobInput) {
+      const d = dobInput?.toDate ? dobInput.toDate() : new Date(dobInput);
+      if (!isNaN(d.getTime()) && d.getFullYear() > 1900 && d.getFullYear() <= new Date().getFullYear()) {
+        birthYear = d.getFullYear().toString();
+      }
+    }
+
+    // Firebase Auth requires at least 6 characters (e.g. "hari" + "2003" = "hari2003")
+    const namePrefix = cleanName.length >= 2 ? cleanName : cleanName.padEnd(2, 'x');
+    return `${namePrefix}${birthYear}`;
   };
 
   const resetForm = () => {
@@ -121,6 +133,7 @@ const Students: React.FC = () => {
     setPhone('');
     setAddress('');
     setParentOrHusbandName('');
+    setDob('');
     setJoiningDate(new Date().toISOString().split('T')[0]);
     setCourseId('');
     setBatchId('');
@@ -161,6 +174,18 @@ const Students: React.FC = () => {
       return;
     }
 
+    if (dob) {
+      const dobDate = new Date(dob);
+      if (isNaN(dobDate.getTime())) {
+        alert("Please enter a valid Date of Birth.");
+        return;
+      }
+      if (dobDate > new Date()) {
+        alert("Date of Birth cannot be in the future.");
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       if (phone) {
@@ -183,6 +208,8 @@ const Students: React.FC = () => {
         address: address,
         parentOrHusbandName: parentOrHusbandName,
         parentName: parentOrHusbandName,
+        dob: dob ? new Date(dob) : null,
+        dateOfBirth: dob || null,
         joiningDate: joiningDate ? new Date(joiningDate) : new Date(),
         role: 'student',
         courseIds: courseId ? [courseId] : [],
@@ -199,7 +226,7 @@ const Students: React.FC = () => {
         // Create new user
         updates.createdAt = new Date();
         updates.forcePasswordChange = true;
-        const defaultPassword = generateStudentPassword(firstName);
+        const defaultPassword = generateStudentPassword(firstName, dob);
         updates.plainPassword = defaultPassword;
 
         try {
@@ -244,6 +271,14 @@ const Students: React.FC = () => {
     setAddress(student.address || '');
     setParentOrHusbandName(student.parentOrHusbandName || student.parentName || '');
 
+    if (student.dob || student.dateOfBirth) {
+      const dobVal = student.dob || student.dateOfBirth;
+      const d = dobVal?.toDate ? dobVal.toDate() : new Date(dobVal);
+      setDob(!isNaN(d.getTime()) ? d.toISOString().split('T')[0] : '');
+    } else {
+      setDob('');
+    }
+
     if (student.joiningDate) {
       const d = student.joiningDate?.toDate ? student.joiningDate.toDate() : new Date(student.joiningDate);
       setJoiningDate(!isNaN(d.getTime()) ? d.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
@@ -275,9 +310,9 @@ const Students: React.FC = () => {
 
   // --- Bulk CSV Upload Handling ---
   const downloadSampleCsvTemplate = () => {
-    const headers = "FullName,PhoneNumber,ParentOrHusbandName,CourseName,BatchName,JoiningDate(YYYY-MM-DD),Address\n";
-    const sample1 = "Aarav Sharma,9876543210,Ramesh Sharma,Spoken English,Morning Batch 9AM,2026-08-31,Pune Maharashtra\n";
-    const sample2 = "Pooja Patil,9876543211,Suresh Patil,Abacus & Vedic Maths,Evening Batch 5PM,2026-08-31,Kolhapur Maharashtra\n";
+    const headers = "FullName,PhoneNumber,ParentOrHusbandName,DateOfBirth(YYYY-MM-DD),CourseName,BatchName,JoiningDate(YYYY-MM-DD),Address\n";
+    const sample1 = "Aarav Sharma,9876543210,Ramesh Sharma,2005-05-15,Spoken English,Morning Batch 9AM,2026-08-31,Pune Maharashtra\n";
+    const sample2 = "Pooja Patil,9876543211,Suresh Patil,2008-08-20,Abacus & Vedic Maths,Evening Batch 5PM,2026-08-31,Kolhapur Maharashtra\n";
     const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(headers + sample1 + sample2);
     const link = document.createElement("a");
     link.setAttribute("href", csvContent);
@@ -303,10 +338,25 @@ const Students: React.FC = () => {
       const name = parts[0] || '';
       const phone = (parts[1] || '').replace(/[^0-9]/g, '');
       const parentName = parts[2] || '';
-      const courseName = parts[3] || '';
-      const batchName = parts[4] || '';
-      const joiningDate = parts[5] || new Date().toISOString().split('T')[0];
-      const address = parts[6] || '';
+      
+      let dobVal = '';
+      let courseName = '';
+      let batchName = '';
+      let joiningDate = new Date().toISOString().split('T')[0];
+      let address = '';
+
+      if (parts.length >= 8) {
+        dobVal = parts[3] || '';
+        courseName = parts[4] || '';
+        batchName = parts[5] || '';
+        joiningDate = parts[6] || new Date().toISOString().split('T')[0];
+        address = parts[7] || '';
+      } else {
+        courseName = parts[3] || '';
+        batchName = parts[4] || '';
+        joiningDate = parts[5] || new Date().toISOString().split('T')[0];
+        address = parts[6] || '';
+      }
 
       // Match course & batch
       const matchedCourse = courses.find(c => c.courseName.toLowerCase() === courseName.toLowerCase());
@@ -327,6 +377,7 @@ const Students: React.FC = () => {
         name,
         phone,
         parentName,
+        dob: dobVal,
         courseName,
         batchName,
         joiningDate,
@@ -370,7 +421,7 @@ const Students: React.FC = () => {
       try {
         const cleanPhone = row.phone;
         const authEmail = `${cleanPhone}@speakhub.com`;
-        const defaultPassword = generateStudentPassword(row.name);
+        const defaultPassword = generateStudentPassword(row.name, row.dob);
 
         const newStudentData: any = {
           name: row.name,
@@ -379,6 +430,8 @@ const Students: React.FC = () => {
           email: authEmail,
           parentOrHusbandName: row.parentName,
           parentName: row.parentName,
+          dob: row.dob ? new Date(row.dob) : null,
+          dateOfBirth: row.dob || null,
           address: row.address,
           joiningDate: row.joiningDate ? new Date(row.joiningDate) : new Date(),
           role: 'student',
@@ -422,12 +475,13 @@ const Students: React.FC = () => {
       return;
     }
 
-    const headers = "StudentName,Phone,ParentName,Course,Batch,JoiningDate,Status\n";
+    const headers = "StudentName,Phone,ParentName,DateOfBirth,Course,Batch,JoiningDate,Status\n";
     const rows = filteredStudents.map(s => {
       const cName = courses.find(c => c.documentId === (s.courseIds?.[0] || s.courseId))?.courseName || 'Unassigned';
       const bName = batches.find(b => b.documentId === (s.batchIds?.[0] || s.batchId))?.batchName || 'Unassigned';
+      const dobVal = s.dob?.toDate ? s.dob.toDate().toLocaleDateString('en-GB') : (s.dateOfBirth || '-');
       const jDate = s.joiningDate?.toDate ? s.joiningDate.toDate().toLocaleDateString('en-GB') : (s.joiningDate || '-');
-      return `"${s.name || ''}","${s.phone || s.mobile || ''}","${s.parentOrHusbandName || s.parentName || ''}","${cName}","${bName}","${jDate}","${s.status || 'active'}"`;
+      return `"${s.name || ''}","${s.phone || s.mobile || ''}","${s.parentOrHusbandName || s.parentName || ''}","${dobVal}","${cName}","${bName}","${jDate}","${s.status || 'active'}"`;
     }).join('\n');
 
     const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(headers + rows);
@@ -475,12 +529,20 @@ const Students: React.FC = () => {
     {
       key: 'name',
       header: 'Student Name',
-      render: (row) => (
-        <div>
-          <div className="font-bold text-slate-900 dark:text-white text-sm">{row.name}</div>
-          <div className="text-xs text-slate-400 font-medium">Phone: {row.phone || row.mobile || '-'}</div>
-        </div>
-      )
+      render: (row) => {
+        const dobDate = row.dob?.toDate ? row.dob.toDate() : (row.dateOfBirth ? new Date(row.dateOfBirth) : null);
+        const dobStr = dobDate && !isNaN(dobDate.getTime()) ? dobDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : null;
+
+        return (
+          <div>
+            <div className="font-bold text-slate-900 dark:text-white text-sm">{row.name}</div>
+            <div className="text-xs text-slate-400 font-medium flex items-center gap-1.5 flex-wrap">
+              <span>Phone: {row.phone || row.mobile || '-'}</span>
+              {dobStr && <span className="text-[11px] text-slate-500 font-semibold bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">DOB: {dobStr}</span>}
+            </div>
+          </div>
+        );
+      }
     },
     {
       key: 'parentOrHusbandName',
@@ -683,6 +745,17 @@ const Students: React.FC = () => {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+            <Input 
+              label="Date of Birth" 
+              type="date" 
+              max={new Date().toISOString().split('T')[0]} 
+              value={dob} 
+              onChange={(e) => setDob(e.target.value)} 
+            />
+            <Input label="Date of Joining" type="date" value={joiningDate} onChange={(e) => setJoiningDate(e.target.value)} required />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
             <Select
               label="Assigned Course"
               options={[{ label: 'Select Course', value: '' }, ...courses.map(c => ({ label: c.courseName, value: c.documentId! }))]}
@@ -701,7 +774,6 @@ const Students: React.FC = () => {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
-            <Input label="Date of Joining" type="date" value={joiningDate} onChange={(e) => setJoiningDate(e.target.value)} required />
             <Select
               label="Account Status"
               options={[
@@ -713,9 +785,8 @@ const Students: React.FC = () => {
               onChange={(e) => setStatus(e.target.value as any)}
               required
             />
+            <Input label="Residential Address" placeholder="City, Area, Address details..." value={address} onChange={(e) => setAddress(e.target.value)} />
           </div>
-
-          <Input label="Residential Address" placeholder="City, Area, Address details..." value={address} onChange={(e) => setAddress(e.target.value)} />
 
           {/* Demo Mode Toggle */}
           <div style={{ backgroundColor: '#faf5ff', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e9d5ff' }}>
