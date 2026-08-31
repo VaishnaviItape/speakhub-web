@@ -3,6 +3,7 @@ import { db } from '../../config/firebase';
 import { collection, query, getDocs, orderBy } from 'firebase/firestore';
 import { Search, ChevronDown } from 'lucide-react';
 import type { User } from '../../types/models';
+import EmptyState from '../../components/ui/EmptyState';
 import '../../components/ui/TableStyles.css';
 
 const Users: React.FC = () => {
@@ -104,8 +105,11 @@ const Users: React.FC = () => {
                 </tr>
               ) : filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="empty-state">
-                    No users found matching your search.
+                  <td colSpan={5} style={{ padding: 0 }}>
+                    <EmptyState 
+                      title="No users found"
+                      description={searchQuery ? `No users matched "${searchQuery}". Try a different keyword.` : "No registered user records are currently available."}
+                    />
                   </td>
                 </tr>
               ) : (

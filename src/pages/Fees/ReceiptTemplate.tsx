@@ -23,189 +23,175 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ transaction, student,
       d = new Date();
     }
     if (isNaN(d.getTime())) return 'N/A';
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+  };
+
+  const formatLongDate = (dateVal?: any): string => {
+    if (!dateVal) return '-';
+    let d: Date;
+    if (dateVal instanceof Date) {
+      d = dateVal;
+    } else if (dateVal.seconds) {
+      d = new Date(dateVal.seconds * 1000);
+    } else if (typeof dateVal === 'string') {
+      d = new Date(dateVal);
+    } else {
+      d = new Date();
+    }
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   };
 
   const paymentDateStr = formatDateDisplay(transaction.paymentDate);
-  const nextDueDateStr = transaction.nextDueDate ? formatDateDisplay(transaction.nextDueDate) : 'N/A';
-  const joiningDateStr = (student as any).joiningDate ? formatDateDisplay((student as any).joiningDate) : '01 Jan 2026';
+  const nextDueDateStr = transaction.nextDueDate ? formatLongDate(transaction.nextDueDate) : '-';
+  
+  const paymentMode = (transaction.paymentMode || '').toUpperCase();
+  const isCash = paymentMode.includes('CASH');
+  const isETransfer = paymentMode.includes('E-TRANSFER') || paymentMode.includes('BANK') || paymentMode.includes('NET');
+  const isUpi = paymentMode.includes('UPI') || paymentMode.includes('GPAY') || paymentMode.includes('PHONEPE') || paymentMode.includes('PAYTM') || (!isCash && !isETransfer);
 
-  const baseFee = (transaction.amountPaid || 0) + (transaction.discount || 0) - (transaction.lateFee || 0);
+  const amountPaid = transaction.amountPaid || 0;
+  const discount = transaction.discount || 0;
+  const perMonthFee = (transaction as any).perMonthFee || (amountPaid + discount);
+  const remaining = (transaction as any).remainingBalance || 0;
 
   return (
-    <div className="receipt-container">
-      {/* Background Speak Hub Logo Watermark */}
-      <img 
-        src="/logo.png" 
-        alt="" 
-        className="receipt-watermark-logo" 
-        onError={(e) => {
-          (e.target as HTMLElement).style.display = 'none';
-        }}
-      />
-
-      {/* Brand Header */}
-      <div className="receipt-header-wrapper">
-        <div className="brand-logo-section">
-          <img 
-            src="/logo.png" 
-            alt="Speak Hub Academy" 
-            className="receipt-brand-logo"
-            onError={(e) => {
-              // Hide image if missing and fallback to text logo
-              (e.target as HTMLElement).style.display = 'none';
-            }}
-          />
-          <div className="brand-text-block">
-            <h1 className="brand-title">SPEAK HUB ACADEMY</h1>
-            <p className="brand-tagline">Excellence in Communication & Learning</p>
+    <div className="receipt-print-wrapper">
+      <div className="receipt-box">
+        {/* Top Header Row with Logo & Academy Title */}
+        <div className="receipt-top-header">
+          <div className="receipt-logo-block">
+            <img src="/logo.png" alt="Speak Hub" className="receipt-logo-img" />
+            <span className="receipt-logo-label">Speak Hub</span>
+          </div>
+          <div className="receipt-brand-title-col">
+            <h1 className="receipt-brand-name">SPEAK HUB ACADEMY</h1>
           </div>
         </div>
 
-        <div className="academy-address-block">
-          <p className="address-line font-bold">Speak Hub Academy</p>
-          <p className="address-line">Shop No. 6 & 7, Omkar Apartment, Swami Samarth Mandir Chowk,</p>
-          <p className="address-line">NDA Road, near Canara Bank, Giridhar Nagar, Warje, Pune, Maharashtra</p>
-          <p className="address-line"><strong>Contact:</strong> +91-99709-64742</p>
-          <p className="address-line"><strong>E-Mail:</strong> speakhubgallery@gmail.com</p>
-          <p className="address-line"><strong>Follow on:</strong> youtube.com/speakhubacademy</p>
+        {/* Brown/Gold Banner */}
+        <div className="receipt-banner-gold">
+          ONLINE &amp; OFFLINE SPOKEN ENGLISH CLASSES
         </div>
-      </div>
 
-      <div className="receipt-title-bar">
-        <h2 className="receipt-main-title">FEE PAYMENT RECEIPT</h2>
-        <span className="receipt-status-badge">PAID ✓</span>
-      </div>
+        {/* Dark Navy Address Banner */}
+        <div className="receipt-banner-navy-address">
+          Address- Omkar Apartment, Shop No- 6 &amp; 7, Near Canara Bank, NDA Road, Warje-Malwadi, Pune -58.
+        </div>
 
-      {/* Meta Information Bar */}
-      <div className="receipt-meta-grid">
-        <div className="meta-item">
-          <span className="meta-label">Receipt Number:</span>
-          <span className="meta-value font-mono">{transaction.receiptNumber}</span>
+        {/* Dark Navy Payment Receipt Bar */}
+        <div className="receipt-banner-navy-title">
+          PAYMENT RECEIPT
         </div>
-        <div className="meta-item">
-          <span className="meta-label">Payment Date:</span>
-          <span className="meta-value">{paymentDateStr}</span>
-        </div>
-        <div className="meta-item">
-          <span className="meta-label">Academic Year:</span>
-          <span className="meta-value">{transaction.academicYear || '2026-27'}</span>
-        </div>
-        <div className="meta-item">
-          <span className="meta-label">Payment Mode:</span>
-          <span className="meta-value">{transaction.paymentMode}</span>
-        </div>
-      </div>
 
-      {/* Student & Course Details */}
-      <div className="receipt-details-box">
-        <h3 className="section-subtitle">STUDENT & COURSE INFORMATION</h3>
-        <div className="details-grid">
-          <div className="detail-cell">
-            <span className="cell-label">Student Name:</span>
-            <span className="cell-value bold">{student.name || 'Student'}</span>
-          </div>
-          <div className="detail-cell">
-            <span className="cell-label">Student ID:</span>
-            <span className="cell-value font-mono">{student.documentId || 'N/A'}</span>
-          </div>
-          <div className="detail-cell">
-            <span className="cell-label">Assigned Course:</span>
-            <span className="cell-value">{course.courseName || 'Unassigned'}</span>
-          </div>
-          <div className="detail-cell">
-            <span className="cell-label">Mobile Number:</span>
-            <span className="cell-value">{student.mobile || student.phone || 'N/A'}</span>
-          </div>
-          <div className="detail-cell">
-            <span className="cell-label">Student Joining Date:</span>
-            <span className="cell-value">{joiningDateStr}</span>
-          </div>
-          <div className="detail-cell">
-            <span className="cell-label">Billing Period / Duration:</span>
-            <span className="cell-value">{transaction.billingPeriod || 'Monthly Fee'}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Fee Breakdown Table */}
-      <div className="receipt-table-wrapper">
-        <h3 className="section-subtitle">PAYMENT BREAKDOWN</h3>
-        <table className="receipt-table">
-          <thead>
-            <tr>
-              <th style={{ width: '60%' }}>Description</th>
-              <th style={{ width: '20%' }}>Period / Months</th>
-              <th style={{ width: '20%', textAlign: 'right' }}>Amount (₹)</th>
-            </tr>
-          </thead>
+        {/* Main Grid Table */}
+        <table className="receipt-main-table">
           <tbody>
+            {/* Row 1: Student Name & Payment Date */}
             <tr>
-              <td>
-                <strong>Course Fee Payment</strong>
-                <span className="table-subtext block">{course.courseName}</span>
+              <th className="cell-th" style={{ width: '18%' }}>STUDENT NAME</th>
+              <td className="cell-td font-serif font-bold" style={{ width: '32%' }}>
+                {student?.name || (transaction as any).studentName || 'Student'}
               </td>
-              <td>{transaction.monthsCount ? `${transaction.monthsCount} ${transaction.monthsCount === 1 ? 'Month' : 'Months'}` : '1 Month'}</td>
-              <td style={{ textAlign: 'right' }}>₹{baseFee.toLocaleString()}</td>
+              <th className="cell-th" style={{ width: '22%' }}>PAYMENT DATE</th>
+              <td className="cell-td font-bold" style={{ width: '28%' }}>
+                {paymentDateStr}
+              </td>
             </tr>
-            {transaction.lateFee ? (
-              <tr>
-                <td>Late Payment Penalty</td>
-                <td>-</td>
-                <td style={{ textAlign: 'right', color: '#b91c1c' }}>+₹{transaction.lateFee.toLocaleString()}</td>
-              </tr>
-            ) : null}
-            {transaction.discount ? (
-              <tr>
-                <td>Discount Special Concession</td>
-                <td>-</td>
-                <td style={{ textAlign: 'right', color: '#15803d' }}>-₹{transaction.discount.toLocaleString()}</td>
-              </tr>
-            ) : null}
+
+            {/* Row 2: Course Name & Receipt No */}
+            <tr>
+              <th className="cell-th">COURSE NAME</th>
+              <td className="cell-td font-serif font-bold">
+                {course?.courseName || (transaction as any).courseName || 'Foundation-Spoken English'}
+              </td>
+              <th className="cell-th">RECEIPT NO</th>
+              <td className="cell-td font-bold font-mono">
+                {transaction.receiptNumber || '08/26-004'}
+              </td>
+            </tr>
+
+            {/* Row 3: Payment Method & Remark */}
+            <tr>
+              <th className="cell-th">PAYMENT METHOD</th>
+              <td className="cell-td">
+                <div className="payment-method-row">
+                  <span className="method-item">
+                    CASH <span className={`check-box ${isCash ? 'checked' : ''}`}>{isCash ? '✓' : ''}</span>
+                  </span>
+                  <span className="method-item">
+                    E-TRANSFER <span className={`check-box ${isETransfer ? 'checked' : ''}`}>{isETransfer ? '✓' : ''}</span>
+                  </span>
+                  <span className="method-item">
+                    UPI TRANSFER <span className={`check-box ${isUpi ? 'checked' : ''}`}>{isUpi ? '✓' : ''}</span>
+                  </span>
+                </div>
+              </td>
+              <th className="cell-th">Remark</th>
+              <td className="cell-td font-bold">
+                {(transaction as any).remarks || '-'}
+              </td>
+            </tr>
+
+            {/* Row 4: Account Info & Payment Period Section Headers */}
+            <tr className="section-header-row">
+              <th colSpan={3} className="cell-section-header">ACCOUNT INFO</th>
+              <th colSpan={2} className="cell-section-header">PAYMENT PERIOD</th>
+            </tr>
+
+            {/* Row 5: Financial Header */}
+            <tr className="fin-headers-row">
+              <th style={{ width: '18%' }} className="cell-th">PER MONTH FEE</th>
+              <th style={{ width: '14%' }} className="cell-th">DISCOUNT</th>
+              <th style={{ width: '18%' }} className="cell-th">AMOUNT PAID</th>
+              <th style={{ width: '18%' }} className="cell-th">REMANING</th>
+              <th style={{ width: '32%' }} className="cell-th">NEXT DUE DATE</th>
+            </tr>
+
+            {/* Row 6: Financial Values */}
+            <tr className="fin-data-row">
+              <td className="cell-td font-bold">
+                <span className="currency-symbol">₹</span> {perMonthFee || amountPaid}
+              </td>
+              <td className="cell-td font-bold">
+                <span className="currency-symbol">₹</span> {discount > 0 ? discount : '-'}
+              </td>
+              <td className="cell-td font-bold">
+                <span className="currency-symbol">₹</span> {amountPaid}
+              </td>
+              <td className="cell-td font-bold">
+                <span className="currency-symbol">₹</span> {remaining}
+              </td>
+              <td className="cell-td font-bold text-due-red">
+                {nextDueDateStr}
+              </td>
+            </tr>
+
+            {/* Row 7: Signatures Section Header */}
+            <tr className="section-header-row">
+              <th colSpan={3} className="cell-section-header">AUTHORISED SIGNATURE</th>
+              <th colSpan={2} className="cell-section-header">PARENT/STUDENT'S SIGNATURE</th>
+            </tr>
+
+            {/* Row 8: Signatures Content */}
+            <tr className="sign-content-row">
+              <td colSpan={3} className="cell-sign-authorised">
+                <div className="authorised-sign-wrap">
+                  <img src="/stamp.jpeg" alt="Stamp" className="stamp-seal-img" />
+                  <img src="/sign.jpeg" alt="ShwetaSN" className="signature-pen-img" />
+                </div>
+              </td>
+              <td colSpan={2} className="cell-sign-parent">
+                {/* Empty space for Student/Parent signature */}
+              </td>
+            </tr>
           </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={2} style={{ textAlign: 'right' }}><strong>TOTAL AMOUNT PAID:</strong></td>
-              <td style={{ textAlign: 'right' }} className="total-cell">
-                <strong>₹{transaction.amountPaid.toLocaleString()}</strong>
-              </td>
-            </tr>
-          </tfoot>
         </table>
-      </div>
 
-      {/* Prominent Next Due Date Banner */}
-      <div className="receipt-due-banner">
-        <div className="due-banner-left">
-          <span className="due-banner-icon">📅</span>
-          <div>
-            <span className="due-banner-title">NEXT PAYMENT DUE DATE</span>
-            <span className="due-banner-sub">Please make sure to complete your next fee installment before this date.</span>
-          </div>
+        {/* Bottom Note */}
+        <div className="receipt-bottom-disclaimer">
+          Note- Fees Once Paid Are Not Returnable / Refundable Or Transferrable.
         </div>
-        <div className="due-banner-date font-bold">
-          {nextDueDateStr}
-        </div>
-      </div>
-
-      {/* Signatures & Footer */}
-      <div className="receipt-footer-grid">
-        <div className="footer-left-block">
-          <p><strong>Payment Status:</strong> PAID IN FULL</p>
-          <p><strong>Collected By:</strong> {transaction.receivedBy || 'Admin'}</p>
-          <p className="printed-time">Printed on: {new Date().toLocaleString()}</p>
-        </div>
-
-        <div className="footer-right-block">
-          <div className="signature-line-box">
-            <p className="signature-title">Authorized Signatory</p>
-            <p className="signature-sub">Speak Hub Academy</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="receipt-bottom-note">
-        Thank you for your payment! Please retain this official receipt for your records.
       </div>
     </div>
   );

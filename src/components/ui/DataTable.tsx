@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, MoreHorizontal, ArrowUpDown } from 'lucide-react';
+import EmptyState from './EmptyState';
 import './DataTable.css';
 
 export interface Column<T> {
@@ -172,8 +173,11 @@ function DataTable<T extends { documentId?: string }>({
               ))
             ) : (
               <tr>
-                <td colSpan={columns.length + (onEdit || onDelete ? 1 : 0)} className="dt-empty">
-                  No data available.
+                <td colSpan={columns.length + (onEdit || onDelete ? 1 : 0)} style={{ padding: 0 }}>
+                  <EmptyState 
+                    title={searchTerm ? "No matching records found" : `No ${title.toLowerCase()} available`}
+                    description={searchTerm ? `No results match "${searchTerm}". Try adjusting your search query.` : "There are currently no records available in this view."}
+                  />
                 </td>
               </tr>
             )}

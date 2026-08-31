@@ -306,8 +306,11 @@ const Fees: React.FC = () => {
       return;
     }
     const cleanPhone = phone.replace(/[^0-9]/g, '');
-    const msg = `Hello ${name || 'Student'},\n\nYour course fee of ₹${monthlyFee} is due on ${dueDate || 'upcoming due date'}. Please complete your payment using this link: https://speakhub.com/pay \n\nThank you,\nSpeak Hub Academy`;
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    const phoneWithCode = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+    
+    const msg = `Dear Parents / Guardians, Students / Learners,\n\nThis is to inform you that the Spoken English / Abacus class FEE of ₹${monthlyFee || 800} for ${name || 'Student'} is to be paid on or before ${dueDate || 'due date'}.\n\nFee to be paid to:\n\nGoogle Pay:\nSpeak Hub Academy\n9970964742\n\nOR\n\nPhonePe:\n9970964742\nSpeak Hub Academy\n\nOR\n\nBank details:\nBank Name: State Bank Of India\nA/c No: 41871708652\nIFSC Code: SBIN0011701\nName: Speak Hub Academy\n\nThank you,\nSpeak Hub Academy`;
+    
+    window.open(`https://wa.me/${phoneWithCode}?text=${encodeURIComponent(msg)}`, 'speakhub_whatsapp');
   };
 
   const selectedRecord = feeRecords.find(r => r.studentId === paymentStudentId);

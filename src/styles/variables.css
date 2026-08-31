@@ -1,15 +1,16 @@
 :root {
-  /* Colors - Modern Indigo Theme (Friendly, Clean & Professional) */
-  --primary: #4F46E5;
-  --primary-rgb: 79, 70, 229;
-  --primary-hover: #4338CA;
-  --primary-light: #EEF2FF;
+  /* Colors - Speak Hub Logo Brand Red Theme (Elegant, Premium & Non-Harsh) */
+  --primary: #E11D48;
+  --primary-rgb: 225, 29, 72;
+  --primary-hover: #BE123C;
+  --primary-light: #FFF1F2;
+  --primary-border: #FECDD3;
   
   --bg-main: #f8f9fc;
   --bg-card: #ffffff;
   --bg-sidebar: #ffffff;
   
-  --text-main: #1e293b;
+  --text-main: #0f172a;
   --text-muted: #64748b;
   --text-light: #94a3b8;
   
@@ -20,10 +21,10 @@
   --accent-yellow-text: #f59e0b;
   
   --accent-red-bg: #fee2e2;
-  --accent-red-text: #ef4444;
+  --accent-red-text: #dc2626;
   
-  --accent-primary-bg: #eef2ff;
-  --accent-primary-text: #4f46e5;
+  --accent-primary-bg: #fff1f2;
+  --accent-primary-text: #e11d48;
   
   /* Typography */
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -44,10 +45,11 @@
 }
 
 [data-theme='dark'] {
-  --primary: #6366f1;
-  --primary-rgb: 99, 102, 241;
-  --primary-hover: #4f46e5;
-  --primary-light: rgba(99, 102, 241, 0.2);
+  --primary: #f43f5e;
+  --primary-rgb: 244, 63, 94;
+  --primary-hover: #e11d48;
+  --primary-light: rgba(244, 63, 94, 0.15);
+  --primary-border: rgba(244, 63, 94, 0.3);
 
   --bg-main: #0f172a;
   --bg-card: #1e293b;
@@ -65,6 +67,6 @@
   --accent-red-bg: #450a0a;
   --accent-red-text: #f87171;
   
-  --accent-primary-bg: rgba(99, 102, 241, 0.15);
-  --accent-primary-text: #818cf8;
+  --accent-primary-bg: rgba(244, 63, 94, 0.15);
+  --accent-primary-text: #f43f5e;
 }

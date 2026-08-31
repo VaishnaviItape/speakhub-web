@@ -8,10 +8,13 @@ import {
   UserCheck, 
   Search, 
   Download, 
-  Users 
+  Users,
+  CalendarCheck,
+  CalendarRange
 } from 'lucide-react';
 import Select from '../../components/forms/Select';
 import Input from '../../components/forms/Input';
+import EmptyState from '../../components/ui/EmptyState';
 import { db } from '../../config/firebase';
 import { collection, query, where, getDocs, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import type { Batch } from '../../types/models';
@@ -510,19 +513,18 @@ const Attendance: React.FC = () => {
         </div>
       </div>
 
-      {/* 2 Main Navigation Tabs */}
-      <div className="flex items-center gap-2 mb-6 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 w-fit">
+      {/* 2 Main Navigation Tabs - Segmented Control Bar */}
+      <div className="attendance-nav-tabs">
         <button
           type="button"
           onClick={() => setActiveTab('single')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === 'single'
-              ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md border border-slate-200/60 dark:border-slate-700'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
+          className={`attendance-tab-btn ${activeTab === 'single' ? 'active' : ''}`}
         >
-          <Calendar size={16} />
-          📋 Single Day Attendance
+          <span className="attendance-tab-icon">
+            <CalendarCheck size={18} />
+          </span>
+          <span>Single Day Attendance</span>
+          <span className="attendance-tab-badge">Daily</span>
         </button>
 
         <button
@@ -535,14 +537,13 @@ const Attendance: React.FC = () => {
               loadRangeStudents(bId);
             }
           }}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === 'bulk'
-              ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md border border-slate-200/60 dark:border-slate-700'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
+          className={`attendance-tab-btn ${activeTab === 'bulk' ? 'active' : ''}`}
         >
-          <Users size={16} />
-          📅 Bulk Date Range Attendance
+          <span className="attendance-tab-icon">
+            <CalendarRange size={18} />
+          </span>
+          <span>Bulk Date Range Attendance</span>
+          <span className="attendance-tab-badge">Multi-Date</span>
         </button>
       </div>
 
@@ -702,9 +703,10 @@ const Attendance: React.FC = () => {
                 Loading batch students...
               </div>
             ) : rangeStudents.length === 0 ? (
-              <div className="p-12 text-center text-gray-500">
-                {rangeBatchId ? "No active students found in this batch." : "Please select a batch above."}
-              </div>
+              <EmptyState 
+                title={rangeBatchId ? "No active students found" : "Select a batch"}
+                description={rangeBatchId ? "There are no active enrolled students found in this batch for the selected date range." : "Please choose a batch from the dropdown above to view students."}
+              />
             ) : (
               <div className="overflow-x-auto">
                 <table className="premium-table">
@@ -954,9 +956,10 @@ const Attendance: React.FC = () => {
                 Loading batch students...
               </div>
             ) : filteredStudents.length === 0 ? (
-              <div className="p-12 text-center text-gray-500">
-                {selectedBatchId ? "No active students found in this batch." : "Please select a batch to mark attendance."}
-              </div>
+              <EmptyState 
+                title={selectedBatchId ? (searchQuery ? "No matching students found" : "No active students in this batch") : "Select a batch"}
+                description={selectedBatchId ? (searchQuery ? `No student matched "${searchQuery}".` : "There are currently no active students assigned to this batch.") : "Please select a batch from the dropdown above to load the student roster."}
+              />
             ) : (
               <div className="overflow-x-auto">
                 <table className="premium-table">

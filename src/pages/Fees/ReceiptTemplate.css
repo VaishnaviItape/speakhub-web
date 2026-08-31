@@ -1,369 +1,286 @@
-.receipt-container {
+/* Exact Fee Receipt Design 1:1 Matched to Official Speak Hub Format */
+.receipt-print-wrapper {
   display: none;
 }
 
 @media print {
   @page {
     size: A4 portrait;
-    margin: 8mm 12mm;
+    margin: 8mm 10mm;
   }
-  
+
   html, body {
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
+    color: #000000 !important;
   }
 
   body * {
     visibility: hidden;
   }
-  
-  .receipt-container, .receipt-container * {
+
+  .receipt-print-wrapper, .receipt-print-wrapper * {
     visibility: visible;
   }
-  
-  .receipt-container {
+
+  .receipt-print-wrapper {
     display: block !important;
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: #0f172a;
-    background: #ffffff;
-    line-height: 1.5;
-    padding: 24px;
+    padding: 10px 14px;
     box-sizing: border-box;
-    overflow: hidden;
+    font-family: 'Times New Roman', Times, serif, system-ui, -apple-system;
+    color: #000000;
   }
 
-  /* Background Logo Watermark */
-  .receipt-watermark-logo {
-    position: absolute;
-    top: 45%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 420px;
-    height: auto;
-    opacity: 0.06;
-    z-index: 0;
-    pointer-events: none;
+  .receipt-box {
+    border: 2px solid #000000;
+    background-color: #ffffff;
+    padding: 0;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0 auto;
   }
 
-  /* Content Overlay above Watermark */
-  .receipt-header-wrapper,
-  .receipt-title-bar,
-  .receipt-meta-grid,
-  .receipt-details-box,
-  .receipt-table-wrapper,
-  .receipt-due-banner,
-  .receipt-footer-grid,
-  .receipt-bottom-note {
-    position: relative;
-    z-index: 1;
-  }
-
-  /* Header Wrapper with Brand Primary Accent */
-  .receipt-header-wrapper {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding-bottom: 16px;
-    border-bottom: 3px solid #4F46E5;
-    margin-bottom: 16px;
-  }
-
-  .brand-logo-section {
+  /* Top Header Row */
+  .receipt-top-header {
     display: flex;
     align-items: center;
-    gap: 14px;
+    justify-content: flex-start;
+    padding: 8px 16px;
+    border-bottom: 2px solid #000000;
+    gap: 20px;
   }
 
-  .receipt-brand-logo {
-    height: 60px;
+  .receipt-logo-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 90px;
+  }
+
+  .receipt-logo-img {
+    height: 50px;
     width: auto;
     object-fit: contain;
   }
 
-  .brand-title {
-    font-size: 24px;
-    font-weight: 800;
-    color: #4F46E5;
-    margin: 0;
-    letter-spacing: -0.02em;
-    line-height: 1.1;
-  }
-
-  .brand-tagline {
+  .receipt-logo-label {
     font-size: 11px;
-    color: #64748b;
-    margin: 3px 0 0 0;
-    font-weight: 600;
-  }
-
-  .academy-address-block {
-    text-align: right;
-    font-size: 11px;
-    color: #475569;
-    line-height: 1.4;
-  }
-
-  .address-line {
-    margin: 0;
-  }
-
-  /* Main Title Bar with Primary Tone */
-  .receipt-title-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: #eef2ff;
-    border: 1px solid #c7d2fe;
-    padding: 10px 16px;
-    border-radius: 8px;
-    margin-bottom: 16px;
-  }
-
-  .receipt-main-title {
-    font-size: 16px;
-    font-weight: 800;
-    color: #4F46E5;
-    margin: 0;
-    letter-spacing: 0.05em;
-  }
-
-  .receipt-status-badge {
-    background-color: #dcfce7;
-    color: #15803d;
-    font-weight: 800;
-    font-size: 12px;
-    padding: 4px 12px;
-    border-radius: 20px;
-    border: 1px solid #bbf7d0;
-  }
-
-  /* Meta Grid */
-  .receipt-meta-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    background-color: #ffffff;
-    border: 1px solid #e2e8f0;
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 16px;
-    font-size: 12px;
-  }
-
-  .meta-item {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .meta-label {
-    font-size: 10px;
-    color: #64748b;
-    font-weight: 700;
-    text-transform: uppercase;
-  }
-
-  .meta-value {
-    font-size: 13px;
-    font-weight: 700;
-    color: #0f172a;
+    font-weight: bold;
+    color: #000000;
     margin-top: 2px;
+    font-family: Arial, sans-serif;
   }
 
-  /* Section Subtitle */
-  .section-subtitle {
-    font-size: 11px;
-    font-weight: 800;
-    color: #3730a3;
+  .receipt-brand-title-col {
+    flex: 1;
+    text-align: center;
+  }
+
+  .receipt-brand-name {
+    font-size: 34px;
+    font-weight: 900;
+    color: #c62828;
+    margin: 0;
+    font-family: 'Times New Roman', Times, serif;
+    letter-spacing: 2px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin: 0 0 8px 0;
   }
 
-  /* Details Box */
-  .receipt-details-box {
-    margin-bottom: 16px;
+  /* Gold / Ochre Banner */
+  .receipt-banner-gold {
+    background-color: #8a4500;
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: bold;
+    text-align: center;
+    padding: 6px 12px;
+    letter-spacing: 1px;
+    font-family: Arial, sans-serif;
+    border-bottom: 1.5px solid #000000;
   }
 
-  .details-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px 16px;
-    border: 1px solid #e2e8f0;
-    padding: 12px;
-    border-radius: 8px;
-    font-size: 12px;
-    background-color: #ffffff;
-  }
-
-  .detail-cell {
-    display: flex;
-    align-items: center;
-  }
-
-  .cell-label {
-    width: 140px;
-    color: #64748b;
+  /* Dark Navy Address Banner */
+  .receipt-banner-navy-address {
+    background-color: #1a2b4c;
+    color: #ffffff;
+    font-size: 13px;
     font-weight: 600;
+    text-align: center;
+    padding: 5px 12px;
+    font-family: Arial, sans-serif;
+    border-bottom: 1.5px solid #000000;
   }
 
-  .cell-value {
-    color: #0f172a;
-    font-weight: 600;
+  /* Dark Navy Payment Receipt Bar */
+  .receipt-banner-navy-title {
+    background-color: #1a2b4c;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+    padding: 5px 12px;
+    letter-spacing: 1.5px;
+    font-family: Arial, sans-serif;
+    border-bottom: 2px solid #000000;
   }
 
-  .cell-value.bold {
-    font-weight: 800;
-    color: #1e293b;
-  }
-
-  /* Table Wrapper */
-  .receipt-table-wrapper {
-    margin-bottom: 16px;
-  }
-
-  .receipt-table {
+  /* Main Table Structure */
+  .receipt-main-table {
     width: 100%;
     border-collapse: collapse;
-    border: 1px solid #cbd5e1;
-    font-size: 12px;
+    font-family: Arial, Helvetica, sans-serif;
   }
 
-  .receipt-table th {
-    background-color: #eef2ff;
-    color: #3730a3;
-    font-weight: 800;
-    text-transform: uppercase;
+  .cell-th {
+    background-color: #c5d9f1;
+    color: #0f172a;
     font-size: 11px;
-    padding: 8px 12px;
-    border-bottom: 2px solid #4F46E5;
+    font-weight: bold;
+    text-align: left;
+    padding: 8px 10px;
+    border: 1px solid #000000;
+    text-transform: uppercase;
   }
 
-  .receipt-table td {
-    padding: 10px 12px;
-    border-bottom: 1px solid #e2e8f0;
+  .cell-td {
+    background-color: #ffffff;
+    color: #000000;
+    font-size: 13px;
+    padding: 8px 10px;
+    border: 1px solid #000000;
     vertical-align: middle;
   }
 
-  .table-subtext {
-    font-size: 11px;
-    color: #64748b;
-    font-weight: normal;
+  .font-serif {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 15px;
   }
 
-  .receipt-table tfoot td {
-    background-color: #eef2ff;
-    padding: 10px 12px;
-    border-top: 2px solid #4F46E5;
+  .font-bold {
+    font-weight: bold;
+  }
+
+  .font-mono {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+  }
+
+  /* Payment Method Checkbox Row */
+  .payment-method-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 11px;
+    font-weight: bold;
+  }
+
+  .method-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .check-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid #1a2b4c;
+    background-color: #ffffff;
+    font-size: 12px;
+    font-weight: 900;
+    color: #c62828;
+    line-height: 1;
+  }
+
+  .check-box.checked {
+    border-color: #1a2b4c;
+    color: #c62828;
+  }
+
+  /* Section Header Bars */
+  .section-header-row th {
+    background-color: #c5d9f1;
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+    padding: 7px 10px;
+    border: 1px solid #000000;
+    letter-spacing: 0.5px;
+  }
+
+  .fin-headers-row th {
+    background-color: #c5d9f1;
+    color: #0f172a;
+    font-size: 11px;
+    font-weight: bold;
+    text-align: center;
+    padding: 8px 6px;
+    border: 1px solid #000000;
+  }
+
+  .fin-data-row td {
+    text-align: center;
+    font-size: 14px;
+    padding: 10px 6px;
+    border: 1px solid #000000;
+  }
+
+  .currency-symbol {
+    font-weight: normal;
+    margin-right: 2px;
+  }
+
+  .text-due-red {
+    color: #c62828 !important;
+    font-weight: bold;
     font-size: 13px;
   }
 
-  .total-cell {
-    font-size: 16px;
-    color: #4F46E5;
-    font-weight: 800;
+  /* Signatures Content */
+  .sign-content-row td {
+    height: 75px;
+    border: 1px solid #000000;
+    vertical-align: middle;
+    padding: 4px 12px;
   }
 
-  /* Next Due Date Banner with Primary Theme */
-  .receipt-due-banner {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: #eef2ff;
-    border: 2px solid #4F46E5;
-    border-radius: 10px;
-    padding: 12px 18px;
-    margin-bottom: 20px;
-  }
-
-  .due-banner-left {
+  .authorised-sign-wrap {
     display: flex;
     align-items: center;
-    gap: 12px;
+    justify-content: flex-start;
+    gap: 30px;
+    padding-left: 10px;
   }
 
-  .due-banner-icon {
-    font-size: 22px;
+  .stamp-seal-img {
+    height: 64px;
+    width: 64px;
+    object-fit: contain;
   }
 
-  .due-banner-title {
+  .signature-pen-img {
+    height: 38px;
+    width: auto;
+    object-fit: contain;
+  }
+
+  /* Bottom Disclaimer */
+  .receipt-bottom-disclaimer {
+    text-align: center;
     font-size: 12px;
-    font-weight: 800;
-    color: #3730a3;
-    display: block;
-    letter-spacing: 0.05em;
-  }
-
-  .due-banner-sub {
-    font-size: 10px;
-    color: #4338ca;
-    display: block;
-    margin-top: 2px;
-  }
-
-  .due-banner-date {
-    font-size: 16px;
-    font-weight: 800;
-    color: #4F46E5;
+    font-weight: bold;
+    color: #000000;
+    padding: 6px 12px;
     background-color: #ffffff;
-    padding: 6px 14px;
-    border-radius: 8px;
-    border: 1px solid #c7d2fe;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  }
-
-  /* Footer Grid */
-  .receipt-footer-grid {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    margin-top: 24px;
-    padding-top: 12px;
-    font-size: 12px;
-  }
-
-  .footer-left-block p {
-    margin: 3px 0;
-    color: #475569;
-  }
-
-  .printed-time {
-    font-size: 10px;
-    color: #94a3b8;
-    margin-top: 6px !important;
-  }
-
-  .signature-line-box {
-    width: 180px;
-    border-top: 1.5px solid #0f172a;
-    padding-top: 6px;
-    text-align: center;
-  }
-
-  .signature-title {
-    font-weight: 700;
-    font-size: 12px;
-    margin: 0;
-    color: #0f172a;
-  }
-
-  .signature-sub {
-    font-size: 10px;
-    color: #64748b;
-    margin: 2px 0 0 0;
-  }
-
-  .receipt-bottom-note {
-    text-align: center;
-    font-size: 11px;
-    font-style: italic;
-    color: #64748b;
-    margin-top: 24px;
-    padding-top: 12px;
-    border-top: 1px dashed #e2e8f0;
+    font-family: Arial, sans-serif;
   }
 }

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MoreHorizontal } from 'lucide-react';
+import EmptyState from '../ui/EmptyState';
 import './DataTable.css';
 
 export interface ColumnDef<T> {
@@ -48,8 +49,8 @@ function DataTable<T extends { id: string | number }>({ columns, data, onEdit, o
         <tbody>
           {data.length === 0 ? (
             <tr>
-              <td colSpan={columns.length + (onEdit || onDelete ? 1 : 0)} className="text-center py-4">
-                No data available
+              <td colSpan={columns.length + (onEdit || onDelete ? 1 : 0)} style={{ padding: 0 }}>
+                <EmptyState />
               </td>
             </tr>
           ) : (

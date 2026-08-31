@@ -8,9 +8,9 @@
   --text-light: #9ca3af;
   --border-color: #e5e7eb;
   
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
-  --primary-light: #e0e7ff;
+  --primary: #E11D48;
+  --primary-hover: #BE123C;
+  --primary-light: #FFF1F2;
   
   /* Existing text/bg variables from template */
   --text: #6b6375;
@@ -53,9 +53,9 @@
   --text-light: #64748b;
   --border-color: #334155;
   
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
-  --primary-light: rgba(99, 102, 241, 0.2);
+  --primary: #f43f5e;
+  --primary-hover: #e11d48;
+  --primary-light: rgba(244, 63, 94, 0.15);
 
   --text: #9ca3af;
   --text-h: #f3f4f6;
@@ -80,9 +80,9 @@
     --text-light: #64748b;
     --border-color: #334155;
     
-    --primary: #6366f1;
-    --primary-hover: #4f46e5;
-    --primary-light: rgba(99, 102, 241, 0.2);
+    --primary: #f43f5e;
+    --primary-hover: #e11d48;
+    --primary-light: rgba(244, 63, 94, 0.15);
 
     --text: #9ca3af;
     --text-h: #f3f4f6;

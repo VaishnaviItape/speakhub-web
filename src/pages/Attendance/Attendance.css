@@ -270,4 +270,87 @@
   font-size: 0.875rem;
   transition: all 0.2s;
 }
-.premium-search-input:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+.premium-search-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.1); }
+
+/* Attendance Navigation Tabs - Premium Segmented Pill Bar */
+.attendance-nav-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #f1f5f9;
+  padding: 6px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 1.5rem;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+[data-theme='dark'] .attendance-nav-tabs {
+  background-color: #1e293b;
+  border-color: #334155;
+}
+
+.attendance-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 22px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: #64748b;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+}
+
+[data-theme='dark'] .attendance-tab-btn {
+  color: #94a3b8;
+}
+
+.attendance-tab-btn:hover {
+  color: var(--primary, #e11d48);
+  background-color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme='dark'] .attendance-tab-btn:hover {
+  color: #ffffff;
+  background-color: rgba(15, 23, 42, 0.7);
+}
+
+.attendance-tab-btn.active {
+  background-color: #ffffff;
+  color: var(--primary, #e11d48);
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.12), 0 2px 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(225, 29, 72, 0.15);
+}
+
+[data-theme='dark'] .attendance-tab-btn.active {
+  background-color: #0f172a;
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.attendance-tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.attendance-tab-badge {
+  font-size: 0.725rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+.attendance-tab-btn.active .attendance-tab-badge {
+  background-color: #fff1f2;
+  color: var(--primary, #e11d48);
+}
+

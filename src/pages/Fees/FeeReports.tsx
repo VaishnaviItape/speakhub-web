@@ -251,8 +251,12 @@ const FeeReports: React.FC = () => {
       alert("No phone number registered for this student."); 
       return; 
     }
-    const msg = `Hello ${name},\n\nThis is a gentle reminder from Speak Hub Academy that your fee payment of ₹${amount} was due on ${dueDate}. Please clear your pending dues at the earliest.\n\nThank you!`;
-    window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const phoneWithCode = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+
+    const msg = `Dear Parents / Guardians, Students / Learners,\n\nThis is to inform you that the Spoken English / Abacus class FEE of ₹${amount || 800} for ${name || 'Student'} is due on ${dueDate || 'upcoming due date'}.\n\nFee to be paid to:\n\nGoogle Pay:\nSpeak Hub Academy\n9970964742\n\nOR\n\nPhonePe:\n9970964742\nSpeak Hub Academy\n\nOR\n\nBank details:\nBank Name: State Bank Of India\nA/c No: 41871708652\nIFSC Code: SBIN0011701\nName: Speak Hub Academy\n\nThank you,\nSpeak Hub Academy`;
+
+    window.open(`https://wa.me/${phoneWithCode}?text=${encodeURIComponent(msg)}`, 'speakhub_whatsapp');
   };
 
   const handleExportCSV = () => {
