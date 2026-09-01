@@ -156,6 +156,19 @@ const Notes: React.FC = () => {
 
   const handleNotifyStudents = async (targetBatchId: string, noteTitle: string) => {
     try {
+      // 1. Create in-app mobile push notification in Firestore
+      await addDoc(collection(db, 'notifications'), {
+        title: `📚 New Study Notes: ${noteTitle}`,
+        message: `New study notes on "${topic || noteTitle}" have been uploaded for your batch.`,
+        type: 'notes',
+        batchId: targetBatchId || 'all',
+        courseId: courseId || '',
+        route: '/(app)/notes',
+        actionLabel: 'Read Notes',
+        createdAt: serverTimestamp(),
+      });
+
+      // 2. Send email notification
       const q = query(collection(db, 'users'), where('batchIds', 'array-contains', targetBatchId), where('status', '==', 'active'));
       const snap = await getDocs(q);
       snap.forEach(userDoc => {

@@ -118,6 +118,19 @@ const Exams: React.FC = () => {
     // Notify all active students in the batch
     if (!exam.batchId) return;
     try {
+      // 1. Create in-app mobile push notification in Firestore
+      await addDoc(collection(db, 'notifications'), {
+        title: `📝 New Exam: ${exam.title}`,
+        message: `A new exam "${exam.title}" has been published for your batch. Complete it before the deadline!`,
+        type: 'exam',
+        batchId: exam.batchId || 'all',
+        courseId: exam.courseId || '',
+        route: '/(app)/exams',
+        actionLabel: 'Take Exam',
+        createdAt: serverTimestamp(),
+      });
+
+      // 2. Send email to active students
       const usersQ = query(collection(db, 'users'), where('batchIds', 'array-contains', exam.batchId), where('status', '==', 'active'));
       const usersSnap = await getDocs(usersQ);
 

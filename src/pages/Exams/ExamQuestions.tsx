@@ -148,7 +148,20 @@ const ExamQuestions: React.FC = () => {
         numberOfQuestions: questions.length
       });
       setExam(prev => prev ? ({ ...prev, status: 'published', numberOfQuestions: questions.length }) : null);
-      alert("Exam published successfully! Students in the assigned batch will now be able to view and take this exam on the mobile app.");
+
+      // Create in-app mobile push notification in Firestore
+      await addDoc(collection(db, 'notifications'), {
+        title: `📝 New Exam: ${exam.title}`,
+        message: `A new exam "${exam.title}" with ${questions.length} questions is now live for your batch!`,
+        type: 'exam',
+        batchId: exam.batchId || 'all',
+        courseId: exam.courseId || '',
+        route: '/(app)/exams',
+        actionLabel: 'Take Exam',
+        createdAt: serverTimestamp(),
+      });
+
+      alert("Exam published successfully! Students in the assigned batch will now receive a notification on their mobile app and can take this exam.");
     } catch (e: any) {
       alert("Failed to publish exam: " + e.message);
     }

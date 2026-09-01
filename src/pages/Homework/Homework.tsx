@@ -156,6 +156,17 @@ const HomeworkPage: React.FC = () => {
         await updateDoc(doc(db, 'homeworks', editingId), hwData);
       } else {
         await addDoc(collection(db, 'homeworks'), hwData);
+        // Create in-app mobile push notification in Firestore
+        await addDoc(collection(db, 'notifications'), {
+          title: `✍️ New Homework: ${title.trim()}`,
+          message: `New homework assignment "${title.trim()}" has been assigned for your batch.`,
+          type: 'homework',
+          batchId: batchId || 'all',
+          courseId: selectedBatch?.courseId || '',
+          route: '/(app)/homework',
+          actionLabel: 'View Homework',
+          createdAt: serverTimestamp(),
+        });
       }
 
       setIsModalOpen(false);
