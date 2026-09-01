@@ -129,13 +129,18 @@ const Notes: React.FC = () => {
       let finalFileUrl = '';
       if (uploadMode === 'file' && file) {
         finalFileUrl = await uploadFile(file, 'notes');
+      } else if (editingId) {
+        const existing = notes.find(n => n.documentId === editingId);
+        finalFileUrl = existing?.fileUrl || referenceLink || '';
+      } else {
+        finalFileUrl = referenceLink || '';
       }
 
-      let fullPublishDate = new Date();
+      let fullPublishDate: Date = new Date();
       if (publishDate) {
         const [hh, mm] = (publishTime || '00:00').split(':');
-        fullPublishDate = new Date(publishDate);
-        fullPublishDate.setHours(Number(hh) || 0, Number(mm) || 0, 0, 0);
+        const [yyyy, m, d] = publishDate.split('-').map(Number);
+        fullPublishDate = new Date(yyyy, (m || 1) - 1, d || 1, Number(hh) || 0, Number(mm) || 0, 0);
       }
 
       const noteData: Partial<Note> = {
@@ -154,7 +159,7 @@ const Notes: React.FC = () => {
         await addDoc(collection(db, 'notes'), noteData);
       }
 
-      if (status === 'published' && (!editingId || true)) { // Simplified: notify if it hits published
+      if (status === 'published' && (!editingId || true)) { // notify if published
         handleNotifyStudents(batchId, title);
       }
 
@@ -180,11 +185,58 @@ const Notes: React.FC = () => {
 
   const handleEdit = (note: Note) => {
     setEditingId(note.documentId!);
-    setCourseId(note.courseId); setBatchId(note.batchId); setTeacherId(note.teacherId);
-    setTopic(note.topic || ''); setPartChapter(note.partChapter || ''); setTitle(note.title); setDescription(note.description);
+    setCourseId(note.courseId || '');
+    setBatchId(note.batchId || '');
+    setTeacherId(note.teacherId || '');
+    setTopic(note.topic || '');
+    setPartChapter(note.partChapter || '');
+    setTitle(note.title || '');
+    setDescription(note.description || '');
     setUploadMode(note.fileUrl ? 'file' : 'link');
-    setExternalVideoLink(note.externalVideoLink || ''); setYoutubeLink(note.youtubeLink || ''); setReferenceLink(note.referenceLink || '');
-    setStatus(note.status);
+    setFile(null);
+    setExternalVideoLink(note.externalVideoLink || '');
+    setYoutubeLink(note.youtubeLink || '');
+    setReferenceLink(note.referenceLink || note.fileUrl || (note as any).documentLink || (note as any).driveLink || '');
+    
+    // Bind publish date and time properly
+    let pDateStr = '';
+    let pTimeStr = note.publishTime || (note as any).time || '';
+    const rawPDate = note.publishDate as any;
+    if (rawPDate) {
+      let d: Date | null = null;
+      if (typeof rawPDate?.toDate === 'function') {
+        d = rawPDate.toDate();
+      } else if (rawPDate instanceof Date) {
+        d = rawPDate;
+      } else if (typeof rawPDate?.seconds === 'number') {
+        d = new Date(rawPDate.seconds * 1000);
+      } else if (typeof rawPDate === 'string') {
+        d = new Date(rawPDate);
+      }
+
+      if (d && !isNaN(d.getTime())) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        pDateStr = `${yyyy}-${mm}-${dd}`;
+        if (!pTimeStr) {
+          const hh = String(d.getHours()).padStart(2, '0');
+          const min = String(d.getMinutes()).padStart(2, '0');
+          pTimeStr = `${hh}:${min}`;
+        }
+      }
+    }
+    setPublishDate(pDateStr);
+    setPublishTime(pTimeStr);
+
+    // Normalize status (draft, scheduled, published, inactive)
+    const rawStatus = (note.status || 'draft').toLowerCase();
+    if (rawStatus === 'published' || rawStatus === 'scheduled' || rawStatus === 'inactive' || rawStatus === 'draft') {
+      setStatus(rawStatus as any);
+    } else {
+      setStatus('draft');
+    }
+
     setIsModalOpen(true);
   };
 
