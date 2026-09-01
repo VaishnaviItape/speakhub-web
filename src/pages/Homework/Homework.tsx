@@ -54,7 +54,41 @@ const HomeworkPage: React.FC = () => {
     setIsLoading(true);
     try {
       const snap = await getDocs(collection(db, 'homeworks'));
-      const hwList = snap.docs.map(d => ({ documentId: d.id, ...d.data() } as Homework));
+      const now = Date.now();
+      const hwList = snap.docs.map(d => {
+        const data = d.data() as Homework;
+        let hwStatus = (data.status || 'draft').toLowerCase();
+
+        if (hwStatus === 'scheduled') {
+          let publishDateTime: Date | null = null;
+          const rawPDate = data.publishDate as any;
+          const pTimeStr = data.publishTime || '';
+
+          if (rawPDate) {
+            if (typeof rawPDate.toDate === 'function') {
+              publishDateTime = rawPDate.toDate();
+            } else if (rawPDate instanceof Date) {
+              publishDateTime = new Date(rawPDate.getTime());
+            } else if (typeof rawPDate.seconds === 'number') {
+              publishDateTime = new Date(rawPDate.seconds * 1000);
+            } else if (typeof rawPDate === 'string') {
+              publishDateTime = new Date(rawPDate);
+            }
+          }
+
+          if (publishDateTime && !isNaN(publishDateTime.getTime()) && pTimeStr && pTimeStr.includes(':')) {
+            const [hh, mm] = pTimeStr.split(':').map(Number);
+            publishDateTime.setHours(hh || 0, mm || 0, 0, 0);
+          }
+
+          if (publishDateTime && !isNaN(publishDateTime.getTime()) && publishDateTime.getTime() <= now) {
+            hwStatus = 'published';
+            updateDoc(doc(db, 'homeworks', d.id), { status: 'published' }).catch(console.error);
+          }
+        }
+
+        return { documentId: d.id, ...data, status: hwStatus as any } as Homework;
+      });
       setHomeworks(hwList);
     } catch (e) {
       console.error("Error fetching homeworks:", e);

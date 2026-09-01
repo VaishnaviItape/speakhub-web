@@ -63,7 +63,56 @@ const Notes: React.FC = () => {
     setIsLoading(true);
     try {
       const snap = await getDocs(collection(db, 'notes'));
-      const notesList = snap.docs.map(d => ({ documentId: d.id, ...d.data() } as Note));
+      const now = Date.now();
+      const notesList = snap.docs.map(d => {
+        const data = d.data() as Note;
+        let nStatus = (data.status || 'draft').toLowerCase();
+
+        // Automatically change status from scheduled to published when scheduled time is reached
+        if (nStatus === 'scheduled') {
+          let publishDateTime: Date | null = null;
+          const rawPDate = data.publishDate as any;
+          const pTimeStr = data.publishTime || '';
+
+          if (rawPDate) {
+            if (typeof rawPDate.toDate === 'function') {
+              publishDateTime = rawPDate.toDate();
+            } else if (rawPDate instanceof Date) {
+              publishDateTime = new Date(rawPDate.getTime());
+            } else if (typeof rawPDate.seconds === 'number') {
+              publishDateTime = new Date(rawPDate.seconds * 1000);
+            } else if (typeof rawPDate === 'string') {
+              if (rawPDate.includes('T')) {
+                publishDateTime = new Date(rawPDate);
+              } else if (rawPDate.includes('-')) {
+                const parts = rawPDate.split('-').map(Number);
+                if (parts.length === 3) {
+                  const y = parts[0] > 1000 ? parts[0] : parts[2];
+                  const m = parts[1];
+                  const d = parts[0] > 1000 ? parts[2] : parts[0];
+                  publishDateTime = new Date(y, (m || 1) - 1, d || 1);
+                } else {
+                  publishDateTime = new Date(rawPDate);
+                }
+              } else {
+                publishDateTime = new Date(rawPDate);
+              }
+            }
+          }
+
+          if (publishDateTime && !isNaN(publishDateTime.getTime()) && pTimeStr && pTimeStr.includes(':')) {
+            const [hh, mm] = pTimeStr.split(':').map(Number);
+            publishDateTime.setHours(hh || 0, mm || 0, 0, 0);
+          }
+
+          if (publishDateTime && !isNaN(publishDateTime.getTime()) && publishDateTime.getTime() <= now) {
+            nStatus = 'published';
+            updateDoc(doc(db, 'notes', d.id), { status: 'published' }).catch(console.error);
+          }
+        }
+
+        return { documentId: d.id, ...data, status: nStatus as any } as Note;
+      });
       setNotes(notesList);
 
       const viewsSnap = await getDocs(query(collection(db, 'content_views'), where('contentType', '==', 'note')));

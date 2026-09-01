@@ -73,10 +73,39 @@ const Exams: React.FC = () => {
     try {
       const q = query(collection(db, 'exams'));
       const snapshot = await getDocs(q);
+      const now = Date.now();
       const list: Exam[] = [];
+
       snapshot.forEach(docSnap => {
-        list.push({ documentId: docSnap.id, ...docSnap.data() } as Exam);
+        const data = docSnap.data() as Exam;
+        let examStatus = (data.status || 'draft').toLowerCase();
+
+        // Automatically change status from scheduled to published when scheduled startDate arrives
+        if (examStatus === 'scheduled') {
+          let startDateTime: Date | null = null;
+          const rawStart = data.startDate as any;
+
+          if (rawStart) {
+            if (typeof rawStart.toDate === 'function') {
+              startDateTime = rawStart.toDate();
+            } else if (rawStart instanceof Date) {
+              startDateTime = new Date(rawStart.getTime());
+            } else if (typeof rawStart.seconds === 'number') {
+              startDateTime = new Date(rawStart.seconds * 1000);
+            } else if (typeof rawStart === 'string') {
+              startDateTime = new Date(rawStart);
+            }
+          }
+
+          if (startDateTime && !isNaN(startDateTime.getTime()) && startDateTime.getTime() <= now) {
+            examStatus = 'published';
+            updateDoc(doc(db, 'exams', docSnap.id), { status: 'published' }).catch(console.error);
+          }
+        }
+
+        list.push({ documentId: docSnap.id, ...data, status: examStatus as any });
       });
+
       setExams(list);
     } catch (error) {
       console.error('Error fetching exams:', error);
