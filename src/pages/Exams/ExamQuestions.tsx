@@ -725,40 +725,40 @@ const ExamQuestions: React.FC = () => {
       </Modal>
 
       {/* Modal 2: Bulk CSV Upload */}
-      <Modal isOpen={isCsvModalOpen} onClose={() => { setIsCsvModalOpen(false); setParsedCsvQuestions([]); setCsvFile(null); }} title="Bulk CSV Question Upload">
+      <Modal isOpen={isCsvModalOpen} onClose={() => { setIsCsvModalOpen(false); setParsedCsvQuestions([]); setCsvFile(null); }} title="Bulk CSV Question Upload" size="lg">
         <div style={{maxHeight: '75vh', overflowY: 'auto', paddingRight: '5px'}}>
-          <div className="flex justify-between items-center bg-green-50 p-4 rounded-lg border border-green-200 mb-4">
+          <div className="flex justify-between items-center bg-emerald-50 p-4 rounded-xl border border-emerald-200 mb-4">
             <div>
-              <h4 className="font-bold text-green-900 text-sm">Download CSV Format Template</h4>
-              <p className="text-xs text-green-700">Use this template in Excel to format your MCQ questions.</p>
+              <h4 className="font-bold text-emerald-950 text-sm">Download CSV Format Template</h4>
+              <p className="text-xs text-emerald-700 mt-0.5">Use this template in Excel to format and prepare your MCQ questions.</p>
             </div>
             <button 
               onClick={handleDownloadCsvTemplate}
-              className="btn bg-green-600 text-white hover:bg-green-700 text-xs flex items-center gap-1 font-bold"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 font-bold shadow-sm transition-all cursor-pointer"
             >
               <Download size={14} /> Download Template
             </button>
           </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Select CSV File</label>
+          <div className="mb-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+            <label className="block text-sm font-bold text-gray-800 mb-2">Select CSV File</label>
             <input 
               type="file" 
               accept=".csv" 
               onChange={handleCsvFileChange}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+              className="block w-full text-sm text-gray-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
             />
           </div>
 
           {parsedCsvQuestions.length > 0 && (
             <div className="mt-4">
               <div className="flex justify-between items-center mb-2">
-                <span className="font-bold text-sm text-green-700 flex items-center gap-1">
-                  <CheckCircle2 size={16} /> Parsed {parsedCsvQuestions.length} Questions Ready for Upload
+                <span className="parsed-success-pill">
+                  <CheckCircle2 size={15} /> Parsed {parsedCsvQuestions.length} Questions Ready for Upload
                 </span>
               </div>
-              <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg text-xs">
-                <table className="min-w-full divide-y divide-gray-200">
+              <div className="parsed-table-container">
+                <table className="min-w-full divide-y divide-gray-200 text-xs">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
                       <th className="px-3 py-2 text-left font-bold text-gray-700">Q#</th>
@@ -771,9 +771,9 @@ const ExamQuestions: React.FC = () => {
                     {parsedCsvQuestions.map((q, idx) => (
                       <tr key={idx}>
                         <td className="px-3 py-2 font-bold text-gray-500">{idx + 1}</td>
-                        <td className="px-3 py-2">{q.question}</td>
-                        <td className="px-3 py-2 font-bold text-green-600">Option {q.correctAnswer}</td>
-                        <td className="px-3 py-2">{q.marks}</td>
+                        <td className="px-3 py-2 font-medium text-gray-900">{q.question}</td>
+                        <td className="px-3 py-2 font-bold text-emerald-600">Option {q.correctAnswer}</td>
+                        <td className="px-3 py-2 text-gray-600">{q.marks}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -784,9 +784,10 @@ const ExamQuestions: React.FC = () => {
                 <button 
                   onClick={handleBatchUploadCsv}
                   disabled={isUploading}
-                  className="btn bg-green-600 text-white hover:bg-green-700 font-bold px-5 py-2"
+                  className="btn-upload-batch-confirm"
                 >
-                  {isUploading ? 'Uploading...' : `Upload All ${parsedCsvQuestions.length} Questions`}
+                  <Upload size={16} />
+                  {isUploading ? 'Uploading Questions...' : `Upload All ${parsedCsvQuestions.length} Questions`}
                 </button>
               </div>
             </div>
@@ -795,11 +796,31 @@ const ExamQuestions: React.FC = () => {
       </Modal>
 
       {/* Modal 3: Bulk Text Paste Upload */}
-      <Modal isOpen={isPasteModalOpen} onClose={() => { setIsPasteModalOpen(false); setParsedPasteQuestions([]); setPastedText(''); }} title="Paste MCQ Questions">
-        <div style={{maxHeight: '75vh', overflowY: 'auto', paddingRight: '5px'}}>
-          <div className="bg-purple-50 p-3 rounded-lg border border-purple-200 mb-3 text-xs text-purple-900">
-            <h4 className="font-bold text-purple-900 mb-1">Standard Paste Format Example:</h4>
-            <pre className="bg-white p-2 rounded border border-purple-200 font-mono text-[11px] text-gray-800">
+      <Modal 
+        isOpen={isPasteModalOpen} 
+        onClose={() => { setIsPasteModalOpen(false); setParsedPasteQuestions([]); setPastedText(''); }} 
+        title="Paste MCQ Questions"
+        size="lg"
+      >
+        <div className="paste-modal-wrapper" style={{maxHeight: '75vh', overflowY: 'auto', paddingRight: '4px'}}>
+          {/* Format Example Banner */}
+          <div className="paste-example-banner">
+            <div className="paste-example-header">
+              <span className="paste-example-title">Standard Paste Format</span>
+              <button 
+                type="button" 
+                className="btn-copy-format"
+                onClick={() => {
+                  const sample = `Q: What is the past tense of run?\nA: Running\nB: Ran\nC: Runs\nD: Runned\nANS: B\nMARKS: 1\n\nQ: Choose the correct article: He is ___ honest man.\nA: a\nB: an\nC: the\nD: none\nANS: B\nMARKS: 1`;
+                  navigator.clipboard.writeText(sample);
+                  setPastedText(sample);
+                  setTimeout(() => handleParseTextPaste(), 50);
+                }}
+              >
+                📋 Load Sample Example
+              </button>
+            </div>
+            <pre className="paste-snippet-box">
 {`Q: What is the past tense of run?
 A: Running
 B: Ran
@@ -810,51 +831,60 @@ MARKS: 1`}
             </pre>
           </div>
 
-          <div className="mb-3">
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Paste Formatted Questions Below</label>
+          {/* Text Input Area */}
+          <div>
+            <label className="paste-input-label">Paste Questions Below</label>
             <textarea
-              rows={8}
-              className="w-full p-3 border border-gray-300 rounded-lg text-xs font-mono focus:ring-purple-500 focus:border-purple-500"
-              placeholder="Paste questions in Q: / A: / B: / C: / D: / ANS: format..."
+              rows={7}
+              className="paste-textarea"
+              placeholder="Paste questions here in Q: / A: / B: / C: / D: / ANS: format..."
               value={pastedText}
-              onChange={(e) => {
-                setPastedText(e.target.value);
-              }}
+              onChange={(e) => setPastedText(e.target.value)}
             />
           </div>
 
-          <div className="flex justify-between items-center mb-3">
+          {/* Action Row */}
+          <div className="parse-action-row">
             <button 
+              type="button"
               onClick={handleParseTextPaste}
-              className="btn bg-purple-600 text-white hover:bg-purple-700 text-xs font-bold"
+              className="btn-parse-trigger"
             >
-              Parse Questions Text
+              <FileText size={15} /> Parse Questions
             </button>
 
             {parsedPasteQuestions.length > 0 && (
-              <span className="text-xs font-bold text-green-700">
-                Found {parsedPasteQuestions.length} Valid Questions!
+              <span className="parsed-success-pill">
+                <CheckCircle2 size={15} /> Found {parsedPasteQuestions.length} Valid Questions!
               </span>
             )}
           </div>
 
+          {/* Parsed Results Preview Table */}
           {parsedPasteQuestions.length > 0 && (
-            <div>
-              <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg text-xs">
-                <table className="min-w-full divide-y divide-gray-200">
+            <div className="mt-2">
+              <div className="parsed-table-container">
+                <table className="min-w-full divide-y divide-gray-200 text-xs">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
-                      <th className="px-3 py-2 text-left font-bold text-gray-700">Q#</th>
-                      <th className="px-3 py-2 text-left font-bold text-gray-700">Question</th>
-                      <th className="px-3 py-2 text-left font-bold text-gray-700">Ans</th>
+                      <th className="px-3 py-2.5 text-left font-bold text-gray-700 w-12">#</th>
+                      <th className="px-3 py-2.5 text-left font-bold text-gray-700">Question</th>
+                      <th className="px-3 py-2.5 text-left font-bold text-gray-700 w-24">Correct</th>
+                      <th className="px-3 py-2.5 text-left font-bold text-gray-700 w-16">Marks</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
                     {parsedPasteQuestions.map((q, idx) => (
-                      <tr key={idx}>
-                        <td className="px-3 py-2 font-bold text-gray-500">{idx + 1}</td>
-                        <td className="px-3 py-2">{q.question}</td>
-                        <td className="px-3 py-2 font-bold text-green-600">Option {q.correctAnswer}</td>
+                      <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-3 py-2 font-bold text-gray-400">{idx + 1}</td>
+                        <td className="px-3 py-2">
+                          <div className="font-semibold text-gray-900">{q.question}</div>
+                          <div className="text-[11px] text-gray-500 mt-0.5">
+                            A: {q.optionA} | B: {q.optionB} {q.optionC ? `| C: ${q.optionC}` : ''} {q.optionD ? `| D: ${q.optionD}` : ''}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 font-bold text-emerald-600">Option {q.correctAnswer}</td>
+                        <td className="px-3 py-2 font-semibold text-gray-600">{q.marks}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -865,9 +895,10 @@ MARKS: 1`}
                 <button 
                   onClick={handleBatchUploadPaste}
                   disabled={isUploading}
-                  className="btn bg-purple-600 text-white hover:bg-purple-700 font-bold px-5 py-2"
+                  className="btn-upload-batch-confirm"
                 >
-                  {isUploading ? 'Uploading...' : `Upload All ${parsedPasteQuestions.length} Questions`}
+                  <Upload size={16} />
+                  {isUploading ? 'Uploading Questions...' : `Upload All ${parsedPasteQuestions.length} Questions`}
                 </button>
               </div>
             </div>
