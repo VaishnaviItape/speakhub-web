@@ -367,24 +367,35 @@ const Exams: React.FC = () => {
     {
       key: 'actions',
       header: 'Manage',
-      render: (row) => (
-        <div className="flex flex-col gap-2">
-          <Link
-            to={`/exams/${row.documentId}/questions`}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-xs font-bold text-center transition-colors shadow-sm flex items-center justify-center gap-1"
-          >
-            Upload MCQ Questions ({Number(row.numberOfQuestions) || 0})
-          </Link>
-          {(row.status === 'published' || row.status === 'completed') && (
+      render: (row) => {
+        const qCount = Number(row.numberOfQuestions) || 0;
+        return (
+          <div className="flex flex-col gap-1.5 min-w-[155px]">
             <Link
-              to={`/exams/${row.documentId}/results`}
-              className="bg-green-50 text-green-700 hover:bg-green-100 px-3 py-1.5 rounded text-xs font-bold text-center transition-colors border border-green-200"
+              to={`/exams/${row.documentId}/questions`}
+              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 hover:border-indigo-300 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-between group"
+              title="Manage & Upload MCQ Questions"
             >
-              View Results
+              <span className="flex items-center gap-1.5">
+                <FileQuestion size={14} className="text-indigo-600 group-hover:scale-110 transition-transform" />
+                <span>MCQ Questions</span>
+              </span>
+              <span className="bg-indigo-200 text-indigo-800 text-[11px] font-extrabold px-2 py-0.5 rounded-full">
+                {qCount}
+              </span>
             </Link>
-          )}
-        </div>
-      )
+            {(row.status === 'published' || row.status === 'completed') && (
+              <Link
+                to={`/exams/${row.documentId}/results`}
+                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 px-3 py-1 rounded-lg text-xs font-bold text-center transition-colors border border-emerald-200 flex items-center justify-center gap-1.5"
+              >
+                <BarChart2 size={13} className="text-emerald-600" />
+                <span>View Results</span>
+              </Link>
+            )}
+          </div>
+        );
+      }
     }
   ];
 
