@@ -10,6 +10,7 @@ import { collection, query, where, getDocs, addDoc, updateDoc, doc, getDoc, dele
 import { formatIndianScheduleRange } from '../../utils/dateTime';
 import type { ExamQuestion, Exam } from '../../types/models';
 import '../../components/ui/TableStyles.css';
+import './ExamQuestions.css';
 
 const ExamQuestions: React.FC = () => {
   const { examId } = useParams<{ examId: string }>();
@@ -200,151 +201,161 @@ const ExamQuestions: React.FC = () => {
   };
 
   const handleDelete = async (q: ExamQuestion) => {
-    if (confirm("Delete this question?")) {
+    if (!q.documentId) return;
+    if (window.confirm('Are you sure you want to delete this question?')) {
       try {
-        await deleteDoc(doc(db, 'exam_questions', q.documentId!));
+        await deleteDoc(doc(db, 'exam_questions', q.documentId));
         fetchQuestions();
-      } catch (e: any) {
-        alert("Failed to delete: " + e.message);
+      } catch (error) {
+        alert('Failed to delete question');
       }
     }
   };
 
   const handleClearAllQuestions = async () => {
-    if (!confirm(`Are you sure you want to delete all ${questions.length} questions for this exam?`)) return;
-    setIsLoading(true);
-    try {
-      const batch = writeBatch(db);
-      questions.forEach(q => {
-        if (q.documentId) {
-          batch.delete(doc(db, 'exam_questions', q.documentId));
-        }
-      });
-      await batch.commit();
-      fetchQuestions();
-      alert("All questions deleted successfully.");
-    } catch (e: any) {
-      alert("Failed to clear questions: " + e.message);
-    } finally {
-      setIsLoading(false);
+    if (questions.length === 0) return;
+    if (window.confirm(`Are you sure you want to delete ALL ${questions.length} questions for this exam? This action cannot be undone.`)) {
+      setIsLoading(true);
+      try {
+        const batch = writeBatch(db);
+        questions.forEach(q => {
+          if (q.documentId) {
+            batch.delete(doc(db, 'exam_questions', q.documentId));
+          }
+        });
+        await batch.commit();
+        fetchQuestions();
+      } catch (error: any) {
+        alert("Failed to clear questions: " + error.message);
+        setIsLoading(false);
+      }
     }
   };
 
-  // CSV Template Download
-  const handleDownloadCsvTemplate = () => {
-    const csvHeader = "Question,Option A,Option B,Option C,Option D,Correct Answer,Marks,Explanation\n";
-    const csvRows = [
-      '"What is the past tense of run?","Running","Ran","Runs","Runned","B",1,"Ran is the past tense of run."',
-      '"Which word is a noun?","Quickly","Happiness","Blue","Walk","B",1,"Happiness is a noun."',
-      '"Choose the correct article: __ apple a day keeps the doctor away.","A","An","The","No article","B",1,"An is used before vowel sounds."'
-    ].join('\n');
-
-    const blob = new Blob([csvHeader + csvRows], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `MCQ_Upload_Template_${exam?.title?.replace(/\s+/g, '_') || 'Exam'}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Export Current Questions CSV
   const handleExportCsv = () => {
     if (questions.length === 0) {
       alert("No questions to export.");
       return;
     }
-    const csvHeader = "Question,Option A,Option B,Option C,Option D,Correct Answer,Marks,Explanation\n";
-    const csvRows = questions.map(q => {
-      const escape = (str: string) => `"${(str || '').replace(/"/g, '""')}"`;
-      return `${escape(q.question)},${escape(q.optionA || '')},${escape(q.optionB || '')},${escape(q.optionC || '')},${escape(q.optionD || '')},${escape(q.correctAnswer)},${q.marks},${escape((q as any).explanation || '')}`;
+    const headers = "Question,Option A,Option B,Option C,Option D,Correct Answer (A/B/C/D),Marks,Explanation\n";
+    const rows = questions.map(q => {
+      const clean = (str?: string) => `"${(str || '').replace(/"/g, '""')}"`;
+      return [
+        clean(q.question),
+        clean(q.optionA),
+        clean(q.optionB),
+        clean(q.optionC),
+        clean(q.optionD),
+        q.correctAnswer,
+        q.marks,
+        clean((q as any).explanation)
+      ].join(',');
     }).join('\n');
 
-    const blob = new Blob([csvHeader + csvRows], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${exam?.title?.replace(/\s+/g, '_') || 'Exam'}_Questions.csv`);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${exam?.title ? exam.title.replace(/[^a-zA-Z0-9]/g, '_') : 'Exam'}_Questions.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // Handle CSV File Selection & Parse
+  const handleDownloadCsvTemplate = () => {
+    const csvContent = "Question,Option A,Option B,Option C,Option D,Correct Answer (A/B/C/D),Marks,Explanation\n" +
+      "\"What is the past tense of 'Go'?\",\"Went\",\"Gone\",\"Going\",\"Goes\",\"A\",1,\"Went is the simple past tense of go.\"\n" +
+      "\"Choose the correct article: He is ___ honest man.\",\"a\",\"an\",\"the\",\"none\",\"B\",1,\"Use 'an' before vowel sounds like honest.\"\n" +
+      "\"Identify the noun in the sentence: 'She reads a book daily.'\",\"Reads\",\"Daily\",\"Book\",\"She\",\"C\",1,\"Book is a common object noun.\"";
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', "MCQ_Upload_Template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setCsvFile(file);
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
-      const text = evt.target?.result as string;
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
       if (text) {
-        const parsed = parseCSVText(text);
-        setParsedCsvQuestions(parsed);
+        parseCsvContent(text);
       }
     };
     reader.readAsText(file);
   };
 
-  const parseCSVText = (text: string) => {
-    const lines = text.split(/\r\n|\n/);
-    const results: any[] = [];
-    if (lines.length <= 1) return results;
+  const parseCsvContent = (csvText: string) => {
+    const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length <= 1) {
+      alert("The uploaded CSV file is empty or missing data rows.");
+      return;
+    }
 
+    const parsed: any[] = [];
     for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
+      const row = parseCsvRow(lines[i]);
+      if (row.length >= 6) {
+        const questionText = row[0]?.trim();
+        const optA = row[1]?.trim();
+        const optB = row[2]?.trim();
+        const optC = row[3]?.trim() || '';
+        const optD = row[4]?.trim() || '';
+        const correctAns = (row[5]?.trim() || 'A').toUpperCase();
+        const marksVal = Number(row[6]) || Number(exam?.marksPerQuestion) || 1;
+        const expText = row[7]?.trim() || '';
 
-      const values: string[] = [];
-      let insideQuote = false;
-      let currentVal = '';
-
-      for (let j = 0; j < line.length; j++) {
-        const char = line[j];
-        if (char === '"') {
-          insideQuote = !insideQuote;
-        } else if (char === ',' && !insideQuote) {
-          values.push(currentVal.trim());
-          currentVal = '';
-        } else {
-          currentVal += char;
-        }
-      }
-      values.push(currentVal.trim());
-
-      if (values.length >= 6) {
-        const qText = values[0] || '';
-        const optA = values[1] || '';
-        const optB = values[2] || '';
-        const optC = values[3] || '';
-        const optD = values[4] || '';
-        const rawAns = (values[5] || 'A').toUpperCase().trim();
-        const ans = ['A','B','C','D'].includes(rawAns) ? rawAns : 'A';
-
-        const exp = values[7] || '';
-
-        if (qText && optA && optB) {
-          results.push({
+        if (questionText && optA && optB) {
+          parsed.push({
             examId,
-            question: qText,
+            question: questionText,
             questionType: 'MCQ',
             optionA: optA,
             optionB: optB,
             optionC: optC,
             optionD: optD,
-            correctAnswer: ans,
-            marks: Number(exam?.marksPerQuestion) || 1,
-            explanation: exp
+            correctAnswer: ['A', 'B', 'C', 'D'].includes(correctAns) ? correctAns : 'A',
+            marks: marksVal,
+            explanation: expText
           });
         }
       }
     }
-    return results;
+    setParsedCsvQuestions(parsed);
   };
 
-  // Upload Parsed CSV Questions to Firestore
+  const parseCsvRow = (text: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      if (char === '"') {
+        if (inQuotes && text[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current);
+    return result;
+  };
+
   const handleBatchUploadCsv = async () => {
     if (parsedCsvQuestions.length === 0) {
       alert("No valid MCQ questions found in the CSV file.");
@@ -443,19 +454,28 @@ const ExamQuestions: React.FC = () => {
       key: 'question',
       header: 'Question & Options',
       render: (row) => (
-        <div style={{ maxWidth: '500px' }}>
-          <div className="font-semibold text-gray-900 mb-1">{row.question}</div>
+        <div style={{ maxWidth: '520px' }}>
+          <div className="font-bold text-gray-900 mb-2 leading-relaxed">{row.question}</div>
           {row.questionType === 'MCQ' && (
-            <div className="grid grid-cols-2 gap-1 text-xs text-gray-600 bg-gray-50 p-2 rounded border border-gray-200">
-              <span className={row.correctAnswer === 'A' ? 'font-bold text-green-700' : ''}>A: {row.optionA}</span>
-              <span className={row.correctAnswer === 'B' ? 'font-bold text-green-700' : ''}>B: {row.optionB}</span>
-              <span className={row.correctAnswer === 'C' ? 'font-bold text-green-700' : ''}>C: {row.optionC}</span>
-              <span className={row.correctAnswer === 'D' ? 'font-bold text-green-700' : ''}>D: {row.optionD}</span>
+            <div className="mcq-options-grid">
+              <div className={`mcq-option-pill ${row.correctAnswer === 'A' ? 'correct' : ''}`}>
+                <strong className="mr-1">A:</strong> {row.optionA}
+              </div>
+              <div className={`mcq-option-pill ${row.correctAnswer === 'B' ? 'correct' : ''}`}>
+                <strong className="mr-1">B:</strong> {row.optionB}
+              </div>
+              <div className={`mcq-option-pill ${row.correctAnswer === 'C' ? 'correct' : ''}`}>
+                <strong className="mr-1">C:</strong> {row.optionC}
+              </div>
+              <div className={`mcq-option-pill ${row.correctAnswer === 'D' ? 'correct' : ''}`}>
+                <strong className="mr-1">D:</strong> {row.optionD}
+              </div>
             </div>
           )}
           {(row as any).explanation && (
-            <div className="text-xs text-purple-700 mt-1 italic flex items-center gap-1">
-              <HelpCircle size={12} /> {(row as any).explanation}
+            <div className="text-xs text-purple-700 mt-2 italic flex items-center gap-1.5 bg-purple-50 p-2 rounded-lg border border-purple-100">
+              <HelpCircle size={13} className="text-purple-600 shrink-0" />
+              <span>{(row as any).explanation}</span>
             </div>
           )}
         </div>
@@ -465,15 +485,19 @@ const ExamQuestions: React.FC = () => {
       key: 'correctAnswer',
       header: 'Correct Answer',
       render: (row) => (
-        <span className="font-bold text-sm bg-green-100 text-green-800 px-2.5 py-1 rounded-full border border-green-200">
-          Option {row.correctAnswer}
+        <span className="mcq-ans-badge">
+          <CheckCircle2 size={13} className="mr-1" /> Option {row.correctAnswer}
         </span>
       )
     },
     {
       key: 'marks',
       header: 'Marks',
-      render: (row) => <span className="font-medium text-gray-800">{row.marks} mark{row.marks > 1 ? 's' : ''}</span>
+      render: (row) => (
+        <span className="font-bold text-gray-800 bg-gray-100 px-3 py-1 rounded-full text-xs border border-gray-200">
+          {row.marks} mark{row.marks > 1 ? 's' : ''}
+        </span>
+      )
     }
   ];
 
@@ -482,43 +506,43 @@ const ExamQuestions: React.FC = () => {
   const targetMarks = exam?.totalMarks || 0;
 
   return (
-    <div className="page-container">
+    <div className="page-container exam-questions-page">
       {/* Top Navigation & Title */}
-      <div className="page-header flex justify-between items-center w-full mb-4">
+      <div className="page-header flex justify-between items-center w-full mb-5">
         <div className="flex items-center gap-4">
           <button 
-            className="p-2 hover:bg-gray-200 rounded-full transition-colors bg-white shadow-sm border border-gray-200"
+            className="p-2.5 hover:bg-gray-100 rounded-xl transition-all bg-white shadow-sm border border-gray-200 cursor-pointer"
             onClick={() => navigate('/exams')}
             title="Back to Exams"
           >
-            <ArrowLeft size={20} className="text-gray-700" />
+            <ArrowLeft size={18} className="text-gray-700" />
           </button>
           <div>
-            <h1 className="page-title">Manage MCQ Questions</h1>
-            <div className="breadcrumbs">
+            <h1 className="page-title text-2xl font-black text-gray-900">Manage MCQ Questions</h1>
+            <div className="breadcrumbs mt-0.5">
               <span>Dashboard</span> <span className="separator">/</span> 
               <span>Exams</span> <span className="separator">/</span>
-              <span className="current">{exam?.title || 'Exam Questions'}</span>
+              <span className="current font-semibold text-rose-600">{exam?.title || 'Exam Questions'}</span>
             </div>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2 flex-wrap">
+        <div className="exam-header-actions">
           <button 
-            className="btn bg-green-600 text-white hover:bg-green-700 flex items-center gap-1.5"
+            className="btn-csv-upload"
             onClick={() => setIsCsvModalOpen(true)}
           >
             <Upload size={16} /> Bulk CSV Upload
           </button>
           <button 
-            className="btn bg-purple-600 text-white hover:bg-purple-700 flex items-center gap-1.5"
+            className="btn-paste-questions"
             onClick={() => setIsPasteModalOpen(true)}
           >
             <FileText size={16} /> Paste Questions
           </button>
           <button 
-            className="btn btn-primary flex items-center gap-1.5"
+            className="btn-add-mcq"
             onClick={() => { resetForm(); setIsModalOpen(true); }}
           >
             <Plus size={16} /> Add Single MCQ
@@ -529,86 +553,88 @@ const ExamQuestions: React.FC = () => {
       {/* Exam Details Header Banner */}
       {exam && (
         <div className="mb-6 flex flex-col gap-4">
-          <div className="bg-white p-5 rounded-xl border border-indigo-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="exam-info-card">
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold uppercase tracking-wider bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded">
+              <div className="exam-badges-row">
+                <span className="badge-exam-type">
                   {exam.examType || 'MCQ'} Exam
                 </span>
                 {batchName && (
-                  <span className="text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded">
+                  <span className="badge-batch-name">
                     Batch: {batchName}
                   </span>
                 )}
                 {courseName && (
-                  <span className="text-xs font-medium text-gray-500">
+                  <span className="badge-course-name">
                     Course: {courseName}
                   </span>
                 )}
-                <span className={`text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded ${
-                  exam.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+                <span className={`badge-status-pill ${
+                  exam.status === 'published' ? 'badge-status-published' : 'badge-status-draft'
                 }`}>
+                  <span className="status-dot"></span>
                   Status: {exam.status ? exam.status.toUpperCase() : 'DRAFT'}
                 </span>
               </div>
-              <h2 className="text-xl font-bold text-gray-800 mt-2">{exam.title}</h2>
-              <div className="flex items-center gap-3 text-xs text-gray-600 mt-1 flex-wrap">
-                <span className="flex items-center gap-1 font-medium text-gray-700">
-                  <Calendar size={13} className="text-indigo-600" /> 
+              <h2 className="exam-main-title">{exam.title}</h2>
+              <div className="exam-meta-details">
+                <span className="exam-schedule-chip">
+                  <Calendar size={14} className="text-indigo-600" /> 
                   Schedule: {formatIndianScheduleRange(exam.startDate, exam.endDate)}
                 </span>
-                {exam.chapter && <span>• Chapter: {exam.chapter}</span>}
+                {exam.chapter && <span>• Chapter: <strong>{exam.chapter}</strong></span>}
               </div>
             </div>
 
             {/* Publishing Status & Action */}
-            <div className="flex flex-col items-end gap-1.5">
+            <div className="exam-publish-action">
               {exam.status !== 'published' ? (
                 <button
                   onClick={handlePublishNow}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg shadow-sm flex items-center gap-1.5 transition-all"
+                  className="btn-publish-app"
                   title="Publish exam so students can view and take it on the mobile app"
                 >
-                  <Send size={14} /> Publish to Mobile App
+                  <Send size={15} /> Publish to Mobile App
                 </button>
               ) : (
-                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                  <CheckCircle2 size={15} className="text-emerald-600" /> Published & Visible on Mobile
+                <div className="published-status-badge">
+                  <CheckCircle2 size={16} className="text-emerald-600" /> Published & Live on Mobile
                 </div>
               )}
               {questions.length === 0 && (
-                <span className="text-[11px] text-amber-600 font-medium">Add questions to publish</span>
+                <span className="text-xs text-amber-700 font-semibold mt-1">Add questions to publish</span>
               )}
             </div>
           </div>
 
-          <div className="metric-cards-grid" style={{ marginBottom: 0 }}>
-            <div className="metric-card indigo">
-              <div className="metric-card-content">
-                <div className="metric-card-title">Uploaded Questions</div>
-                <div className="metric-card-value">
-                  {questions.length} <span style={{fontSize: '20px', opacity: 0.7}}>/</span> {targetCount || '∞'}
+          {/* Stats Cards Grid */}
+          <div className="exam-stats-grid">
+            <div className="stat-metric-card stat-card-blue">
+              <div>
+                <div className="stat-info-title">Uploaded Questions</div>
+                <div className="stat-info-val">
+                  {questions.length} <span className="stat-info-val-sub">/ {targetCount || '∞'}</span>
                 </div>
               </div>
-              <div className="metric-card-icon"><HelpCircle /></div>
+              <div className="stat-glass-icon"><HelpCircle size={26} /></div>
             </div>
 
-            <div className="metric-card emerald">
-              <div className="metric-card-content">
-                <div className="metric-card-title">Total Marks</div>
-                <div className="metric-card-value">
-                  {totalQuestionMarks} <span style={{fontSize: '20px', opacity: 0.7}}>/</span> {targetMarks || '∞'}
+            <div className="stat-metric-card stat-card-emerald">
+              <div>
+                <div className="stat-info-title">Total Marks</div>
+                <div className="stat-info-val">
+                  {totalQuestionMarks} <span className="stat-info-val-sub">/ {targetMarks || '∞'}</span>
                 </div>
               </div>
-              <div className="metric-card-icon"><CheckCircle2 /></div>
+              <div className="stat-glass-icon"><CheckCircle2 size={26} /></div>
             </div>
 
-            <div className="metric-card amber">
-              <div className="metric-card-content">
-                <div className="metric-card-title">Duration</div>
-                <div className="metric-card-value">{exam.duration || 0} Mins</div>
+            <div className="stat-metric-card stat-card-amber">
+              <div>
+                <div className="stat-info-title">Duration</div>
+                <div className="stat-info-val">{exam.duration || 0} <span className="stat-info-val-sub">Mins</span></div>
               </div>
-              <div className="metric-card-icon"><Clock /></div>
+              <div className="stat-glass-icon"><Clock size={26} /></div>
             </div>
           </div>
         </div>
@@ -616,21 +642,21 @@ const ExamQuestions: React.FC = () => {
 
       {/* Extra Bank Actions Toolbar */}
       <div className="flex justify-between items-center mb-3">
-        <div className="text-sm font-semibold text-gray-700">
-          Question Bank ({questions.length} questions)
+        <div className="text-sm font-bold text-gray-800 flex items-center gap-2">
+          Question Bank <span className="bg-gray-200 text-gray-700 text-xs px-2.5 py-0.5 rounded-full font-bold">{questions.length} questions</span>
         </div>
         <div className="flex gap-2">
           {questions.length > 0 && (
             <>
               <button 
                 onClick={handleExportCsv}
-                className="text-xs text-gray-600 hover:text-gray-900 border border-gray-300 bg-white px-3 py-1.5 rounded flex items-center gap-1 font-medium transition-colors"
+                className="text-xs text-gray-700 hover:text-gray-900 border border-gray-300 bg-white hover:bg-gray-50 px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 font-bold transition-all shadow-sm cursor-pointer"
               >
                 <Download size={14} /> Export CSV
               </button>
               <button 
                 onClick={handleClearAllQuestions}
-                className="text-xs text-red-600 hover:text-red-800 border border-red-200 bg-red-50 px-3 py-1.5 rounded flex items-center gap-1 font-medium transition-colors"
+                className="text-xs text-red-600 hover:text-red-800 border border-red-200 bg-red-50 hover:bg-red-100 px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 font-bold transition-all shadow-sm cursor-pointer"
               >
                 <Trash2 size={14} /> Clear All
               </button>
