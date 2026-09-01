@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, ArrowLeft, Upload, FileText, Download, Trash2, CheckCircle2, HelpCircle, Clock, Send, Calendar } from 'lucide-react';
+import { Plus, ArrowLeft, Upload, FileText, Download, Trash2, CheckCircle2, HelpCircle, Clock, Send, Calendar, Copy, Layers } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import { db } from '../../config/firebase';
-import { collection, query, where, getDocs, addDoc, updateDoc, doc, getDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, updateDoc, doc, getDoc, deleteDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { formatIndianScheduleRange } from '../../utils/dateTime';
-import type { ExamQuestion, Exam } from '../../types/models';
+import type { ExamQuestion, Exam, Batch } from '../../types/models';
 import '../../components/ui/TableStyles.css';
 import './ExamQuestions.css';
 
@@ -25,8 +25,15 @@ const ExamQuestions: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
+  const [isAssignBatchModalOpen, setIsAssignBatchModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
+  // Batch Assignment State
+  const [allBatches, setAllBatches] = useState<Batch[]>([]);
+  const [selectedTargetBatchId, setSelectedTargetBatchId] = useState('');
+  const [copyActionType, setCopyActionType] = useState<'clone_with_questions' | 'reassign_batch'>('clone_with_questions');
+  const [isAssigningBatch, setIsAssigningBatch] = useState(false);
+
   // Single Question Form State
   const [editingId, setEditingId] = useState<string | null>(null);
   const [questionType, setQuestionType] = useState<'MCQ' | 'TrueFalse' | 'FillBlank'>('MCQ');
@@ -55,8 +62,21 @@ const ExamQuestions: React.FC = () => {
     if (examId) {
       fetchExamDetails();
       fetchQuestions();
+      fetchBatchesList();
     }
   }, [examId]);
+
+  const fetchBatchesList = async () => {
+    try {
+      const bSnap = await getDocs(collection(db, 'batches'));
+      const list = bSnap.docs
+        .map(d => ({ documentId: d.id, ...d.data() } as Batch))
+        .filter(b => (b as any).status !== 'inactive');
+      setAllBatches(list);
+    } catch (e) {
+      console.warn("Error fetching batches list:", e);
+    }
+  };
 
   const fetchExamDetails = async () => {
     if (!examId) return;
@@ -131,6 +151,85 @@ const ExamQuestions: React.FC = () => {
       alert("Exam published successfully! Students in the assigned batch will now be able to view and take this exam on the mobile app.");
     } catch (e: any) {
       alert("Failed to publish exam: " + e.message);
+    }
+  };
+
+  const handleAssignToBatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTargetBatchId) {
+      alert("Please select a target batch.");
+      return;
+    }
+    if (!exam || !examId) return;
+
+    const targetBatch = allBatches.find(b => b.documentId === selectedTargetBatchId || (b as any).id === selectedTargetBatchId);
+    const targetBatchName = targetBatch?.batchName || 'Target Batch';
+
+    setIsAssigningBatch(true);
+    try {
+      if (copyActionType === 'clone_with_questions') {
+        // 1. Create a duplicate copy of the Exam for the target batch
+        const newExamData: any = {
+          title: exam.title,
+          chapter: exam.chapter || '',
+          courseId: targetBatch?.courseId || exam.courseId || '',
+          batchId: selectedTargetBatchId,
+          description: exam.description || '',
+          instructions: exam.instructions || '',
+          examType: exam.examType || 'MCQ',
+          duration: Number(exam.duration) || 30,
+          totalMarks: Number(exam.totalMarks) || 20,
+          passingMarks: Number(exam.passingMarks) || 8,
+          marksPerQuestion: Number(exam.marksPerQuestion) || 1,
+          numberOfQuestions: questions.length,
+          startDate: exam.startDate || null,
+          endDate: exam.endDate || null,
+          status: questions.length > 0 ? 'published' : 'draft',
+          createdAt: serverTimestamp(),
+        };
+
+        const newExamRef = await addDoc(collection(db, 'exams'), newExamData);
+
+        // 2. Clone all uploaded MCQ questions linked to the new exam ID
+        if (questions.length > 0) {
+          const batch = writeBatch(db);
+          questions.forEach(q => {
+            const newQRef = doc(collection(db, 'exam_questions'));
+            const qCopy = {
+              examId: newExamRef.id,
+              question: q.question,
+              questionType: q.questionType || 'MCQ',
+              optionA: q.optionA || '',
+              optionB: q.optionB || '',
+              optionC: q.optionC || '',
+              optionD: q.optionD || '',
+              correctAnswer: q.correctAnswer,
+              marks: Number(q.marks) || 1,
+              explanation: (q as any).explanation || ''
+            };
+            batch.set(newQRef, qCopy);
+          });
+          await batch.commit();
+        }
+
+        alert(`🎉 Success!\n\nThis exam and all ${questions.length} questions have been duplicated and assigned to batch "${targetBatchName}".`);
+        setIsAssignBatchModalOpen(false);
+      } else {
+        // Reassign the current exam to the target batch
+        await updateDoc(doc(db, 'exams', examId), {
+          batchId: selectedTargetBatchId,
+          courseId: targetBatch?.courseId || exam.courseId || ''
+        });
+        setBatchName(targetBatchName);
+        alert(`Exam reassigned to batch "${targetBatchName}" successfully!`);
+        setIsAssignBatchModalOpen(false);
+        fetchExamDetails();
+      }
+    } catch (err: any) {
+      console.error("Assign batch error:", err);
+      alert("Failed to assign batch: " + err.message);
+    } finally {
+      setIsAssigningBatch(false);
     }
   };
 
@@ -530,6 +629,17 @@ const ExamQuestions: React.FC = () => {
         {/* Action Buttons */}
         <div className="exam-header-actions">
           <button 
+            className="btn-assign-batch"
+            onClick={() => {
+              fetchBatchesList();
+              setSelectedTargetBatchId(exam?.batchId || '');
+              setIsAssignBatchModalOpen(true);
+            }}
+            title="Assign or duplicate this exam & questions to another batch"
+          >
+            <Copy size={16} /> Assign to Another Batch
+          </button>
+          <button 
             className="btn-csv-upload"
             onClick={() => setIsCsvModalOpen(true)}
           >
@@ -904,6 +1014,92 @@ MARKS: 1`}
             </div>
           )}
         </div>
+      </Modal>
+      {/* Modal 4: Assign / Copy Exam to Another Batch */}
+      <Modal 
+        isOpen={isAssignBatchModalOpen} 
+        onClose={() => setIsAssignBatchModalOpen(false)} 
+        title="Assign Exam to Another Batch"
+        size="md"
+      >
+        <form onSubmit={handleAssignToBatch} className="modal-form">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 text-xs text-blue-900">
+            <div className="font-bold text-sm text-blue-950 mb-1 flex items-center gap-1.5">
+              <Layers size={16} className="text-blue-700" />
+              Exam: {exam?.title || 'Current Exam'}
+            </div>
+            <div className="text-blue-800">
+              Current Batch: <strong>{batchName || 'Not Assigned'}</strong> | Total Questions: <strong>{questions.length}</strong>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-bold text-gray-800 mb-2">Select Target Batch *</label>
+            <select
+              value={selectedTargetBatchId}
+              onChange={(e) => setSelectedTargetBatchId(e.target.value)}
+              required
+              className="w-full p-2.5 bg-white border border-gray-300 rounded-xl text-sm font-semibold text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">-- Choose a Batch --</option>
+              {allBatches.map(b => (
+                <option key={b.documentId} value={b.documentId}>
+                  {b.batchName} {b.courseId ? `(Course ID: ${b.courseId})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-2">Action Type</label>
+            
+            <label className="flex items-start gap-2.5 mb-3 cursor-pointer">
+              <input 
+                type="radio" 
+                name="assignAction" 
+                checked={copyActionType === 'clone_with_questions'}
+                onChange={() => setCopyActionType('clone_with_questions')}
+                className="mt-0.5 text-rose-600 focus:ring-rose-500"
+              />
+              <div>
+                <span className="text-sm font-bold text-gray-900 block">✨ Duplicate Exam & All {questions.length} Questions</span>
+                <span className="text-xs text-gray-500">Creates an independent copy of this exam with all questions for the target batch.</span>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input 
+                type="radio" 
+                name="assignAction" 
+                checked={copyActionType === 'reassign_batch'}
+                onChange={() => setCopyActionType('reassign_batch')}
+                className="mt-0.5 text-blue-600 focus:ring-blue-500"
+              />
+              <div>
+                <span className="text-sm font-bold text-gray-900 block">🔄 Move / Reassign Current Exam</span>
+                <span className="text-xs text-gray-500">Changes the assigned batch of this exam directly.</span>
+              </div>
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-2.5 mt-4">
+            <button
+              type="button"
+              onClick={() => setIsAssignBatchModalOpen(false)}
+              className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isAssigningBatch || !selectedTargetBatchId}
+              className="px-5 py-2 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <Copy size={16} />
+              {isAssigningBatch ? 'Processing...' : (copyActionType === 'clone_with_questions' ? 'Duplicate to Batch' : 'Reassign Batch')}
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );
