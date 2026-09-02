@@ -31,8 +31,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
-  gap: 1rem;
+  margin-bottom: 0.5rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
@@ -85,20 +85,49 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.5rem;
 }
 
 .fee-modal-grid-3 {
   display: grid;
   grid-template-columns: 1.2fr 1fr 1fr;
   gap: 1rem;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.5rem;
 }
 
 @media (max-width: 640px) {
   .fee-modal-grid-2, .fee-modal-grid-3 {
     grid-template-columns: 1fr;
   }
+}
+
+/* Coverage Summary Pill */
+.fee-coverage-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+  border: 1px solid #fecdd3;
+  padding: 0.5rem 0.85rem;
+  border-radius: 10px;
+  font-size: 0.825rem;
+  color: #9f1239;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+[data-theme='dark'] .fee-coverage-pill {
+  background: linear-gradient(135deg, #4c0519 0%, #2e0813 100%);
+  border-color: #9f1239;
+  color: #fecdd3;
+}
+
+.fee-coverage-pill strong {
+  color: #e11d48;
+}
+
+[data-theme='dark'] .fee-coverage-pill strong {
+  color: #fda4af;
 }
 
 /* Next Due Date Calculation Banner */
@@ -110,8 +139,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1rem;
-  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 [data-theme='dark'] .fee-due-date-banner {
@@ -119,11 +149,23 @@
   border-color: #047857;
 }
 
+.fee-due-date-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.fee-due-date-right {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
 .fee-due-date-label {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.825rem;
+  gap: 0.4rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: #065f46;
 }
@@ -135,19 +177,106 @@
 .fee-due-date-badge {
   background-color: #ffffff;
   color: #047857;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   font-weight: 800;
   padding: 0.35rem 0.85rem;
   border-radius: 10px;
   border: 1.5px solid #6ee7b7;
   box-shadow: 0 2px 6px rgba(16, 185, 129, 0.15);
   letter-spacing: 0.2px;
+  width: fit-content;
 }
 
 [data-theme='dark'] .fee-due-date-badge {
   background-color: #0f172a;
   color: #34d399;
   border-color: #059669;
+}
+
+.fee-custom-date-input {
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  border: 1.5px solid #6ee7b7;
+  background-color: #ffffff;
+  color: #0f172a;
+  font-size: 0.85rem;
+  font-weight: 700;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.fee-custom-date-input:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+[data-theme='dark'] .fee-custom-date-input {
+  background-color: #0f172a;
+  color: #e2e8f0;
+  border-color: #047857;
+}
+
+/* Net Summary Bar */
+.fee-net-summary-bar {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 0.65rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+[data-theme='dark'] .fee-net-summary-bar {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-color: #475569;
+}
+
+.fee-net-summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+}
+
+.fee-net-label {
+  color: #64748b;
+  font-weight: 600;
+}
+
+[data-theme='dark'] .fee-net-label {
+  color: #94a3b8;
+}
+
+.fee-net-val {
+  font-weight: 700;
+  color: #1e293b;
+}
+
+[data-theme='dark'] .fee-net-val {
+  color: #f1f5f9;
+}
+
+.fee-net-total {
+  background-color: #e11d48;
+  color: #ffffff;
+  padding: 0.35rem 0.85rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.25);
+}
+
+.fee-net-total .fee-net-label {
+  color: #ffe4e6;
+  font-weight: 700;
+}
+
+.fee-net-total-val {
+  font-weight: 900;
+  font-size: 0.95rem;
+  color: #ffffff;
 }
 
 .fee-modal-submit-btn {

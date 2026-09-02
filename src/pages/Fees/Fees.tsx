@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, MessageCircle, Calendar, Clock, Printer, CreditCard } from 'lucide-react';
+import { Plus, MessageCircle, Calendar, Clock, Printer, CreditCard, CheckCircle, AlertCircle, Sparkles } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
@@ -22,9 +22,13 @@ interface StudentFeeRecord {
   monthlyFee: number;
   joiningDate?: string;
   joiningDateRaw?: string;
+  joiningDay?: number;
   lastPaymentDate?: Date;
   lastPaidMonth?: string;
+  currentDueDate?: string;
+  currentDueDateRaw?: string;
   nextDueDate?: string;
+  nextDueDateRaw?: string;
 }
 
 const Fees: React.FC = () => {
@@ -38,9 +42,11 @@ const Fees: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [feeRecords, setFeeRecords] = useState<StudentFeeRecord[]>([]);
 
+  // Month names constant
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
   // Generate Month Options (Previous, Current, Next Year)
   const generateMonthOptions = () => {
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const currentYear = new Date().getFullYear();
     const options: { label: string; value: string }[] = [
       { label: 'Select Billing Month', value: '' }
@@ -55,7 +61,7 @@ const Fees: React.FC = () => {
     return options;
   };
 
-  const currentMonthDefault = `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][new Date().getMonth()]} ${new Date().getFullYear()}`;
+  const currentMonthDefault = `${monthNames[new Date().getMonth()]} ${new Date().getFullYear()}`;
 
   // Payment Form State
   const [paymentStudentId, setPaymentStudentId] = useState('');
@@ -67,7 +73,10 @@ const Fees: React.FC = () => {
   const [billingPeriod, setBillingPeriod] = useState(currentMonthDefault);
   const [paymentMode, setPaymentMode] = useState<'Cash' | 'UPI' | 'Bank Transfer' | 'Online Gateway'>('Cash');
   const [transactionNumber, setTransactionNumber] = useState('');
+  const [remarks, setRemarks] = useState('');
   const [calculatedDueDate, setCalculatedDueDate] = useState<string>('');
+  const [customNextDueDate, setCustomNextDueDate] = useState<string>('');
+  const [periodCoverageText, setPeriodCoverageText] = useState<string>('');
 
   // Receipt State
   const [printedTransaction, setPrintedTransaction] = useState<FeeTransaction | null>(null);
@@ -76,9 +85,9 @@ const Fees: React.FC = () => {
     fetchData();
   }, []);
 
-  const formatJoiningDateDisplay = (joiningDateVal: any): { display: string; raw: string } => {
+  const formatJoiningDateDisplay = (joiningDateVal: any): { display: string; raw: string; day: number } => {
     if (!joiningDateVal) {
-      return { display: '01 Jan 2026', raw: '2026-01-01' };
+      return { display: '01 Jan 2026', raw: '2026-01-01', day: 1 };
     }
     let d: Date;
     if (joiningDateVal.seconds) {
@@ -92,7 +101,7 @@ const Fees: React.FC = () => {
     }
 
     if (isNaN(d.getTime())) {
-      return { display: '01 Jan 2026', raw: '2026-01-01' };
+      return { display: '01 Jan 2026', raw: '2026-01-01', day: 1 };
     }
 
     const year = d.getFullYear();
@@ -101,17 +110,26 @@ const Fees: React.FC = () => {
 
     const display = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     const raw = `${year}-${month}-${day}`;
-    return { display, raw };
+    return { display, raw, day: d.getDate() };
   };
 
+  // Helper to calculate target due date preserving day-of-month
   const calculateNextDueDateString = (baseDateStr: string, monthsToAdd: number): { display: string; iso: string } => {
     let base = new Date(baseDateStr);
     if (isNaN(base.getTime())) {
       base = new Date();
     }
     
-    // Add months to base date (joining date or last payment date)
-    const target = new Date(base.getFullYear(), base.getMonth() + monthsToAdd, base.getDate());
+    const targetYear = base.getFullYear();
+    const targetMonth = base.getMonth() + monthsToAdd;
+    const originalDay = base.getDate();
+
+    // Clamp day to max days of target month (e.g. 31st Jan + 1 mo -> 28th Feb)
+    const temp = new Date(targetYear, targetMonth, 1);
+    const maxDays = new Date(temp.getFullYear(), temp.getMonth() + 1, 0).getDate();
+    const targetDay = Math.min(originalDay, maxDays);
+
+    const target = new Date(temp.getFullYear(), temp.getMonth(), targetDay);
     
     const year = target.getFullYear();
     const month = String(target.getMonth() + 1).padStart(2, '0');
@@ -120,6 +138,27 @@ const Fees: React.FC = () => {
     const display = target.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     const iso = `${year}-${month}-${day}`;
     return { display, iso };
+  };
+
+  // Helper to calculate period coverage text (e.g., "Aug 2026 — Sep 2026 (2 Months)")
+  const getPeriodCoverageLabel = (startMonthStr: string, count: number): string => {
+    if (!startMonthStr) return '';
+    const parts = startMonthStr.trim().split(' ');
+    if (parts.length < 2) return `${startMonthStr} (${count} ${count === 1 ? 'Month' : 'Months'})`;
+    
+    const startMonthIdx = monthNames.indexOf(parts[0]);
+    const startYear = parseInt(parts[1], 10);
+    if (startMonthIdx === -1 || isNaN(startYear)) {
+      return `${startMonthStr} (${count} ${count === 1 ? 'Month' : 'Months'})`;
+    }
+    if (count <= 1) {
+      return `${parts[0]} ${startYear} (1 Month)`;
+    }
+    
+    const endMonthTotal = startMonthIdx + count - 1;
+    const endYear = startYear + Math.floor(endMonthTotal / 12);
+    const endMonthName = monthNames[endMonthTotal % 12];
+    return `${parts[0]} ${startYear} — ${endMonthName} ${endYear} (${count} Months)`;
   };
 
   const fetchData = async () => {
@@ -152,9 +191,16 @@ const Fees: React.FC = () => {
         const lastTx = studentTx[0];
         const jInfo = formatJoiningDateDisplay(student.joiningDate || (student as any).createdAt);
 
-        // Calculate Next Due Date from last payment or joining date
-        const baseDate = lastTx?.nextDueDate || jInfo.raw;
-        const computedNextDue = calculateNextDueDateString(baseDate, 1).display;
+        // Student's current due date: if previous payments exist, it is lastTx.nextDueDate.
+        // Otherwise it is their joining date.
+        let curDueDisplay = jInfo.display;
+        let curDueRaw = jInfo.raw;
+
+        if (lastTx?.nextDueDate) {
+          const formattedLastNext = formatJoiningDateDisplay(lastTx.nextDueDate);
+          curDueDisplay = formattedLastNext.display;
+          curDueRaw = formattedLastNext.raw;
+        }
 
         return {
           studentId: student.documentId!,
@@ -165,9 +211,13 @@ const Fees: React.FC = () => {
           monthlyFee: course?.monthlyFee || 0,
           joiningDate: jInfo.display,
           joiningDateRaw: jInfo.raw,
+          joiningDay: jInfo.day,
           lastPaymentDate: lastTx?.paymentDate ? new Date((lastTx.paymentDate as any)?.seconds * 1000) : undefined,
           lastPaidMonth: lastTx?.billingPeriod,
-          nextDueDate: lastTx?.nextDueDate ? formatJoiningDateDisplay(lastTx.nextDueDate).display : computedNextDue
+          currentDueDate: curDueDisplay,
+          currentDueDateRaw: curDueRaw,
+          nextDueDate: curDueDisplay,
+          nextDueDateRaw: curDueRaw
         };
       });
 
@@ -180,20 +230,49 @@ const Fees: React.FC = () => {
     }
   };
 
-  // Auto-calculate Fee Amount and Next Due Date based on Course Fee and Number of Months
+  // Auto-calculate Fee Amount, Starting Billing Month, Coverage Text, and Next Due Date
   useEffect(() => {
     if (paymentStudentId) {
       const record = feeRecords.find(r => r.studentId === paymentStudentId);
       if (record) {
-        const totalCalculatedAmt = record.monthlyFee * numberOfMonths;
+        // Base course fee calculation
+        const totalCalculatedAmt = (record.monthlyFee || 0) * numberOfMonths;
         setAmountPaid(totalCalculatedAmt.toString());
 
-        const baseDate = record.joiningDateRaw || '2026-01-01';
+        // Coverage text
+        const coverage = getPeriodCoverageLabel(billingPeriod || currentMonthDefault, numberOfMonths);
+        setPeriodCoverageText(coverage);
+
+        // Calculate next due date starting from student's Current Due Date
+        const baseDate = record.currentDueDateRaw || record.joiningDateRaw || '2026-01-01';
         const due = calculateNextDueDateString(baseDate, numberOfMonths);
         setCalculatedDueDate(due.display);
+        setCustomNextDueDate(due.iso);
       }
     }
-  }, [paymentStudentId, numberOfMonths, feeRecords]);
+  }, [paymentStudentId, numberOfMonths, billingPeriod, feeRecords]);
+
+  // Open modal with pre-configured student info
+  const handleOpenPaymentModal = (record: StudentFeeRecord) => {
+    setPaymentStudentId(record.studentId);
+    setNumberOfMonths(1);
+    setDiscount('0');
+    setLateFee('0');
+    setRemarks('');
+
+    // Pre-select billing month according to currentDueDate
+    if (record.currentDueDateRaw) {
+      const d = new Date(record.currentDueDateRaw);
+      if (!isNaN(d.getTime())) {
+        const mStr = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+        setBillingPeriod(mStr);
+      }
+    } else {
+      setBillingPeriod(currentMonthDefault);
+    }
+
+    setIsPaymentModalOpen(true);
+  };
 
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,24 +299,26 @@ const Fees: React.FC = () => {
       const amt = Number(amountPaid);
       const disc = Math.max(0, Number(discount) || 0);
       const lf = Math.max(0, Number(lateFee) || 0);
+      const netPaid = Math.max(0, amt - disc + lf);
       
-      const baseDate = record.joiningDateRaw || '2026-01-01';
-      const isoDueDate = calculateNextDueDateString(baseDate, numberOfMonths).iso;
+      const finalNextDueDate = customNextDueDate || calculateNextDueDateString(record.currentDueDateRaw || '2026-01-01', numberOfMonths).iso;
+      const coverage = periodCoverageText || `${billingPeriod} (${numberOfMonths} ${numberOfMonths === 1 ? 'Month' : 'Months'})`;
 
       const newTransaction: Partial<FeeTransaction> = {
         studentId: record.studentId,
         courseId: record.courseId,
         academicYear,
-        billingPeriod: `${billingPeriod} (${numberOfMonths} ${numberOfMonths === 1 ? 'Month' : 'Months'})`,
+        billingPeriod: coverage,
         monthsCount: numberOfMonths,
         joiningDate: record.joiningDate || '01 Jan 2026',
-        nextDueDate: isoDueDate,
+        nextDueDate: finalNextDueDate,
         paymentDate: serverTimestamp() as any,
-        amountPaid: amt,
+        amountPaid: netPaid,
         discount: disc,
         lateFee: lf,
         paymentMode,
         transactionNumber,
+        remarks: remarks || `Fee for ${numberOfMonths} month(s) (${coverage})`,
         receivedBy: user?.name || 'Admin',
         receiptNumber: 'REC-' + new Date().getFullYear() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase(),
         status: 'PAID',
@@ -251,16 +332,24 @@ const Fees: React.FC = () => {
       setDiscount('0');
       setLateFee('0');
       setTransactionNumber('');
+      setRemarks('');
       setNumberOfMonths(1);
       
-      // Auto trigger receipt printing
-      setPrintedTransaction({ ...newTransaction, paymentDate: new Date() } as FeeTransaction);
+      // Auto trigger receipt printing with complete transaction metadata
+      setPrintedTransaction({ 
+        ...newTransaction, 
+        paymentDate: new Date(),
+        studentName: record.studentName,
+        courseName: record.courseName,
+        perMonthFee: record.monthlyFee
+      } as any);
+
       setTimeout(() => {
         window.print();
         setPrintedTransaction(null);
       }, 500);
 
-      fetchData();
+      await fetchData();
     } catch (err) {
       console.error(err);
       alert("Failed to record payment");
@@ -275,21 +364,29 @@ const Fees: React.FC = () => {
       if (!tSnap.empty) {
         const txs = tSnap.docs.map(d => d.data() as FeeTransaction);
         txs.sort((a, b) => ((b.paymentDate as any)?.seconds || 0) - ((a.paymentDate as any)?.seconds || 0));
-        setPrintedTransaction(txs[0]);
+        setPrintedTransaction({
+          ...txs[0],
+          studentName: row.studentName,
+          courseName: row.courseName,
+          perMonthFee: row.monthlyFee
+        } as any);
       } else {
         setPrintedTransaction({
           receiptNumber: 'REC-' + new Date().getFullYear() + '-DRAFT',
           studentId: row.studentId,
           courseId: row.courseId,
+          studentName: row.studentName,
+          courseName: row.courseName,
           academicYear: '2026-27',
           billingPeriod: row.lastPaidMonth || 'Monthly Fee',
           paymentDate: new Date(),
           amountPaid: row.monthlyFee,
+          perMonthFee: row.monthlyFee,
           paymentMode: 'Cash',
           receivedBy: user?.name || 'Admin',
-          nextDueDate: row.nextDueDate || '01 Oct 2026',
+          nextDueDate: row.currentDueDate || '01 Oct 2026',
           status: 'PAID'
-        } as FeeTransaction);
+        } as any);
       }
 
       setTimeout(() => {
@@ -315,6 +412,12 @@ const Fees: React.FC = () => {
   };
 
   const selectedRecord = feeRecords.find(r => r.studentId === paymentStudentId);
+
+  // Financial preview calculation
+  const totalBaseFee = Number(amountPaid) || 0;
+  const numDiscount = Math.max(0, Number(discount) || 0);
+  const numLateFee = Math.max(0, Number(lateFee) || 0);
+  const netPayable = Math.max(0, totalBaseFee - numDiscount + numLateFee);
 
   const columns: Column<StudentFeeRecord>[] = [
     {
@@ -344,8 +447,8 @@ const Fees: React.FC = () => {
         <div>
           {row.lastPaymentDate ? (
             <>
-              <div className="font-bold text-gray-700 dark:text-gray-300">{row.lastPaidMonth}</div>
-              <div className="text-xs text-gray-500">Paid on: {row.lastPaymentDate.toLocaleDateString()}</div>
+              <div className="font-bold text-gray-700 dark:text-gray-300 text-xs">{row.lastPaidMonth}</div>
+              <div className="text-xs text-gray-500">Paid on: {row.lastPaymentDate.toLocaleDateString('en-GB')}</div>
             </>
           ) : (
             <span className="text-gray-400 italic text-xs">No payments recorded</span>
@@ -354,12 +457,12 @@ const Fees: React.FC = () => {
       )
     },
     {
-      key: 'nextDueDate',
-      header: 'Next Due Date',
+      key: 'currentDueDate',
+      header: 'Current Due Date',
       render: (row) => (
         <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-lg w-fit">
           <Calendar size={13} />
-          {row.nextDueDate || '01 Mar 2026'}
+          {row.currentDueDate || row.joiningDate || '01 Mar 2026'}
         </div>
       )
     },
@@ -374,11 +477,7 @@ const Fees: React.FC = () => {
             <button 
               className="btn btn-primary" 
               style={{padding: '5px 10px', fontSize: '12px', borderRadius: '8px'}} 
-              onClick={() => { 
-                setPaymentStudentId(row.studentId); 
-                setNumberOfMonths(1);
-                setIsPaymentModalOpen(true); 
-              }}
+              onClick={() => handleOpenPaymentModal(row)}
             >
               Pay Fee
             </button>
@@ -392,7 +491,7 @@ const Fees: React.FC = () => {
             <button 
               className="btn btn-outline" 
               style={{padding: '5px 10px', fontSize: '12px', color: '#16a34a', borderColor: '#16a34a', borderRadius: '8px'}} 
-              onClick={() => openWhatsApp(phone, student?.name, row.monthlyFee, row.nextDueDate)}
+              onClick={() => openWhatsApp(phone, student?.name, row.monthlyFee, row.currentDueDate)}
             >
               <MessageCircle size={14} className="mr-1 inline" /> WhatsApp
             </button>
@@ -415,9 +514,7 @@ const Fees: React.FC = () => {
           className="btn btn-primary flex items-center gap-2" 
           onClick={() => { 
             if(feeRecords.length > 0) { 
-              setPaymentStudentId(feeRecords[0].studentId); 
-              setNumberOfMonths(1);
-              setIsPaymentModalOpen(true); 
+              handleOpenPaymentModal(feeRecords[0]);
             } 
           }}
         >
@@ -429,48 +526,59 @@ const Fees: React.FC = () => {
         title="Student Fee Roster" 
         data={feeRecords} 
         columns={columns} 
-        onRefresh={fetchFeeData}
+        onRefresh={fetchData}
         searchPlaceholder="Search student name or course..."
         isLoading={isLoading}
       />
 
       {/* Record Payment Modal */}
-      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Record Monthly Fee">
+      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Record Fee Collection">
         <form onSubmit={handleRecordPayment} className="modal-form" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
           
           <Select 
             label="Select Student" 
-            options={feeRecords.map(r => ({label: `${r.studentName} (${r.courseName} - ₹${r.monthlyFee}/mo)`, value: r.studentId}))} 
+            options={feeRecords.map(r => ({
+              label: `${r.studentName} (${r.courseName} - ₹${r.monthlyFee}/mo | Due: ${r.currentDueDate})`, 
+              value: r.studentId
+            }))} 
             value={paymentStudentId}
-            onChange={(e) => setPaymentStudentId(e.target.value)}
+            onChange={(e) => {
+              const rec = feeRecords.find(r => r.studentId === e.target.value);
+              if (rec) handleOpenPaymentModal(rec);
+            }}
             required
           />
 
-          {/* Student Info Card */}
+          {/* Student Info & Status Banner */}
           {selectedRecord && (
             <div className="fee-modal-student-card">
               <div className="fee-student-meta-item">
                 <Calendar size={15} color="var(--primary, #e11d48)" />
                 <span>Joining Date: <strong>{selectedRecord.joiningDate || '01 Jan 2026'}</strong></span>
               </div>
+              <div className="fee-student-meta-item">
+                <Clock size={15} color="#d97706" />
+                <span>Current Due Date: <strong style={{ color: '#d97706' }}>{selectedRecord.currentDueDate}</strong></span>
+              </div>
               <div className="fee-student-meta-pill">
                 <CreditCard size={14} />
-                <span>Course Fee: ₹{selectedRecord.monthlyFee} / month</span>
+                <span>Course Fee: ₹{selectedRecord.monthlyFee} / mo</span>
               </div>
             </div>
           )}
 
+          {/* Months & Starting Period */}
           <div className="fee-modal-grid-2">
             <Select 
-              label="Fee For How Many Months?" 
+              label="Fee For How Many Months? *" 
               options={[
                 { label: '1 Month', value: '1' },
-                { label: '2 Months', value: '2' },
+                { label: '2 Months (Bi-Monthly)', value: '2' },
                 { label: '3 Months (Quarterly)', value: '3' },
                 { label: '4 Months', value: '4' },
                 { label: '5 Months', value: '5' },
                 { label: '6 Months (Half-Yearly)', value: '6' },
-                { label: '12 Months (Yearly)', value: '12' }
+                { label: '12 Months (Yearly Advance)', value: '12' }
               ]} 
               value={numberOfMonths.toString()}
               onChange={(e) => setNumberOfMonths(Math.max(1, Number(e.target.value) || 1))}
@@ -478,7 +586,7 @@ const Fees: React.FC = () => {
             />
 
             <Select 
-              label="Starting Billing Month" 
+              label="Starting Billing Month *" 
               options={generateMonthOptions()} 
               value={billingPeriod} 
               onChange={(e) => setBillingPeriod(e.target.value)} 
@@ -486,22 +594,45 @@ const Fees: React.FC = () => {
             />
           </div>
 
-          {/* Dynamic Next Due Date Calculation Banner */}
-          {selectedRecord && calculatedDueDate && (
-            <div className="fee-due-date-banner">
-              <span className="fee-due-date-label">
-                <Clock size={16} /> 
-                <span>Calculated Next Due Date (after {numberOfMonths} {numberOfMonths === 1 ? 'month' : 'months'}):</span>
-              </span>
-              <span className="fee-due-date-badge">
-                {calculatedDueDate}
-              </span>
+          {/* Coverage Summary Pill */}
+          {periodCoverageText && (
+            <div className="fee-coverage-pill">
+              <Sparkles size={14} className="text-rose-500" />
+              <span>Period Covered: <strong>{periodCoverageText}</strong></span>
             </div>
           )}
 
+          {/* Dynamic Next Due Date Calculation & Custom Override */}
+          {selectedRecord && (
+            <div className="fee-due-date-banner">
+              <div className="fee-due-date-left">
+                <span className="fee-due-date-label">
+                  <Clock size={16} /> 
+                  <span>Calculated Next Due Date (after {numberOfMonths} {numberOfMonths === 1 ? 'month' : 'months'}):</span>
+                </span>
+                <span className="fee-due-date-badge">
+                  {calculatedDueDate}
+                </span>
+              </div>
+              
+              <div className="fee-due-date-right">
+                <label className="text-xs font-bold text-emerald-800 dark:text-emerald-300 block mb-1">
+                  Custom Next Due Date (Optional Override):
+                </label>
+                <input 
+                  type="date" 
+                  className="fee-custom-date-input"
+                  value={customNextDueDate}
+                  onChange={(e) => setCustomNextDueDate(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Amounts Breakdown */}
           <div className="fee-modal-grid-3">
             <Input 
-              label={`Total Fee (₹) (${numberOfMonths} ${numberOfMonths === 1 ? 'month' : 'months'})`} 
+              label={`Total Fee (₹) (${numberOfMonths} ${numberOfMonths === 1 ? 'month' : 'months'}) *`} 
               type="number" 
               min="0"
               value={amountPaid} 
@@ -524,37 +655,72 @@ const Fees: React.FC = () => {
             />
           </div>
 
+          {/* Net Payable Summary Bar */}
+          <div className="fee-net-summary-bar">
+            <div className="fee-net-summary-item">
+              <span className="fee-net-label">Base Fee:</span>
+              <span className="fee-net-val">₹{totalBaseFee}</span>
+            </div>
+            {numDiscount > 0 && (
+              <div className="fee-net-summary-item">
+                <span className="fee-net-label">Discount:</span>
+                <span className="fee-net-val text-emerald-600">-₹{numDiscount}</span>
+              </div>
+            )}
+            {numLateFee > 0 && (
+              <div className="fee-net-summary-item">
+                <span className="fee-net-label">Late Fee:</span>
+                <span className="fee-net-val text-amber-600">+₹{numLateFee}</span>
+              </div>
+            )}
+            <div className="fee-net-summary-item fee-net-total">
+              <span className="fee-net-label">Net Amount Received:</span>
+              <span className="fee-net-total-val">₹{netPayable}</span>
+            </div>
+          </div>
+
+          {/* Payment Mode & Academic Year */}
           <div className="fee-modal-grid-2">
             <Select 
-              label="Payment Mode" 
+              label="Payment Mode *" 
               options={[
                 { label: 'Cash', value: 'Cash' }, 
-                { label: 'UPI', value: 'UPI' }, 
-                { label: 'Bank Transfer', value: 'Bank Transfer' }
+                { label: 'UPI (Google Pay / PhonePe / Paytm)', value: 'UPI' }, 
+                { label: 'Bank Transfer (NEFT / IMPS)', value: 'Bank Transfer' },
+                { label: 'Online Gateway', value: 'Online Gateway' }
               ]} 
               value={paymentMode}
               onChange={(e) => setPaymentMode(e.target.value as any)}
               required
             />
             <Input 
-              label="Academic Year" 
+              label="Academic Year *" 
               value={academicYear} 
               onChange={(e) => setAcademicYear(e.target.value)} 
               required 
             />
           </div>
 
-          <Input 
-            label="Transaction / Reference Number (Optional)" 
-            value={transactionNumber} 
-            onChange={(e) => setTransactionNumber(e.target.value)} 
-          />
+          <div className="fee-modal-grid-2">
+            <Input 
+              label="Transaction / Reference Number" 
+              placeholder="e.g. UPI Ref / UTR / Cheque No."
+              value={transactionNumber} 
+              onChange={(e) => setTransactionNumber(e.target.value)} 
+            />
+            <Input 
+              label="Remarks / Notes (Optional)" 
+              placeholder="e.g. Paid in full for 2 months"
+              value={remarks} 
+              onChange={(e) => setRemarks(e.target.value)} 
+            />
+          </div>
 
           <div className="modal-form-footer">
             <button type="button" className="btn-modal-cancel" onClick={() => setIsPaymentModalOpen(false)}>Cancel</button>
             <button type="submit" className="btn-modal-primary" disabled={isSaving}>
               <Printer size={18} />
-              {isSaving ? "Processing Payment..." : `Record Payment (₹${amountPaid}) & Print Receipt`}
+              {isSaving ? "Recording Payment..." : `Record Payment (₹${netPayable}) & Print Receipt`}
             </button>
           </div>
         </form>
