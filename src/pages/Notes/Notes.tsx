@@ -703,6 +703,7 @@ const Notes: React.FC = () => {
           title="Notes Master Repository" 
           data={notes} 
           columns={columns} 
+          onRefresh={fetchNotes}
           searchPlaceholder="Search notes by title, topic, part..."
           isLoading={isLoading}
         />

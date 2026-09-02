@@ -261,6 +261,7 @@ const Employees: React.FC = () => {
         data={employees} 
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onRefresh={fetchEmployees}
         isLoading={isLoading}
         searchPlaceholder="Search staff..."
       />

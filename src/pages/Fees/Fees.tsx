@@ -429,6 +429,7 @@ const Fees: React.FC = () => {
         title="Student Fee Roster" 
         data={feeRecords} 
         columns={columns} 
+        onRefresh={fetchFeeData}
         searchPlaceholder="Search student name or course..."
         isLoading={isLoading}
       />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MoreHorizontal, ArrowUpDown } from 'lucide-react';
+import { Search, MoreHorizontal, ArrowUpDown, RefreshCw, Download } from 'lucide-react';
 import EmptyState from './EmptyState';
 import './DataTable.css';
 
@@ -17,6 +17,7 @@ interface DataTableProps<T> {
   columns: Column<T>[];
   onEdit?: (row: T) => void;
   onDelete?: (row: T) => void;
+  onRefresh?: () => void;
   searchPlaceholder?: string;
   isLoading?: boolean;
 }
@@ -27,6 +28,7 @@ function DataTable<T extends { documentId?: string }>({
   columns,
   onEdit,
   onDelete,
+  onRefresh,
   searchPlaceholder = "Search",
   isLoading = false
 }: DataTableProps<T>) {
@@ -106,8 +108,23 @@ function DataTable<T extends { documentId?: string }>({
               onChange={e => setSearchTerm(e.target.value)}
             />
           </div>
+          
+          {onRefresh && (
+            <button 
+              type="button" 
+              className="dt-btn-outline" 
+              onClick={onRefresh}
+              disabled={isLoading}
+              title="Refresh table data"
+            >
+              <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+              <span>Refresh</span>
+            </button>
+          )}
+
           <button className="dt-btn-outline" onClick={handleDownload}>
-            Download Report
+            <Download size={14} />
+            <span>Download</span>
           </button>
         </div>
       </div>

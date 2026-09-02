@@ -182,6 +182,7 @@ const Courses: React.FC = () => {
         columns={columns} 
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onRefresh={fetchCourses}
         searchPlaceholder="Search courses..."
         isLoading={isLoading}
       />

@@ -727,6 +727,7 @@ const Students: React.FC = () => {
         columns={columns}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onRefresh={fetchStudents}
         searchPlaceholder="Search student name, phone, course..."
         isLoading={isLoading}
       />

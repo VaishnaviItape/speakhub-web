@@ -344,6 +344,7 @@ const HomeworkPage: React.FC = () => {
         title="Homework Directory" 
         data={homeworks} 
         columns={columns} 
+        onRefresh={fetchHomeworks}
         searchPlaceholder="Search homework title or batch..."
         isLoading={isLoading}
       />

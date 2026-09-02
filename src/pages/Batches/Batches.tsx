@@ -265,6 +265,7 @@ const Batches: React.FC = () => {
         columns={columns} 
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onRefresh={fetchData}
         searchPlaceholder="Search batches..."
         isLoading={isLoading}
       />

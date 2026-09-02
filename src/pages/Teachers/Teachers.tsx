@@ -220,6 +220,7 @@ const Teachers: React.FC = () => {
         columns={columns} 
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onRefresh={fetchTeachers}
         searchPlaceholder="Search teachers..."
         isLoading={isLoading}
       />

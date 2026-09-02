@@ -693,6 +693,7 @@ const Exams: React.FC = () => {
           columns={columns}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onRefresh={fetchExams}
           searchPlaceholder="Search exams..."
           isLoading={isLoading}
         />
