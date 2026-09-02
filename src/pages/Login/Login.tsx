@@ -50,8 +50,8 @@ const Login: React.FC = () => {
         {/* Brand Header */}
         <div className="login-header">
           <div className="login-brand">
-            <img src={logo} alt="Speak Hub Logo" className="login-logo-img" />
-            <span className="login-brand-name">Speak Hub</span>
+            <img src={logo} alt="Speak Hub Academy Logo" className="login-logo-img" />
+            <span className="login-brand-name">Speak Hub Academy</span>
           </div>
           <h1 className="login-title">Welcome back</h1>
           <p className="login-subtitle">Sign in to access your portal</p>
