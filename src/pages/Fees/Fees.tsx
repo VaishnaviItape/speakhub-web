@@ -549,10 +549,13 @@ const Fees: React.FC = () => {
             onChange={(e) => setTransactionNumber(e.target.value)} 
           />
 
-          <button type="submit" className="fee-modal-submit-btn" disabled={isSaving}>
-            <Printer size={18} />
-            {isSaving ? "Processing Payment..." : `Record Payment (₹${amountPaid}) & Print Receipt`}
-          </button>
+          <div className="modal-form-footer">
+            <button type="button" className="btn-modal-cancel" onClick={() => setIsPaymentModalOpen(false)}>Cancel</button>
+            <button type="submit" className="btn-modal-primary" disabled={isSaving}>
+              <Printer size={18} />
+              {isSaving ? "Processing Payment..." : `Record Payment (₹${amountPaid}) & Print Receipt`}
+            </button>
+          </div>
         </form>
       </Modal>
 

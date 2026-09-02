@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle, Clock, Calendar, FileText } from 'lucide-react'
 import { db } from '../../config/firebase';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
+import { formatGoogleDriveImageUrl } from '../../utils/imageUrl';
 import './StudentPortal.css';
 
 const StudentExams: React.FC = () => {
@@ -194,8 +195,9 @@ const StudentExams: React.FC = () => {
           {currentQ.imageUrl && (
             <div className="mb-5 flex justify-center bg-gray-50 p-4 rounded-2xl border border-gray-200">
               <img 
-                src={currentQ.imageUrl} 
+                src={formatGoogleDriveImageUrl(currentQ.imageUrl)} 
                 alt="Question illustration" 
+                referrerPolicy="no-referrer"
                 className="max-h-56 max-w-full object-contain rounded-xl shadow-xs"
               />
             </div>

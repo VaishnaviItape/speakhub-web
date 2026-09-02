@@ -286,8 +286,9 @@ const Employees: React.FC = () => {
           </div>
           <Select label="Account Status" name="status" options={statusOptions} value={formData.status} onChange={handleInputChange} required />
           
-          <div className="modal-actions mt-6">
-            <button type="submit" className="btn btn-success" disabled={isSaving}>
+          <div className="modal-form-footer">
+            <button type="button" className="btn-modal-cancel" onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button type="submit" className="btn-modal-primary" disabled={isSaving}>
               {isSaving ? "Saving..." : (editingId ? "Update Employee" : "Create Employee Account")}
             </button>
           </div>

@@ -206,9 +206,9 @@ const FeePlans: React.FC = () => {
               />
           </div>
 
-          <div className="modal-actions">
-            <button type="button" className="btn bg-gray-200 text-gray-800" onClick={() => setIsModalOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+          <div className="modal-form-footer">
+            <button type="button" className="btn-modal-cancel" onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button type="submit" className="btn-modal-primary" disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : 'Save Plan'}
             </button>
           </div>

@@ -351,17 +351,17 @@ const Videos: React.FC = () => {
             />
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+          <div className="modal-form-footer">
             <button 
               type="button" 
-              className="btn btn-outline" 
+              className="btn-modal-cancel" 
               onClick={() => setIsModalOpen(false)}
             >
               Cancel
             </button>
             <button 
               type="submit" 
-              className="btn btn-primary"
+              className="btn-modal-primary"
               disabled={isSaving}
             >
               {isSaving ? 'Saving...' : editingId ? 'Update Video' : 'Add Video'}

@@ -240,8 +240,9 @@ const Courses: React.FC = () => {
             onChange={(e) => setDemoVideoUrl(e.target.value)}
           />
           
-          <div className="modal-actions">
-            <button type="submit" className="btn btn-success" disabled={isSaving}>
+          <div className="modal-form-footer">
+            <button type="button" className="btn-modal-cancel" onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button type="submit" className="btn-modal-primary" disabled={isSaving}>
               {isSaving ? "Saving..." : (editingId ? "Update Course" : "Save Course")}
             </button>
           </div>

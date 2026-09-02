@@ -1,17 +1,90 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, ArrowLeft, Upload, FileText, Download, Trash2, CheckCircle2, HelpCircle, Clock, Send, Calendar, Copy, Layers, Image as ImageIcon, X, Loader2 } from 'lucide-react';
+import { Plus, ArrowLeft, Upload, FileText, Download, Trash2, CheckCircle2, HelpCircle, Clock, Send, Calendar, Copy, Layers, Image as ImageIcon, X, Loader2, Link as LinkIcon } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import { db } from '../../config/firebase';
 import { uploadFile } from '../../utils/storageService';
+import { formatGoogleDriveImageUrl, extractGoogleDriveFileId } from '../../utils/imageUrl';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, getDoc, deleteDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { formatIndianScheduleRange } from '../../utils/dateTime';
 import type { ExamQuestion, Exam, Batch } from '../../types/models';
 import '../../components/ui/TableStyles.css';
 import './ExamQuestions.css';
+
+// Resilient thumbnail component with auto-fallback for Google Drive and web images
+const SafeImageThumb: React.FC<{ 
+  url?: string; 
+  alt?: string; 
+  className?: string; 
+  onClick?: () => void;
+  showBadgeOnError?: boolean;
+}> = ({ 
+  url, 
+  alt = 'Preview', 
+  className = 'w-10 h-10 object-contain rounded-md border border-indigo-200 bg-indigo-50/50',
+  onClick,
+  showBadgeOnError = true
+}) => {
+  const [hasError, setHasError] = useState(false);
+  const [currentSrc, setCurrentSrc] = useState(formatGoogleDriveImageUrl(url));
+  const driveId = extractGoogleDriveFileId(url);
+
+  useEffect(() => {
+    setHasError(false);
+    setCurrentSrc(formatGoogleDriveImageUrl(url));
+  }, [url]);
+
+  if (!url) return <span className="text-[10px] text-gray-400 italic">No image</span>;
+
+  const isGoogleSearchShareLink = url.includes('share.google') || url.includes('g.co') || url.includes('images.app.goo.gl');
+
+  if (isGoogleSearchShareLink) {
+    return (
+      <div 
+        className="w-10 h-10 rounded-md border border-rose-300 bg-rose-50 flex flex-col items-center justify-center p-0.5 text-center cursor-pointer shadow-2xs hover:bg-rose-100 transition-colors"
+        title="⚠️ This is a Google Search webpage link. To get the direct image: Click/open the image in Google ➔ Right-click it ➔ Select 'Copy Image Address'."
+        onClick={onClick || (() => window.open(url, '_blank'))}
+      >
+        <span className="text-xs">🔗</span>
+        <span className="text-[7px] font-extrabold text-rose-800 leading-tight">Web Link</span>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    if (!showBadgeOnError) return null;
+    return (
+      <div 
+        className="w-10 h-10 rounded-md border border-amber-300 bg-amber-50 flex flex-col items-center justify-center p-0.5 text-center cursor-pointer shadow-2xs hover:bg-amber-100 transition-colors"
+        title="Image could not be loaded. Please ensure Google Drive file is shared as 'Anyone with the link can view'."
+        onClick={onClick || (() => window.open(url, '_blank'))}
+      >
+        <span className="text-xs">⚠️</span>
+        <span className="text-[7.5px] font-extrabold text-amber-800 leading-tight">Private Link</span>
+      </div>
+    );
+  }
+
+  return (
+    <img 
+      src={currentSrc} 
+      alt={alt}
+      referrerPolicy="no-referrer"
+      className={className}
+      onClick={onClick}
+      onError={() => {
+        if (driveId && !currentSrc.includes('googleusercontent.com')) {
+          setCurrentSrc(`https://lh3.googleusercontent.com/d/${driveId}`);
+        } else {
+          setHasError(true);
+        }
+      }}
+    />
+  );
+};
 
 const ExamQuestions: React.FC = () => {
   const { examId } = useParams<{ examId: string }>();
@@ -42,6 +115,7 @@ const ExamQuestions: React.FC = () => {
   const [imageUrl, setImageUrl] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState('');
+  const [imageInputMode, setImageInputMode] = useState<'upload' | 'url'>('upload');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [optionA, setOptionA] = useState('');
   const [optionB, setOptionB] = useState('');
@@ -52,7 +126,7 @@ const ExamQuestions: React.FC = () => {
   const [explanation, setExplanation] = useState('');
 
   // Bulk CSV Upload State
-  const [, setCsvFile] = useState<File | null>(null);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
   const [parsedCsvQuestions, setParsedCsvQuestions] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -261,7 +335,7 @@ const ExamQuestions: React.FC = () => {
       return;
     }
 
-    let finalImageUrl = imageUrl.trim();
+    let finalImageUrl = formatGoogleDriveImageUrl(imageUrl);
 
     // If an image file was selected from computer/phone, upload it to storage
     if (imageFile) {
@@ -406,7 +480,6 @@ const ExamQuestions: React.FC = () => {
 
   const handleDownloadCsvTemplate = () => {
     const csvContent = "Question,Option A,Option B,Option C,Option D,Correct Answer (A/B/C/D),Marks,Explanation,Image URL\n" +
-      "\"What is this?\",\"that is wall\",\"this is ball\",\"This is doll\",\"that is cell\",\"B\",1,\"Phonics picture identification\",\"https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=500\"\n" +
       "\"What is the past tense of 'Go'?\",\"Went\",\"Gone\",\"Going\",\"Goes\",\"A\",1,\"Went is the simple past tense of go.\",\"\"\n" +
       "\"Choose the correct article: He is ___ honest man.\",\"a\",\"an\",\"the\",\"none\",\"B\",1,\"Use 'an' before vowel sounds like honest.\",\"\"\n" +
       "\"Identify the noun in the sentence: 'She reads a book daily.'\",\"Reads\",\"Daily\",\"Book\",\"She\",\"C\",1,\"Book is a common object noun.\",\"\"";
@@ -415,7 +488,24 @@ const ExamQuestions: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', "MCQ_Upload_Template.csv");
+    link.setAttribute('download', "Standard_MCQ_Template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadPhonicsCsvTemplate = () => {
+    const csvContent = "Question,Option A,Option B,Option C,Option D,Correct Answer (A/B/C/D),Marks,Explanation,Image URL\n" +
+      "\"Look at the picture. What is this?\",\"that is wall\",\"this is ball\",\"this is doll\",\"that is cell\",\"B\",1,\"Ball picture identification\",\"https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=600\"\n" +
+      "\"Look at the picture. What is this fruit?\",\"This is an apple\",\"That is an orange\",\"This is a mango\",\"That is a banana\",\"A\",1,\"Apple recognition\",\"https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=600\"\n" +
+      "\"Look at the picture. What is this animal?\",\"This is a dog\",\"This is a cat\",\"That is a rabbit\",\"This is a lion\",\"B\",1,\"Cat recognition\",\"https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600\"\n" +
+      "\"Look at the picture. What is this object?\",\"This is a pen\",\"That is a table\",\"This is a book\",\"That is a bag\",\"C\",1,\"Book recognition\",\"https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600\"";
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', "Phonics_Picture_MCQ_Template.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -455,7 +545,14 @@ const ExamQuestions: React.FC = () => {
         const correctAns = (row[5]?.trim() || 'A').toUpperCase();
         const marksVal = Number(row[6]) || Number(exam?.marksPerQuestion) || 1;
         const expText = row[7]?.trim() || '';
-        const imgUrl = row[8]?.trim() || '';
+        
+        // Smarter Image URL detection: check row[8] or any trailing cell containing URL
+        let rawImgUrl = row[8]?.trim() || '';
+        if (!rawImgUrl || (!rawImgUrl.startsWith('http') && !rawImgUrl.includes('drive.google'))) {
+          const urlCandidate = row.slice(5).find(c => c && (c.includes('http://') || c.includes('https://') || c.includes('drive.google') || c.includes('google.com')));
+          if (urlCandidate) rawImgUrl = urlCandidate.trim();
+        }
+        const imgUrl = formatGoogleDriveImageUrl(rawImgUrl);
 
         if (questionText && optA && optB) {
           parsed.push({
@@ -546,7 +643,7 @@ const ExamQuestions: React.FC = () => {
       const expMatch = block.match(/(?:EXP:|Explanation:)\s*(.*)/i);
 
       const questionText = qMatch ? qMatch[1].trim() : '';
-      const imgUrl = imgMatch ? imgMatch[1].trim() : '';
+      const imgUrl = formatGoogleDriveImageUrl(imgMatch ? imgMatch[1].trim() : '');
       const optA = aMatch ? aMatch[1].trim() : '';
       const optB = bMatch ? bMatch[1].trim() : '';
       const optC = cMatch ? cMatch[1].trim() : '';
@@ -605,12 +702,11 @@ const ExamQuestions: React.FC = () => {
         <div style={{ maxWidth: '520px' }}>
           {row.imageUrl && (
             <div className="mb-2.5 flex items-center gap-2.5 bg-indigo-50/70 p-2 rounded-xl border border-indigo-100">
-              <img 
-                src={row.imageUrl} 
+              <SafeImageThumb 
+                url={row.imageUrl} 
                 alt="Question attachment" 
                 className="w-16 h-16 object-contain rounded-lg border border-indigo-200 bg-white shadow-xs hover:scale-105 transition-transform cursor-pointer"
-                onClick={() => window.open(row.imageUrl, '_blank')}
-                title="Click to view full image in new tab"
+                onClick={() => window.open(formatGoogleDriveImageUrl(row.imageUrl), '_blank')}
               />
               <div>
                 <span className="text-[11px] font-bold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
@@ -864,22 +960,49 @@ const ExamQuestions: React.FC = () => {
           />
 
           {/* Question Image Attachment (Ideal for Phonics & Picture based tests) */}
-          <div className="mt-3 p-4 bg-indigo-50/50 border border-indigo-100 rounded-xl">
-            <label className="block text-xs font-bold uppercase tracking-wider text-indigo-900 mb-2 flex items-center gap-1.5">
-              <ImageIcon size={14} className="text-indigo-600" />
-              Question Image / Phonics Picture (Optional)
-            </label>
+          <div className="image-attachment-card">
+            <div className="image-card-header">
+              <span className="image-card-title">
+                <ImageIcon size={15} className="text-indigo-600" />
+                Question Image / Phonics Picture <span className="text-[10px] text-gray-400 font-normal lowercase">(optional)</span>
+              </span>
+
+              {(!imagePreviewUrl && !imageUrl) && (
+                <div className="image-mode-tabs">
+                  <button
+                    type="button"
+                    className={`image-tab-btn ${imageInputMode === 'upload' ? 'active' : ''}`}
+                    onClick={() => setImageInputMode('upload')}
+                  >
+                    <Upload size={12} /> Upload File
+                  </button>
+                  <button
+                    type="button"
+                    className={`image-tab-btn ${imageInputMode === 'url' ? 'active' : ''}`}
+                    onClick={() => setImageInputMode('url')}
+                  >
+                    <LinkIcon size={12} /> Image Link
+                  </button>
+                </div>
+              )}
+            </div>
             
             {imagePreviewUrl || imageUrl ? (
-              <div className="flex items-center gap-3 p-2 bg-white rounded-lg border border-indigo-200">
-                <img 
-                  src={imagePreviewUrl || imageUrl} 
+              <div className="image-attached-preview-card">
+                <SafeImageThumb 
+                  url={imagePreviewUrl || imageUrl} 
                   alt="Question Preview" 
-                  className="w-20 h-20 object-contain rounded-md border border-gray-200 bg-gray-50"
+                  className="image-thumb-box"
                 />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-gray-800 truncate">Image Attached</p>
-                  <p className="text-[11px] text-gray-500 truncate">{imageFile ? imageFile.name : (imageUrl || 'Direct image link')}</p>
+                <div className="image-info-col">
+                  <div>
+                    <span className="image-status-pill">
+                      <CheckCircle2 size={12} /> Image Attached
+                    </span>
+                  </div>
+                  <p className="image-filename-text" title={imageFile ? imageFile.name : (imageUrl || 'Direct image link')}>
+                    {imageFile ? imageFile.name : (imageUrl || 'Direct image link')}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -888,19 +1011,21 @@ const ExamQuestions: React.FC = () => {
                     setImageFile(null);
                     setImagePreviewUrl('');
                   }}
-                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                  className="btn-remove-attached-image"
                   title="Remove Image"
                 >
                   <X size={16} />
                 </button>
               </div>
             ) : (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <label className="flex-1 cursor-pointer bg-white hover:bg-indigo-50/60 border border-dashed border-indigo-300 rounded-lg p-2.5 text-center transition-all">
-                    <span className="text-xs font-bold text-indigo-700 flex items-center justify-center gap-1.5">
-                      <Upload size={14} /> Upload Picture from Computer/Phone
-                    </span>
+              <div>
+                {imageInputMode === 'upload' ? (
+                  <label className="image-dropzone-box">
+                    <div className="dropzone-icon-circle">
+                      <Upload size={18} />
+                    </div>
+                    <span className="dropzone-main-text">Click to choose picture from Computer or Phone</span>
+                    <span className="dropzone-sub-text">PNG, JPG, JPEG, WebP supported</span>
                     <input 
                       type="file" 
                       accept="image/*" 
@@ -914,20 +1039,31 @@ const ExamQuestions: React.FC = () => {
                       }}
                     />
                   </label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-semibold text-gray-400">OR</span>
-                  <input
-                    type="url"
-                    placeholder="Paste direct Image URL (e.g. https://...)"
-                    value={imageUrl}
-                    onChange={(e) => {
-                      setImageUrl(e.target.value);
-                      setImagePreviewUrl(e.target.value);
-                    }}
-                    className="flex-1 text-xs p-2 bg-white border border-gray-300 rounded-lg outline-none focus:border-indigo-500 font-medium"
-                  />
-                </div>
+                ) : (
+                  <div>
+                    <div className="image-url-input-wrapper">
+                      <LinkIcon size={16} className="image-url-icon" />
+                      <input
+                        type="url"
+                        placeholder="Paste Google Drive link or direct Image URL..."
+                        value={imageUrl}
+                        onChange={(e) => {
+                          const formatted = formatGoogleDriveImageUrl(e.target.value);
+                          setImageUrl(formatted);
+                          setImagePreviewUrl(formatted);
+                        }}
+                        className="image-url-input"
+                      />
+                    </div>
+                    <div className="mt-2 text-[11.5px] text-indigo-900 bg-indigo-50/80 p-2.5 rounded-xl border border-indigo-100 flex items-start gap-2">
+                      <span className="text-sm shrink-0">💡</span>
+                      <div className="space-y-1">
+                        <div><strong>From Google Drive:</strong> Right-click file in Drive ➔ Share (Anyone with link can view) ➔ Copy Link (<code>drive.google.com/file/d/...</code>).</div>
+                        <div><strong>From Google Images:</strong> Right-click the picture in Google ➔ Select <strong>"Copy Image Address"</strong> (do not use the browser share button).</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -963,20 +1099,20 @@ const ExamQuestions: React.FC = () => {
             />
           </div>
           
-          <div className="modal-actions mt-4 flex justify-end gap-2">
+          <div className="modal-form-footer">
             <button 
               type="button" 
               onClick={() => setIsModalOpen(false)}
-              className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-all cursor-pointer"
+              className="btn-modal-cancel"
             >
               Cancel
             </button>
             <button 
               type="submit" 
               disabled={isUploadingImage}
-              className="btn btn-success flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              className="btn-modal-primary"
             >
-              {isUploadingImage && <Loader2 size={15} className="animate-spin" />}
+              {isUploadingImage && <Loader2 size={16} className="animate-spin" />}
               {isUploadingImage ? 'Uploading Image...' : (editingId ? 'Update Question' : 'Save Question')}
             </button>
           </div>
@@ -985,32 +1121,83 @@ const ExamQuestions: React.FC = () => {
 
       {/* Modal 2: Bulk CSV Upload */}
       <Modal isOpen={isCsvModalOpen} onClose={() => { setIsCsvModalOpen(false); setParsedCsvQuestions([]); setCsvFile(null); }} title="Bulk CSV Question Upload" size="lg">
-        <div style={{maxHeight: '75vh', overflowY: 'auto', paddingRight: '5px'}}>
-          <div className="flex justify-between items-center bg-emerald-50 p-4 rounded-xl border border-emerald-200 mb-4">
-            <div>
-              <h4 className="font-bold text-emerald-950 text-sm">Download CSV Format Template</h4>
-              <p className="text-xs text-emerald-700 mt-0.5">Use this template in Excel to format and prepare your MCQ questions.</p>
+        <div className="csv-modal-wrapper" style={{maxHeight: '75vh', overflowY: 'auto', paddingRight: '5px'}}>
+          
+          {/* Template Download Cards */}
+          <div className="csv-templates-grid">
+            <div className="csv-template-card csv-template-standard">
+              <div>
+                <div className="template-card-header emerald">
+                  <FileText size={16} /> Standard MCQ Template
+                </div>
+                <p className="template-card-desc emerald">
+                  Best for Grammar, Vocabulary & text-based MCQs (without images).
+                </p>
+              </div>
+              <button 
+                type="button"
+                onClick={handleDownloadCsvTemplate}
+                className="btn-template-download emerald"
+              >
+                <Download size={14} /> Download Standard (CSV)
+              </button>
             </div>
-            <button 
-              onClick={handleDownloadCsvTemplate}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 font-bold shadow-sm transition-all cursor-pointer"
-            >
-              <Download size={14} /> Download Template
-            </button>
+
+            <div className="csv-template-card csv-template-phonics">
+              <div>
+                <div className="template-card-header indigo">
+                  <ImageIcon size={16} /> Phonics & Picture Template
+                </div>
+                <p className="template-card-desc indigo">
+                  Includes Google Drive links & picture questions (e.g. Ball, Apple, Cat).
+                </p>
+              </div>
+              <button 
+                type="button"
+                onClick={handleDownloadPhonicsCsvTemplate}
+                className="btn-template-download indigo"
+              >
+                <Download size={14} /> Download Phonics (CSV)
+              </button>
+            </div>
           </div>
 
-          <div className="mb-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
-            <label className="block text-sm font-bold text-gray-800 mb-2">Select CSV File</label>
-            <input 
-              type="file" 
-              accept=".csv" 
-              onChange={handleCsvFileChange}
-              className="block w-full text-sm text-gray-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-            />
+          {/* Upload Area */}
+          <div className="csv-upload-box">
+            <label className="csv-upload-label">Select CSV File to Upload</label>
+            <div className="csv-drive-hint">
+              <span className="text-sm shrink-0">💡</span>
+              <span><strong>Google Drive & Web Image Support:</strong> You can paste any Google Drive link or direct URL in column 9 (<code>Image URL</code>). The app converts it to stream directly inside the mobile app.</span>
+            </div>
+
+            <label className="csv-file-dropzone">
+              <div className="csv-dropzone-content">
+                <div className="csv-icon-badge">
+                  <Upload size={20} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-gray-900">
+                    {csvFile ? csvFile.name : "Click to select or drop CSV spreadsheet"}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {csvFile ? `${(csvFile.size / 1024).toFixed(1)} KB • Click to change file` : "Supports standard .csv file format"}
+                  </p>
+                </div>
+              </div>
+              <span className="btn-browse-file">
+                <Upload size={13} /> {csvFile ? "Change File" : "Browse File"}
+              </span>
+              <input 
+                type="file" 
+                accept=".csv" 
+                onChange={handleCsvFileChange}
+                className="hidden"
+              />
+            </label>
           </div>
 
           {parsedCsvQuestions.length > 0 && (
-            <div className="mt-4">
+            <div className="mt-2">
               <div className="flex justify-between items-center mb-2">
                 <span className="parsed-success-pill">
                   <CheckCircle2 size={15} /> Parsed {parsedCsvQuestions.length} Questions Ready for Upload
@@ -1020,17 +1207,26 @@ const ExamQuestions: React.FC = () => {
                 <table className="min-w-full divide-y divide-gray-200 text-xs">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
-                      <th className="px-3 py-2 text-left font-bold text-gray-700">Q#</th>
-                      <th className="px-3 py-2 text-left font-bold text-gray-700">Question</th>
-                      <th className="px-3 py-2 text-left font-bold text-gray-700">Ans</th>
-                      <th className="px-3 py-2 text-left font-bold text-gray-700">Marks</th>
+                      <th className="px-3 py-2 text-left font-bold text-gray-700 w-10">#</th>
+                      <th className="px-3 py-2 text-left font-bold text-gray-700 w-16">Picture</th>
+                      <th className="px-3 py-2 text-left font-bold text-gray-700">Question & Options</th>
+                      <th className="px-3 py-2 text-left font-bold text-gray-700 w-20">Correct</th>
+                      <th className="px-3 py-2 text-left font-bold text-gray-700 w-14">Marks</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
                     {parsedCsvQuestions.map((q, idx) => (
-                      <tr key={idx}>
-                        <td className="px-3 py-2 font-bold text-gray-500">{idx + 1}</td>
-                        <td className="px-3 py-2 font-medium text-gray-900">{q.question}</td>
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 font-bold text-gray-400">{idx + 1}</td>
+                        <td className="px-3 py-2">
+                          <SafeImageThumb url={q.imageUrl} />
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="font-semibold text-gray-900">{q.question}</div>
+                          <div className="text-[10.5px] text-gray-500 mt-0.5">
+                            A: {q.optionA} | B: {q.optionB} {q.optionC ? `| C: ${q.optionC}` : ''} {q.optionD ? `| D: ${q.optionD}` : ''}
+                          </div>
+                        </td>
                         <td className="px-3 py-2 font-bold text-emerald-600">Option {q.correctAnswer}</td>
                         <td className="px-3 py-2 text-gray-600">{q.marks}</td>
                       </tr>
@@ -1039,11 +1235,18 @@ const ExamQuestions: React.FC = () => {
                 </table>
               </div>
 
-              <div className="mt-4 flex justify-end">
+              <div className="modal-form-footer">
+                <button 
+                  type="button" 
+                  onClick={() => { setIsCsvModalOpen(false); setParsedCsvQuestions([]); setCsvFile(null); }}
+                  className="btn-modal-cancel"
+                >
+                  Cancel
+                </button>
                 <button 
                   onClick={handleBatchUploadCsv}
                   disabled={isUploading}
-                  className="btn-upload-batch-confirm"
+                  className="btn-modal-primary"
                 >
                   <Upload size={16} />
                   {isUploading ? 'Uploading Questions...' : `Upload All ${parsedCsvQuestions.length} Questions`}
@@ -1065,26 +1268,41 @@ const ExamQuestions: React.FC = () => {
           {/* Format Example Banner */}
           <div className="paste-example-banner">
             <div className="paste-example-header">
-              <span className="paste-example-title">Standard Paste Format</span>
-              <button 
-                type="button" 
-                className="btn-copy-format"
-                onClick={() => {
-                  const sample = `Q: What is the past tense of run?\nA: Running\nB: Ran\nC: Runs\nD: Runned\nANS: B\nMARKS: 1\n\nQ: Choose the correct article: He is ___ honest man.\nA: a\nB: an\nC: the\nD: none\nANS: B\nMARKS: 1`;
-                  navigator.clipboard.writeText(sample);
-                  setPastedText(sample);
-                  setTimeout(() => handleParseTextPaste(), 50);
-                }}
-              >
-                📋 Load Sample Example
-              </button>
+              <span className="paste-example-title">Quick Format Loader</span>
+              <div className="flex gap-2">
+                <button 
+                  type="button" 
+                  className="btn-copy-format"
+                  onClick={() => {
+                    const sample = `Q: Look at the picture. What is this?\nIMG: https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=600\nA: that is wall\nB: this is ball\nC: this is doll\nD: that is cell\nANS: B\nMARKS: 1\n\nQ: Look at the picture. What is this fruit?\nIMG: https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=600\nA: This is an apple\nB: That is an orange\nC: This is a mango\nD: That is a banana\nANS: A\nMARKS: 1`;
+                    navigator.clipboard.writeText(sample);
+                    setPastedText(sample);
+                    setTimeout(() => handleParseTextPaste(), 50);
+                  }}
+                >
+                  🖼️ Load Phonics / Picture Sample
+                </button>
+                <button 
+                  type="button" 
+                  className="btn-copy-format"
+                  onClick={() => {
+                    const sample = `Q: What is the past tense of run?\nA: Running\nB: Ran\nC: Runs\nD: Runned\nANS: B\nMARKS: 1\n\nQ: Choose the correct article: He is ___ honest man.\nA: a\nB: an\nC: the\nD: none\nANS: B\nMARKS: 1`;
+                    navigator.clipboard.writeText(sample);
+                    setPastedText(sample);
+                    setTimeout(() => handleParseTextPaste(), 50);
+                  }}
+                >
+                  📄 Load Standard Sample
+                </button>
+              </div>
             </div>
             <pre className="paste-snippet-box">
-{`Q: What is the past tense of run?
-A: Running
-B: Ran
-C: Runs
-D: Runned
+{`Q: Look at the picture. What is this?
+IMG: https://drive.google.com/file/d/YOUR_IMAGE_ID/view (or web url)
+A: that is wall
+B: this is ball
+C: this is doll
+D: that is cell
 ANS: B
 MARKS: 1`}
             </pre>
@@ -1096,7 +1314,7 @@ MARKS: 1`}
             <textarea
               rows={7}
               className="paste-textarea"
-              placeholder="Paste questions here in Q: / A: / B: / C: / D: / ANS: format..."
+              placeholder="Paste questions here in Q: / IMG: / A: / B: / C: / D: / ANS: format..."
               value={pastedText}
               onChange={(e) => setPastedText(e.target.value)}
             />
@@ -1126,16 +1344,20 @@ MARKS: 1`}
                 <table className="min-w-full divide-y divide-gray-200 text-xs">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
-                      <th className="px-3 py-2.5 text-left font-bold text-gray-700 w-12">#</th>
-                      <th className="px-3 py-2.5 text-left font-bold text-gray-700">Question</th>
-                      <th className="px-3 py-2.5 text-left font-bold text-gray-700 w-24">Correct</th>
-                      <th className="px-3 py-2.5 text-left font-bold text-gray-700 w-16">Marks</th>
+                      <th className="px-3 py-2.5 text-left font-bold text-gray-700 w-10">#</th>
+                      <th className="px-3 py-2.5 text-left font-bold text-gray-700 w-16">Picture</th>
+                      <th className="px-3 py-2.5 text-left font-bold text-gray-700">Question & Options</th>
+                      <th className="px-3 py-2.5 text-left font-bold text-gray-700 w-20">Correct</th>
+                      <th className="px-3 py-2.5 text-left font-bold text-gray-700 w-14">Marks</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
                     {parsedPasteQuestions.map((q, idx) => (
                       <tr key={idx} className="hover:bg-gray-50 transition-colors">
                         <td className="px-3 py-2 font-bold text-gray-400">{idx + 1}</td>
+                        <td className="px-3 py-2">
+                          <SafeImageThumb url={q.imageUrl} />
+                        </td>
                         <td className="px-3 py-2">
                           <div className="font-semibold text-gray-900">{q.question}</div>
                           <div className="text-[11px] text-gray-500 mt-0.5">
@@ -1150,11 +1372,18 @@ MARKS: 1`}
                 </table>
               </div>
 
-              <div className="mt-4 flex justify-end">
+              <div className="modal-form-footer">
+                <button 
+                  type="button" 
+                  onClick={() => { setIsPasteModalOpen(false); setParsedPasteQuestions([]); setPastedText(''); }}
+                  className="btn-modal-cancel"
+                >
+                  Cancel
+                </button>
                 <button 
                   onClick={handleBatchUploadPaste}
                   disabled={isUploading}
-                  className="btn-upload-batch-confirm"
+                  className="btn-modal-primary"
                 >
                   <Upload size={16} />
                   {isUploading ? 'Uploading Questions...' : `Upload All ${parsedPasteQuestions.length} Questions`}
@@ -1231,18 +1460,18 @@ MARKS: 1`}
             </label>
           </div>
 
-          <div className="flex justify-end gap-2.5 mt-4">
+          <div className="modal-form-footer">
             <button
               type="button"
               onClick={() => setIsAssignBatchModalOpen(false)}
-              className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all cursor-pointer"
+              className="btn-modal-cancel"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isAssigningBatch || !selectedTargetBatchId}
-              className="px-5 py-2 text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              className="btn-modal-primary"
             >
               <Copy size={16} />
               {isAssigningBatch ? 'Processing...' : (copyActionType === 'clone_with_questions' ? 'Duplicate to Batch' : 'Reassign Batch')}

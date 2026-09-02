@@ -582,45 +582,38 @@ const Exams: React.FC = () => {
     },
     {
       key: 'actions',
-      header: 'Manage & Schedule',
+      header: 'Actions',
       render: (row) => {
         const qCount = Number(row.numberOfQuestions) || 0;
         return (
-          <div className="flex flex-col gap-1.5 min-w-[170px]">
+          <div className="flex items-center gap-2">
+            {/* 1. MCQ Questions Button with tooltip */}
             <Link
               to={`/exams/${row.documentId}/questions`}
-              className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 hover:border-indigo-300 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-between group"
-              title="Manage & Upload MCQ Questions"
+              className="w-8 h-8 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 flex items-center justify-center transition-all cursor-pointer shadow-2xs hover:border-indigo-300"
+              title={`MCQ Questions (${qCount} Questions Added)`}
             >
-              <span className="flex items-center gap-1.5">
-                <FileQuestion size={14} className="text-indigo-600 group-hover:scale-110 transition-transform" />
-                <span>MCQ Questions</span>
-              </span>
-              <span className="bg-indigo-200 text-indigo-800 text-[11px] font-extrabold px-2 py-0.5 rounded-full">
-                {qCount}
-              </span>
+              <FileQuestion size={16} />
             </Link>
 
-            {/* Quick Schedule for Next Batch Button */}
+            {/* 2. Assign / Schedule Next Batch Button with tooltip */}
             <button
               type="button"
               onClick={() => handleOpenNextBatchModal(row)}
-              className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 hover:border-blue-300 px-3 py-1 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
-              title="Assign same questions to next batch with custom schedule"
+              className="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 flex items-center justify-center transition-all cursor-pointer shadow-2xs hover:border-blue-300"
+              title="Schedule Exam for Next Batch"
             >
-              <Copy size={13} className="text-blue-600" />
-              <span>Schedule Next Batch</span>
+              <Copy size={15} />
             </button>
 
-            {(row.status === 'published' || row.status === 'completed') && (
-              <Link
-                to={`/exams/${row.documentId}/results`}
-                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 px-3 py-1 rounded-lg text-xs font-bold text-center transition-colors border border-emerald-200 flex items-center justify-center gap-1.5"
-              >
-                <BarChart2 size={13} className="text-emerald-600" />
-                <span>View Results</span>
-              </Link>
-            )}
+            {/* 3. Results Button with tooltip */}
+            <Link
+              to={`/exams/${row.documentId}/results`}
+              className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center justify-center transition-all cursor-pointer shadow-2xs hover:border-emerald-300"
+              title="View Results & Student Submissions"
+            >
+              <BarChart2 size={16} />
+            </Link>
           </div>
         );
       }
@@ -1114,9 +1107,11 @@ const Exams: React.FC = () => {
             />
           </div>
 
-          <div className="modal-actions" style={{ marginTop: '0.75rem' }}>
-            <button type="button" className="btn" style={{ backgroundColor: '#e2e8f0', color: '#334155' }} onClick={() => setIsModalOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" style={{ fontWeight: 800 }}>Save &amp; Configure Exam</button>
+          <div className="modal-form-footer">
+            <button type="button" className="btn-modal-cancel" onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button type="submit" className="btn-modal-primary">
+              {editingId ? 'Update Exam' : 'Save & Configure Exam'}
+            </button>
           </div>
         </form>
       </Modal>
@@ -1177,16 +1172,15 @@ const Exams: React.FC = () => {
             />
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
-            <button type="button" className="btn" style={{ backgroundColor: '#e2e8f0', color: '#334155' }} onClick={() => setIsNextBatchModalOpen(false)}>
+          <div className="modal-form-footer">
+            <button type="button" className="btn-modal-cancel" onClick={() => setIsNextBatchModalOpen(false)}>
               Cancel
             </button>
             <button 
               type="button" 
-              className="btn btn-primary" 
+              className="btn-modal-primary" 
               onClick={handleScheduleForNextBatch}
               disabled={isSubmitting || !nextBatchId}
-              style={{ fontWeight: '800' }}
             >
               {isSubmitting ? 'Scheduling...' : 'Schedule Exam with Same Questions'}
             </button>

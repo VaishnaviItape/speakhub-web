@@ -324,8 +324,9 @@ const Enquiries: React.FC = () => {
             required
           />
 
-          <div className="modal-actions mt-6">
-            <button type="submit" className="btn btn-primary w-full" disabled={!selectedBatchId}>
+          <div className="modal-form-footer">
+            <button type="button" className="btn-modal-cancel" onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button type="submit" className="btn-modal-primary" disabled={!selectedBatchId}>
               Confirm Batch Assignment
             </button>
           </div>

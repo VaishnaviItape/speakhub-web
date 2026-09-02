@@ -6,6 +6,7 @@ import Modal from '../../components/ui/Modal';
 import { db } from '../../config/firebase';
 import { collection, query, where, getDocs, doc, getDoc, writeBatch } from 'firebase/firestore';
 import { formatIndianDateTime } from '../../utils/dateTime';
+import { formatGoogleDriveImageUrl } from '../../utils/imageUrl';
 import type { Exam, ExamAttempt, ExamQuestion } from '../../types/models';
 
 const getGrade = (percentage: number) => {
@@ -288,10 +289,11 @@ const ExamResults: React.FC = () => {
                 {q.imageUrl && (
                   <div className="mb-2">
                     <img 
-                      src={q.imageUrl} 
+                      src={formatGoogleDriveImageUrl(q.imageUrl)} 
                       alt="Question attachment" 
+                      referrerPolicy="no-referrer"
                       className="w-20 h-20 object-contain rounded-md border border-gray-200 bg-white"
-                      onClick={() => window.open(q.imageUrl, '_blank')}
+                      onClick={() => window.open(formatGoogleDriveImageUrl(q.imageUrl), '_blank')}
                     />
                   </div>
                 )}

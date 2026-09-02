@@ -1149,11 +1149,22 @@ const Notes: React.FC = () => {
           <div style={{ backgroundColor: 'var(--bg-main, #f8fafc)', padding: '1rem', borderRadius: '14px', border: '1px solid var(--border-color, #e2e8f0)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.85rem', color: '#f59e0b', fontWeight: '800', fontSize: '0.875rem' }}>
               <LinkIcon size={16} />
-              <span>Media &amp; Attachments</span>
+              <span>Media &amp; Google Drive Attachments</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <Input label="Google Drive / Document Link" placeholder="https://docs.google.com/..." value={referenceLink} onChange={(e) => setReferenceLink(e.target.value)} required />
-              <Input label="YouTube Link (Optional)" placeholder="https://youtube.com/..." value={youtubeLink} onChange={(e) => setYoutubeLink(e.target.value)} />
+              <div>
+                <Input 
+                  label="Google Drive / Document Link" 
+                  placeholder="e.g. https://drive.google.com/file/d/.../view" 
+                  value={referenceLink} 
+                  onChange={(e) => setReferenceLink(e.target.value)} 
+                  required 
+                />
+                <p style={{ fontSize: '0.75rem', color: '#4338ca', backgroundColor: '#eef2ff', padding: '6px 10px', borderRadius: '8px', marginTop: '6px', border: '1px solid #c7d2fe' }}>
+                  💡 <strong>Google Drive Tip:</strong> Right-click file in Google Drive ➔ Share ➔ Set to "Anyone with the link can view" ➔ Copy link and paste here.
+                </p>
+              </div>
+              <Input label="YouTube Video Lesson (Optional)" placeholder="https://youtube.com/..." value={youtubeLink} onChange={(e) => setYoutubeLink(e.target.value)} />
               <Input label="External Video Link (Optional)" placeholder="https://vimeo.com/..." value={externalVideoLink} onChange={(e) => setExternalVideoLink(e.target.value)} />
             </div>
           </div>
@@ -1183,9 +1194,9 @@ const Notes: React.FC = () => {
             </div>
           </div>
 
-          <div className="modal-actions" style={{ marginTop: '0.5rem' }}>
-            <button type="button" className="btn" style={{ backgroundColor: '#e2e8f0', color: '#334155' }} onClick={() => setIsModalOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting} style={{ fontWeight: '800' }}>
+          <div className="modal-form-footer">
+            <button type="button" className="btn-modal-cancel" onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button type="submit" className="btn-modal-primary" disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : (editingId ? 'Update Notes' : 'Save & Publish Notes')}
             </button>
           </div>
@@ -1224,16 +1235,15 @@ const Notes: React.FC = () => {
             </select>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem' }}>
-            <button type="button" className="btn" style={{ backgroundColor: '#e2e8f0', color: '#334155' }} onClick={() => setIsCopyModalOpen(false)}>
+          <div className="modal-form-footer">
+            <button type="button" className="btn-modal-cancel" onClick={() => setIsCopyModalOpen(false)}>
               Cancel
             </button>
             <button 
               type="button" 
-              className="btn btn-primary" 
+              className="btn-modal-primary" 
               onClick={handleCopyNotesFromBatch}
               disabled={isSubmitting || !copySourceBatchId}
-              style={{ fontWeight: '800' }}
             >
               {isSubmitting ? 'Assigning...' : 'Assign All Notes to Next Batch'}
             </button>

@@ -509,9 +509,9 @@ const HomeworkPage: React.FC = () => {
             required 
           />
 
-          <div className="modal-actions" style={{ marginTop: '0.5rem' }}>
-            <button type="button" className="btn" style={{ backgroundColor: '#e2e8f0', color: '#334155' }} onClick={() => setIsModalOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting} style={{ fontWeight: 800 }}>
+          <div className="modal-form-footer">
+            <button type="button" className="btn-modal-cancel" onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button type="submit" className="btn-modal-primary" disabled={isSubmitting}>
               {isSubmitting ? 'Saving Homework...' : (editingId ? 'Update Assignment' : 'Assign to Batch')}
             </button>
           </div>

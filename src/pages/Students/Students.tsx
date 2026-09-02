@@ -803,9 +803,9 @@ const Students: React.FC = () => {
             )}
           </div>
 
-          <div className="modal-actions" style={{ marginTop: '0.75rem' }}>
-            <button type="button" className="btn" style={{ backgroundColor: '#e2e8f0', color: '#334155' }} onClick={() => setIsModalOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={isSubmitting} style={{ fontWeight: 800 }}>
+          <div className="modal-form-footer">
+            <button type="button" className="btn-modal-cancel" onClick={() => setIsModalOpen(false)}>Cancel</button>
+            <button type="submit" className="btn-modal-primary" disabled={isSubmitting}>
               {isSubmitting ? 'Saving Student...' : (editingId ? 'Update Student' : 'Create & Register Student')}
             </button>
           </div>
@@ -904,13 +904,12 @@ const Students: React.FC = () => {
             </div>
           )}
 
-          <div className="modal-actions" style={{ marginTop: '0.75rem' }}>
-            <button type="button" className="btn" style={{ backgroundColor: '#e2e8f0', color: '#334155' }} onClick={() => setIsBulkModalOpen(false)}>Close</button>
+          <div className="modal-form-footer">
+            <button type="button" className="btn-modal-cancel" onClick={() => setIsBulkModalOpen(false)}>Cancel</button>
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn-modal-primary"
               disabled={isUploadingBulk || parsedRows.filter(r => r.isValid).length === 0}
-              style={{ fontWeight: 800 }}
               onClick={handleProcessBulkUpload}
             >
               {isUploadingBulk ? 'Uploading Students...' : `Import ${parsedRows.filter(r => r.isValid).length} Student(s)`}
