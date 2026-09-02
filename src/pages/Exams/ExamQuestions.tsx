@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, ArrowLeft, Upload, FileText, Download, Trash2, CheckCircle2, HelpCircle, Clock, Send, Calendar, Copy, Layers } from 'lucide-react';
+import { Plus, ArrowLeft, Upload, FileText, Download, Trash2, CheckCircle2, HelpCircle, Clock, Send, Calendar, Copy, Layers, Image as ImageIcon, X, Loader2 } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import { db } from '../../config/firebase';
+import { uploadFile } from '../../utils/storageService';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, getDoc, deleteDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { formatIndianScheduleRange } from '../../utils/dateTime';
 import type { ExamQuestion, Exam, Batch } from '../../types/models';
@@ -38,6 +39,10 @@ const ExamQuestions: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [questionType, setQuestionType] = useState<'MCQ' | 'TrueFalse' | 'FillBlank'>('MCQ');
   const [question, setQuestion] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [optionA, setOptionA] = useState('');
   const [optionB, setOptionB] = useState('');
   const [optionC, setOptionC] = useState('');
@@ -212,6 +217,7 @@ const ExamQuestions: React.FC = () => {
               examId: newExamRef.id,
               question: q.question,
               questionType: q.questionType || 'MCQ',
+              imageUrl: q.imageUrl || '',
               optionA: q.optionA || '',
               optionB: q.optionB || '',
               optionC: q.optionC || '',
@@ -255,10 +261,26 @@ const ExamQuestions: React.FC = () => {
       return;
     }
 
+    let finalImageUrl = imageUrl.trim();
+
+    // If an image file was selected from computer/phone, upload it to storage
+    if (imageFile) {
+      setIsUploadingImage(true);
+      try {
+        finalImageUrl = await uploadFile(imageFile, 'exam_questions');
+      } catch (err: any) {
+        alert('Failed to upload question image: ' + (err.message || 'Network error'));
+        setIsUploadingImage(false);
+        return;
+      }
+      setIsUploadingImage(false);
+    }
+
     const qData: any = {
       examId,
       question,
       questionType,
+      imageUrl: finalImageUrl || '',
       correctAnswer,
       marks: Number(exam?.marksPerQuestion) || 1,
       explanation
@@ -289,6 +311,10 @@ const ExamQuestions: React.FC = () => {
     setEditingId(null);
     setQuestionType('MCQ');
     setQuestion('');
+    setImageUrl('');
+    setImageFile(null);
+    setImagePreviewUrl('');
+    setIsUploadingImage(false);
     setOptionA('');
     setOptionB('');
     setOptionC('');
@@ -302,6 +328,9 @@ const ExamQuestions: React.FC = () => {
     setEditingId(q.documentId!);
     setQuestionType(q.questionType || 'MCQ');
     setQuestion(q.question);
+    setImageUrl(q.imageUrl || '');
+    setImagePreviewUrl(q.imageUrl || '');
+    setImageFile(null);
     setOptionA(q.optionA || '');
     setOptionB(q.optionB || '');
     setOptionC(q.optionC || '');
@@ -349,7 +378,7 @@ const ExamQuestions: React.FC = () => {
       alert("No questions to export.");
       return;
     }
-    const headers = "Question,Option A,Option B,Option C,Option D,Correct Answer (A/B/C/D),Marks,Explanation\n";
+    const headers = "Question,Option A,Option B,Option C,Option D,Correct Answer (A/B/C/D),Marks,Explanation,Image URL\n";
     const rows = questions.map(q => {
       const clean = (str?: string) => `"${(str || '').replace(/"/g, '""')}"`;
       return [
@@ -360,7 +389,8 @@ const ExamQuestions: React.FC = () => {
         clean(q.optionD),
         q.correctAnswer,
         q.marks,
-        clean((q as any).explanation)
+        clean((q as any).explanation),
+        clean(q.imageUrl)
       ].join(',');
     }).join('\n');
 
@@ -375,10 +405,11 @@ const ExamQuestions: React.FC = () => {
   };
 
   const handleDownloadCsvTemplate = () => {
-    const csvContent = "Question,Option A,Option B,Option C,Option D,Correct Answer (A/B/C/D),Marks,Explanation\n" +
-      "\"What is the past tense of 'Go'?\",\"Went\",\"Gone\",\"Going\",\"Goes\",\"A\",1,\"Went is the simple past tense of go.\"\n" +
-      "\"Choose the correct article: He is ___ honest man.\",\"a\",\"an\",\"the\",\"none\",\"B\",1,\"Use 'an' before vowel sounds like honest.\"\n" +
-      "\"Identify the noun in the sentence: 'She reads a book daily.'\",\"Reads\",\"Daily\",\"Book\",\"She\",\"C\",1,\"Book is a common object noun.\"";
+    const csvContent = "Question,Option A,Option B,Option C,Option D,Correct Answer (A/B/C/D),Marks,Explanation,Image URL\n" +
+      "\"What is this?\",\"that is wall\",\"this is ball\",\"This is doll\",\"that is cell\",\"B\",1,\"Phonics picture identification\",\"https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=500\"\n" +
+      "\"What is the past tense of 'Go'?\",\"Went\",\"Gone\",\"Going\",\"Goes\",\"A\",1,\"Went is the simple past tense of go.\",\"\"\n" +
+      "\"Choose the correct article: He is ___ honest man.\",\"a\",\"an\",\"the\",\"none\",\"B\",1,\"Use 'an' before vowel sounds like honest.\",\"\"\n" +
+      "\"Identify the noun in the sentence: 'She reads a book daily.'\",\"Reads\",\"Daily\",\"Book\",\"She\",\"C\",1,\"Book is a common object noun.\",\"\"";
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -424,12 +455,14 @@ const ExamQuestions: React.FC = () => {
         const correctAns = (row[5]?.trim() || 'A').toUpperCase();
         const marksVal = Number(row[6]) || Number(exam?.marksPerQuestion) || 1;
         const expText = row[7]?.trim() || '';
+        const imgUrl = row[8]?.trim() || '';
 
         if (questionText && optA && optB) {
           parsed.push({
             examId,
             question: questionText,
             questionType: 'MCQ',
+            imageUrl: imgUrl,
             optionA: optA,
             optionB: optB,
             optionC: optC,
@@ -503,7 +536,8 @@ const ExamQuestions: React.FC = () => {
     for (const block of blocks) {
       if (!block.trim()) continue;
 
-      const qMatch = block.match(/(?:Q:|Question:|\d+\.)\s*(.*?)(?=\n[A-D]\:|\nANS:|\nCorrect:|$)/is);
+      const qMatch = block.match(/(?:Q:|Question:|\d+\.)\s*(.*?)(?=\n[A-D]\:|\nANS:|\nCorrect:|\nIMG:|\nIMAGE:|$)/is);
+      const imgMatch = block.match(/(?:IMG:|IMAGE:|Picture:|Image URL:)\s*(.*?)(?=\n[A-D]\:|\nANS:|\nCorrect:|$)/i);
       const aMatch = block.match(/(?:A:|Option A:)\s*(.*?)(?=\n[B-D]\:|\nANS:|\nCorrect:|$)/i);
       const bMatch = block.match(/(?:B:|Option B:)\s*(.*?)(?=\n[C-D]\:|\nANS:|\nCorrect:|$)/i);
       const cMatch = block.match(/(?:C:|Option C:)\s*(.*?)(?=\n[D]\:|\nANS:|\nCorrect:|$)/i);
@@ -512,6 +546,7 @@ const ExamQuestions: React.FC = () => {
       const expMatch = block.match(/(?:EXP:|Explanation:)\s*(.*)/i);
 
       const questionText = qMatch ? qMatch[1].trim() : '';
+      const imgUrl = imgMatch ? imgMatch[1].trim() : '';
       const optA = aMatch ? aMatch[1].trim() : '';
       const optB = bMatch ? bMatch[1].trim() : '';
       const optC = cMatch ? cMatch[1].trim() : '';
@@ -525,6 +560,7 @@ const ExamQuestions: React.FC = () => {
           examId,
           question: questionText,
           questionType: 'MCQ',
+          imageUrl: imgUrl,
           optionA: optA,
           optionB: optB,
           optionC: optC,
@@ -567,6 +603,23 @@ const ExamQuestions: React.FC = () => {
       header: 'Question & Options',
       render: (row) => (
         <div style={{ maxWidth: '520px' }}>
+          {row.imageUrl && (
+            <div className="mb-2.5 flex items-center gap-2.5 bg-indigo-50/70 p-2 rounded-xl border border-indigo-100">
+              <img 
+                src={row.imageUrl} 
+                alt="Question attachment" 
+                className="w-16 h-16 object-contain rounded-lg border border-indigo-200 bg-white shadow-xs hover:scale-105 transition-transform cursor-pointer"
+                onClick={() => window.open(row.imageUrl, '_blank')}
+                title="Click to view full image in new tab"
+              />
+              <div>
+                <span className="text-[11px] font-bold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
+                  <ImageIcon size={12} /> Phonics / Picture Question
+                </span>
+                <p className="text-[11px] text-gray-500 mt-1">Image attached for students</p>
+              </div>
+            </div>
+          )}
           <div className="font-bold text-gray-900 mb-2 leading-relaxed">{row.question}</div>
           {row.questionType === 'MCQ' && (
             <div className="mcq-options-grid">
@@ -804,19 +857,88 @@ const ExamQuestions: React.FC = () => {
         <form onSubmit={handleSubmit} className="modal-form" style={{maxHeight: '70vh', overflowY: 'auto', paddingRight: '10px'}}>
           <Input 
             label="Question Text *" 
-            placeholder="e.g. What is the past tense of run?"
+            placeholder="e.g. What is this? or What is the past tense of run?"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             required 
           />
+
+          {/* Question Image Attachment (Ideal for Phonics & Picture based tests) */}
+          <div className="mt-3 p-4 bg-indigo-50/50 border border-indigo-100 rounded-xl">
+            <label className="block text-xs font-bold uppercase tracking-wider text-indigo-900 mb-2 flex items-center gap-1.5">
+              <ImageIcon size={14} className="text-indigo-600" />
+              Question Image / Phonics Picture (Optional)
+            </label>
+            
+            {imagePreviewUrl || imageUrl ? (
+              <div className="flex items-center gap-3 p-2 bg-white rounded-lg border border-indigo-200">
+                <img 
+                  src={imagePreviewUrl || imageUrl} 
+                  alt="Question Preview" 
+                  className="w-20 h-20 object-contain rounded-md border border-gray-200 bg-gray-50"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-gray-800 truncate">Image Attached</p>
+                  <p className="text-[11px] text-gray-500 truncate">{imageFile ? imageFile.name : (imageUrl || 'Direct image link')}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageUrl('');
+                    setImageFile(null);
+                    setImagePreviewUrl('');
+                  }}
+                  className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                  title="Remove Image"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 cursor-pointer bg-white hover:bg-indigo-50/60 border border-dashed border-indigo-300 rounded-lg p-2.5 text-center transition-all">
+                    <span className="text-xs font-bold text-indigo-700 flex items-center justify-center gap-1.5">
+                      <Upload size={14} /> Upload Picture from Computer/Phone
+                    </span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setImageFile(file);
+                          setImagePreviewUrl(URL.createObjectURL(file));
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold text-gray-400">OR</span>
+                  <input
+                    type="url"
+                    placeholder="Paste direct Image URL (e.g. https://...)"
+                    value={imageUrl}
+                    onChange={(e) => {
+                      setImageUrl(e.target.value);
+                      setImagePreviewUrl(e.target.value);
+                    }}
+                    className="flex-1 text-xs p-2 bg-white border border-gray-300 rounded-lg outline-none focus:border-indigo-500 font-medium"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
           
-          <div className="grid grid-cols-2 gap-4 mt-2">
-            <Input label="Option A *" value={optionA} onChange={(e) => setOptionA(e.target.value)} required placeholder="Option A text" />
-            <Input label="Option B *" value={optionB} onChange={(e) => setOptionB(e.target.value)} required placeholder="Option B text" />
+          <div className="grid grid-cols-2 gap-4 mt-3">
+            <Input label="Option A *" value={optionA} onChange={(e) => setOptionA(e.target.value)} required placeholder="e.g. that is wall" />
+            <Input label="Option B *" value={optionB} onChange={(e) => setOptionB(e.target.value)} required placeholder="e.g. this is ball" />
           </div>
           <div className="grid grid-cols-2 gap-4 mt-2">
-            <Input label="Option C *" value={optionC} onChange={(e) => setOptionC(e.target.value)} required placeholder="Option C text" />
-            <Input label="Option D *" value={optionD} onChange={(e) => setOptionD(e.target.value)} required placeholder="Option D text" />
+            <Input label="Option C *" value={optionC} onChange={(e) => setOptionC(e.target.value)} required placeholder="e.g. this is doll" />
+            <Input label="Option D *" value={optionD} onChange={(e) => setOptionD(e.target.value)} required placeholder="e.g. that is cell" />
           </div>
 
           <div className="mt-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -835,14 +957,28 @@ const ExamQuestions: React.FC = () => {
           <div className="mt-3">
             <Input 
               label="Explanation / Solution Hint (Optional)" 
-              placeholder="e.g. Ran is the past tense form of run."
+              placeholder="e.g. This is a ball used for playing."
               value={explanation}
               onChange={(e) => setExplanation(e.target.value)}
             />
           </div>
           
-          <div className="modal-actions mt-4">
-            <button type="submit" className="btn btn-success">Save Question</button>
+          <div className="modal-actions mt-4 flex justify-end gap-2">
+            <button 
+              type="button" 
+              onClick={() => setIsModalOpen(false)}
+              className="px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-all cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              disabled={isUploadingImage}
+              className="btn btn-success flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {isUploadingImage && <Loader2 size={15} className="animate-spin" />}
+              {isUploadingImage ? 'Uploading Image...' : (editingId ? 'Update Question' : 'Save Question')}
+            </button>
           </div>
         </form>
       </Modal>

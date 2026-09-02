@@ -191,6 +191,16 @@ const StudentExams: React.FC = () => {
         </div>
 
         <div className="sp-card" style={{ padding: '2rem 1.5rem' }}>
+          {currentQ.imageUrl && (
+            <div className="mb-5 flex justify-center bg-gray-50 p-4 rounded-2xl border border-gray-200">
+              <img 
+                src={currentQ.imageUrl} 
+                alt="Question illustration" 
+                className="max-h-56 max-w-full object-contain rounded-xl shadow-xs"
+              />
+            </div>
+          )}
+
           <h2 className="text-lg font-bold text-[var(--text-main)] mb-6">
             {currentQ.question}
           </h2>

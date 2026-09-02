@@ -177,6 +177,7 @@ export interface ExamQuestion {
   examId: string;
   question: string;
   questionType: 'MCQ' | 'TrueFalse' | 'FillBlank';
+  imageUrl?: string;
   optionA?: string;
   optionB?: string;
   optionC?: string;

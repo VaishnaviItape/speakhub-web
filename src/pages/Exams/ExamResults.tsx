@@ -285,6 +285,16 @@ const ExamResults: React.FC = () => {
             
             return (
               <div key={q.documentId} className={`mb-4 p-4 border rounded-lg ${isCorrect ? 'border-green-200 bg-green-50' : isUnanswered ? 'border-gray-200 bg-gray-50' : 'border-red-200 bg-red-50'}`}>
+                {q.imageUrl && (
+                  <div className="mb-2">
+                    <img 
+                      src={q.imageUrl} 
+                      alt="Question attachment" 
+                      className="w-20 h-20 object-contain rounded-md border border-gray-200 bg-white"
+                      onClick={() => window.open(q.imageUrl, '_blank')}
+                    />
+                  </div>
+                )}
                 <div className="font-medium mb-2">Q{idx + 1}. {q.question}</div>
                 <div className="flex justify-between text-sm">
                   <div className="w-1/2">
