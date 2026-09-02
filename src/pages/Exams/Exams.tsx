@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Plus, ShieldAlert, Settings2, FileQuestion, BarChart2, 
-  Copy, Calendar, CheckCircle2, XCircle, Sparkles, Layers, Clock, ArrowRight 
+  Copy, Sparkles, Layers 
 } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';

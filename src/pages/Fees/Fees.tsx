@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, MessageCircle, Calendar, Clock, Printer, CreditCard, CheckCircle, AlertCircle, Sparkles } from 'lucide-react';
+import { Plus, MessageCircle, Calendar, Clock, Printer, CreditCard, Sparkles } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
@@ -113,30 +113,43 @@ const Fees: React.FC = () => {
     return { display, raw, day: d.getDate() };
   };
 
-  // Helper to calculate target due date preserving day-of-month
-  const calculateNextDueDateString = (baseDateStr: string, monthsToAdd: number): { display: string; iso: string } => {
-    let base = new Date(baseDateStr);
-    if (isNaN(base.getTime())) {
-      base = new Date();
+  // Helper to calculate target due date preserving student's joining day-of-month
+  const calculateNextDueFromBillingPeriod = (
+    startMonthStr: string,
+    monthsCount: number,
+    dayOfMonth: number = 1
+  ): { display: string; iso: string } => {
+    if (!startMonthStr) {
+      return { display: '01 Oct 2026', iso: '2026-10-01' };
     }
-    
-    const targetYear = base.getFullYear();
-    const targetMonth = base.getMonth() + monthsToAdd;
-    const originalDay = base.getDate();
+    const parts = startMonthStr.trim().split(' ');
+    const monthIdx = monthNames.indexOf(parts[0]);
+    const year = parseInt(parts[1], 10) || new Date().getFullYear();
 
-    // Clamp day to max days of target month (e.g. 31st Jan + 1 mo -> 28th Feb)
+    if (monthIdx === -1) {
+      return { display: '01 Oct 2026', iso: '2026-10-01' };
+    }
+
+    // Next due month is starting billing month + monthsCount
+    // e.g. Jul (6) + 2 months = Sep (8)
+    const targetMonthTotal = monthIdx + monthsCount;
+    const targetYear = year + Math.floor(targetMonthTotal / 12);
+    const targetMonth = targetMonthTotal % 12;
+
+    // Clamp day to max days of target month (e.g. 31 in Feb -> 28)
     const temp = new Date(targetYear, targetMonth, 1);
     const maxDays = new Date(temp.getFullYear(), temp.getMonth() + 1, 0).getDate();
-    const targetDay = Math.min(originalDay, maxDays);
+    const targetDay = Math.min(dayOfMonth || 1, maxDays);
 
-    const target = new Date(temp.getFullYear(), temp.getMonth(), targetDay);
-    
-    const year = target.getFullYear();
-    const month = String(target.getMonth() + 1).padStart(2, '0');
-    const day = String(target.getDate()).padStart(2, '0');
+    const target = new Date(targetYear, targetMonth, targetDay);
+
+    const yStr = target.getFullYear();
+    const mStr = String(target.getMonth() + 1).padStart(2, '0');
+    const dStr = String(target.getDate()).padStart(2, '0');
 
     const display = target.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-    const iso = `${year}-${month}-${day}`;
+    const iso = `${yStr}-${mStr}-${dStr}`;
+
     return { display, iso };
   };
 
@@ -240,12 +253,13 @@ const Fees: React.FC = () => {
         setAmountPaid(totalCalculatedAmt.toString());
 
         // Coverage text
-        const coverage = getPeriodCoverageLabel(billingPeriod || currentMonthDefault, numberOfMonths);
+        const startMonth = billingPeriod || currentMonthDefault;
+        const coverage = getPeriodCoverageLabel(startMonth, numberOfMonths);
         setPeriodCoverageText(coverage);
 
-        // Calculate next due date starting from student's Current Due Date
-        const baseDate = record.currentDueDateRaw || record.joiningDateRaw || '2026-01-01';
-        const due = calculateNextDueDateString(baseDate, numberOfMonths);
+        // Calculate next due date: starting billing month + numberOfMonths
+        // (e.g. Jul 2026 + 2 months = Sep 2026)
+        const due = calculateNextDueFromBillingPeriod(startMonth, numberOfMonths, record.joiningDay || 1);
         setCalculatedDueDate(due.display);
         setCustomNextDueDate(due.iso);
       }
@@ -301,7 +315,8 @@ const Fees: React.FC = () => {
       const lf = Math.max(0, Number(lateFee) || 0);
       const netPaid = Math.max(0, amt - disc + lf);
       
-      const finalNextDueDate = customNextDueDate || calculateNextDueDateString(record.currentDueDateRaw || '2026-01-01', numberOfMonths).iso;
+      const computedDue = calculateNextDueFromBillingPeriod(billingPeriod, numberOfMonths, record.joiningDay || 1).iso;
+      const finalNextDueDate = customNextDueDate || computedDue;
       const coverage = periodCoverageText || `${billingPeriod} (${numberOfMonths} ${numberOfMonths === 1 ? 'Month' : 'Months'})`;
 
       const newTransaction: Partial<FeeTransaction> = {

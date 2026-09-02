@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Plus, Edit, Trash2, BookOpen, Layers, Link as LinkIcon, 
   Calendar as CalendarIcon, CheckCircle2, XCircle, Copy, 
-  ToggleLeft, ToggleRight, ListFilter, Sparkles, FolderCheck, CheckSquare, Square
+  Sparkles
 } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
