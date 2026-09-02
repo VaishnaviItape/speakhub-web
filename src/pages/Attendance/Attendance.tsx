@@ -10,13 +10,29 @@ import {
   Download, 
   Users,
   CalendarCheck,
-  CalendarRange
+  CalendarRange,
+  PartyPopper,
+  Plus,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import Select from '../../components/forms/Select';
 import Input from '../../components/forms/Input';
 import EmptyState from '../../components/ui/EmptyState';
 import { db } from '../../config/firebase';
-import { collection, query, where, getDocs, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  serverTimestamp,
+  writeBatch,
+  addDoc,
+  deleteDoc,
+  onSnapshot,
+  orderBy
+} from 'firebase/firestore';
 import type { Batch } from '../../types/models';
 import { useAuth } from '../../contexts/AuthContext';
 import '../../components/ui/TableStyles.css';
@@ -26,9 +42,17 @@ interface StudentAttendanceItem {
   userId: string;
   studentName: string;
   phone?: string;
-  status: 'present' | 'absent' | 'late' | 'leave';
+  status: 'present' | 'absent' | 'late' | 'leave' | 'holiday';
   remarks: string;
   existingDocId?: string;
+}
+
+interface Holiday {
+  id: string;
+  date: string; // YYYY-MM-DD
+  name: string;
+  description?: string;
+  createdBy?: string;
 }
 
 const Attendance: React.FC = () => {
@@ -56,6 +80,7 @@ const Attendance: React.FC = () => {
   const [rangeStatus, setRangeStatus] = useState<'present' | 'absent' | 'late'>('present');
   const [excludeSundays, setExcludeSundays] = useState(true);
   const [excludeSaturdays, setExcludeSaturdays] = useState(false);
+  const [excludeHolidays, setExcludeHolidays] = useState(true);
   const [isApplyingRange, setIsApplyingRange] = useState(false);
 
   // Range Student Selection States
@@ -64,8 +89,28 @@ const Attendance: React.FC = () => {
   const [modalSearchQuery, setModalSearchQuery] = useState('');
   const [isFetchingRangeStudents, setIsFetchingRangeStudents] = useState(false);
 
+  // Holiday States
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [showHolidayPanel, setShowHolidayPanel] = useState(false);
+  const [newHolidayName, setNewHolidayName] = useState('');
+  const [newHolidayDate, setNewHolidayDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newHolidayDescription, setNewHolidayDescription] = useState('');
+  const [isSavingHoliday, setIsSavingHoliday] = useState(false);
+
   useEffect(() => {
     fetchBatches();
+    // Real-time holiday listener
+    const hq = query(collection(db, 'holidays'), orderBy('date', 'desc'));
+    const unsubHolidays = onSnapshot(hq, (snap) => {
+      const list: Holiday[] = [];
+      snap.forEach(d => {
+        list.push({ id: d.id, ...d.data() } as Holiday);
+      });
+      setHolidays(list);
+    }, (err) => {
+      console.error('Holiday snapshot error:', err);
+    });
+    return () => unsubHolidays();
   }, []);
 
   useEffect(() => {
@@ -75,6 +120,9 @@ const Attendance: React.FC = () => {
       setStudentList([]);
     }
   }, [selectedBatchId, selectedDate]);
+
+  const holidaySet = new Set(holidays.map(h => h.date));
+  const currentDateHoliday = holidays.find(h => h.date === selectedDate);
 
   const fetchBatches = async () => {
     try {
@@ -166,14 +214,18 @@ const Attendance: React.FC = () => {
 
       setHasLoadedAttendance(!attSnap.empty);
 
+      // Determine default status: if it's a holiday, default to 'holiday'
+      const isHoliday = holidaySet.has(selectedDate);
+      const defaultStatus = isHoliday ? 'holiday' : 'present';
+
       const items: StudentAttendanceItem[] = Object.values(studentsMap).map(s => {
         const existing = existingAttendanceMap[s.userId];
         return {
           userId: s.userId,
           studentName: s.name,
           phone: s.phone || '',
-          status: existing ? existing.status : 'present',
-          remarks: existing ? existing.remarks : '',
+          status: existing ? existing.status : defaultStatus,
+          remarks: existing ? existing.remarks : (isHoliday ? currentDateHoliday?.name || 'Holiday' : ''),
           existingDocId: existing ? existing.docId : undefined
         };
       });
@@ -186,7 +238,7 @@ const Attendance: React.FC = () => {
     }
   };
 
-  const handleStatusChange = (userId: string, newStatus: 'present' | 'absent' | 'late' | 'leave') => {
+  const handleStatusChange = (userId: string, newStatus: 'present' | 'absent' | 'late' | 'leave' | 'holiday') => {
     setStudentList(prev => prev.map(item => item.userId === userId ? { ...item, status: newStatus } : item));
   };
 
@@ -194,7 +246,7 @@ const Attendance: React.FC = () => {
     setStudentList(prev => prev.map(item => item.userId === userId ? { ...item, remarks: newRemarks } : item));
   };
 
-  const handleMarkAll = (status: 'present' | 'absent') => {
+  const handleMarkAll = (status: 'present' | 'absent' | 'holiday') => {
     setStudentList(prev => prev.map(item => ({ ...item, status: status })));
   };
 
@@ -229,6 +281,7 @@ const Attendance: React.FC = () => {
           studentName: item.studentName,
           status: item.status,
           remarks: item.remarks || '',
+          isHoliday: item.status === 'holiday',
           markedBy: user?.name || 'Teacher/Admin',
           markedById: user?.id || '',
           updatedAt: serverTimestamp(),
@@ -246,6 +299,49 @@ const Attendance: React.FC = () => {
       setIsSaving(false);
     }
   };
+
+  // ─── Holiday CRUD ────────────────────────────────────────────────────────────
+
+  const handleAddHoliday = async () => {
+    if (!newHolidayName.trim()) {
+      alert("Please enter a holiday name.");
+      return;
+    }
+    if (!newHolidayDate) {
+      alert("Please select a date for the holiday.");
+      return;
+    }
+    setIsSavingHoliday(true);
+    try {
+      await addDoc(collection(db, 'holidays'), {
+        date: newHolidayDate,
+        name: newHolidayName.trim(),
+        description: newHolidayDescription.trim(),
+        createdBy: user?.name || 'Admin',
+        createdById: user?.id || '',
+        createdAt: serverTimestamp()
+      });
+      setNewHolidayName('');
+      setNewHolidayDescription('');
+      alert(`✅ Holiday "${newHolidayName.trim()}" added for ${newHolidayDate}`);
+    } catch (err: any) {
+      console.error("Error adding holiday:", err);
+      alert("Failed to add holiday: " + err.message);
+    } finally {
+      setIsSavingHoliday(false);
+    }
+  };
+
+  const handleDeleteHoliday = async (holidayId: string, holidayName: string) => {
+    if (!confirm(`Delete holiday "${holidayName}"?`)) return;
+    try {
+      await deleteDoc(doc(db, 'holidays', holidayId));
+    } catch (err: any) {
+      alert("Failed to delete: " + err.message);
+    }
+  };
+
+  // ─── Range ───────────────────────────────────────────────────────────────────
 
   const loadRangeStudents = async (batchId: string) => {
     if (!batchId) {
@@ -361,8 +457,9 @@ const Attendance: React.FC = () => {
         const dayOfWeek = current.getDay();
         const isSunday = dayOfWeek === 0;
         const isSaturday = dayOfWeek === 6;
+        const isHoliday = excludeHolidays && holidaySet.has(dateString);
 
-        if ((!excludeSundays || !isSunday) && (!excludeSaturdays || !isSaturday)) {
+        if ((!excludeSundays || !isSunday) && (!excludeSaturdays || !isSaturday) && !isHoliday) {
           if (dateString <= todayStr) {
             dateList.push(dateString);
           }
@@ -371,7 +468,7 @@ const Attendance: React.FC = () => {
       }
 
       if (dateList.length === 0) {
-        alert("No valid dates found in the selected range.");
+        alert("No valid dates found in the selected range (all dates may be weekends or holidays).");
         setIsApplyingRange(false);
         return;
       }
@@ -390,6 +487,7 @@ const Attendance: React.FC = () => {
             studentId: student.userId,
             studentName: student.name,
             status: rangeStatus,
+            isHoliday: false,
             remarks: `Bulk marked as ${rangeStatus}`,
             markedBy: user?.name || 'Teacher/Admin',
             markedById: user?.id || '',
@@ -410,7 +508,8 @@ const Attendance: React.FC = () => {
         await batch.commit();
       }
 
-      alert(`✅ Success! Bulk attendance marked as "${rangeStatus.toUpperCase()}" for ${dateList.length} days across ${targetStudents.length} selected students (${dateList.length * targetStudents.length} total records).`);
+      const skippedHolidays = excludeHolidays ? holidays.filter(h => h.date >= fromDate && h.date <= toDate).length : 0;
+      alert(`✅ Success! Bulk attendance marked as "${rangeStatus.toUpperCase()}" for ${dateList.length} days across ${targetStudents.length} selected students (${dateList.length * targetStudents.length} total records).${skippedHolidays > 0 ? `\n\n🎉 ${skippedHolidays} holiday(s) were automatically skipped.` : ''}`);
       setIsRangeModalOpen(false);
 
       if (selectedBatchId === targetBatchId) {
@@ -464,6 +563,7 @@ const Attendance: React.FC = () => {
   const presentCount = studentList.filter(s => s.status === 'present').length;
   const absentCount = studentList.filter(s => s.status === 'absent').length;
   const lateCount = studentList.filter(s => s.status === 'late' || s.status === 'leave').length;
+  const holidayCount = studentList.filter(s => s.status === 'holiday').length;
   const totalCount = studentList.length;
   const attendancePercentage = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
 
@@ -477,6 +577,9 @@ const Attendance: React.FC = () => {
 
   const todayStr = getTodayDateString();
 
+  // Holidays in the currently displayed month/year for reference
+  const holidaysInRange = holidays.filter(h => h.date >= fromDate && h.date <= toDate);
+
   return (
     <div className="page-container">
       {/* Header */}
@@ -489,6 +592,19 @@ const Attendance: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Holiday Management Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowHolidayPanel(prev => !prev)}
+            className={`btn flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-sm transition-all cursor-pointer text-xs font-bold ${showHolidayPanel ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'}`}
+          >
+            <PartyPopper size={16} />
+            Manage Holidays
+            {holidays.length > 0 && (
+              <span className="bg-amber-600 text-white text-xs rounded-full px-1.5 py-0.5 ml-1">{holidays.length}</span>
+            )}
+          </button>
+
           {activeTab === 'single' && studentList.length > 0 && (
             <>
               <button
@@ -512,6 +628,98 @@ const Attendance: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* ─── Holiday Management Panel ─────────────────────────────────── */}
+      {showHolidayPanel && (
+        <div className="holiday-panel">
+          <div className="holiday-panel-header">
+            <div className="holiday-panel-title-row">
+              <div className="holiday-panel-icon">
+                <PartyPopper size={22} />
+              </div>
+              <div>
+                <h3 className="holiday-panel-title">Holiday Management</h3>
+                <p className="holiday-panel-subtitle">Add or remove holidays. Holidays are highlighted on the calendar and can be skipped in bulk attendance.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Add Holiday Form */}
+          <div className="holiday-add-form">
+            <div className="holiday-form-grid">
+              <div>
+                <label className="holiday-field-label">Holiday Date *</label>
+                <input
+                  type="date"
+                  value={newHolidayDate}
+                  onChange={e => setNewHolidayDate(e.target.value)}
+                  className="holiday-date-input"
+                />
+              </div>
+              <div>
+                <label className="holiday-field-label">Holiday Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Independence Day"
+                  value={newHolidayName}
+                  onChange={e => setNewHolidayName(e.target.value)}
+                  className="holiday-name-input"
+                />
+              </div>
+              <div>
+                <label className="holiday-field-label">Description (optional)</label>
+                <input
+                  type="text"
+                  placeholder="Short description..."
+                  value={newHolidayDescription}
+                  onChange={e => setNewHolidayDescription(e.target.value)}
+                  className="holiday-name-input"
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={handleAddHoliday}
+                  disabled={isSavingHoliday}
+                  className="holiday-add-btn"
+                >
+                  <Plus size={16} />
+                  {isSavingHoliday ? 'Saving...' : 'Add Holiday'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Holiday List */}
+          {holidays.length === 0 ? (
+            <div className="holiday-empty">
+              <PartyPopper size={32} color="#d97706" />
+              <p>No holidays added yet. Add your first holiday above.</p>
+            </div>
+          ) : (
+            <div className="holiday-list">
+              {holidays.map(h => (
+                <div key={h.id} className="holiday-list-item">
+                  <div className="holiday-list-icon">🎉</div>
+                  <div className="holiday-list-info">
+                    <span className="holiday-list-name">{h.name}</span>
+                    <span className="holiday-list-date">{new Date(h.date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    {h.description && <span className="holiday-list-desc">{h.description}</span>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteHoliday(h.id, h.name)}
+                    className="holiday-delete-btn"
+                    title="Delete holiday"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 2 Main Navigation Tabs - Segmented Control Bar */}
       <div className="attendance-nav-tabs">
@@ -640,6 +848,27 @@ const Attendance: React.FC = () => {
                   />
                   <span>Exclude Saturdays (Skip Saturdays)</span>
                 </label>
+
+                <label className="bulk-checkbox-label bulk-checkbox-label--holiday">
+                  <input
+                    type="checkbox"
+                    checked={excludeHolidays}
+                    onChange={(e) => setExcludeHolidays(e.target.checked)}
+                    className="bulk-checkbox-input"
+                  />
+                  <span>🎉 Exclude Holidays (Skip {holidaysInRange.length} holiday{holidaysInRange.length !== 1 ? 's' : ''} in range)</span>
+                </label>
+
+                {/* Show holidays in range */}
+                {excludeHolidays && holidaysInRange.length > 0 && (
+                  <div className="bulk-holidays-in-range">
+                    {holidaysInRange.map(h => (
+                      <span key={h.id} className="bulk-holiday-chip">
+                        🎉 {h.name} ({h.date})
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="bulk-footer-actions">
@@ -829,8 +1058,37 @@ const Attendance: React.FC = () => {
               >
                 <XCircle size={16} /> Mark All Absent
               </button>
+
+              <button
+                type="button"
+                onClick={() => handleMarkAll('holiday')}
+                disabled={studentList.length === 0}
+                className="btn-holiday"
+              >
+                <PartyPopper size={16} /> Mark All Holiday
+              </button>
             </div>
           </div>
+
+          {/* ─── Holiday Banner ───────────────────────────────────────────── */}
+          {currentDateHoliday && (
+            <div className="holiday-banner">
+              <div className="holiday-banner-icon">🎉</div>
+              <div className="holiday-banner-content">
+                <div className="holiday-banner-title">Holiday: {currentDateHoliday.name}</div>
+                {currentDateHoliday.description && (
+                  <div className="holiday-banner-desc">{currentDateHoliday.description}</div>
+                )}
+                <div className="holiday-banner-note">
+                  <AlertTriangle size={13} />
+                  All students have been defaulted to "Holiday" status. You can still change individual statuses.
+                </div>
+              </div>
+              <div className="holiday-banner-date">
+                {new Date(currentDateHoliday.date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </div>
+            </div>
+          )}
 
           {/* Overview Cards */}
           {selectedBatchId && studentList.length > 0 && (
@@ -874,6 +1132,18 @@ const Attendance: React.FC = () => {
                   <div className="premium-value">{attendancePercentage}%</div>
                 </div>
               </div>
+
+              {holidayCount > 0 && (
+                <div className="premium-card card-holiday">
+                  <div className="premium-icon-wrapper">
+                    <PartyPopper size={32} />
+                  </div>
+                  <div>
+                    <div className="premium-label">Holiday</div>
+                    <div className="premium-value">{holidayCount}</div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -982,7 +1252,7 @@ const Attendance: React.FC = () => {
                   </thead>
                   <tbody>
                     {filteredStudents.map((student, idx) => (
-                      <tr key={student.userId}>
+                      <tr key={student.userId} className={student.status === 'holiday' ? 'holiday-row' : ''}>
                         <td style={{ color: 'var(--text-light)', fontWeight: '600' }}>{idx + 1}</td>
                         <td>
                           <div className="flex items-center gap-3">
@@ -1017,6 +1287,14 @@ const Attendance: React.FC = () => {
                               className={`status-btn ${student.status === 'late' ? 'active-late' : ''}`}
                             >
                               <Clock size={14} /> Late
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleStatusChange(student.userId, 'holiday')}
+                              className={`status-btn ${student.status === 'holiday' ? 'active-holiday' : ''}`}
+                            >
+                              🎉 Holiday
                             </button>
                           </div>
                         </td>
