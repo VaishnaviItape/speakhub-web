@@ -80,11 +80,13 @@ export interface Batch {
 export interface Note {
   documentId?: string;
   courseId: string;
-  batchId: string;
-  subjectId: string;
+  batchId?: string;
+  batchIds?: string[];
+  batchVisibility?: Record<string, boolean>;
+  subjectId?: string;
   topic?: string;
   partChapter?: string;
-  teacherId: string;
+  teacherId?: string;
   title: string;
   description: string;
   fileUrl?: string; // Optional if using external links
@@ -143,8 +145,10 @@ export interface HomeworkSubmission {
 export interface Exam {
   documentId?: string;
   courseId: string;
-  batchId: string;
-  subjectId: string;
+  batchId?: string;
+  batchIds?: string[];
+  batchVisibility?: Record<string, boolean>;
+  subjectId?: string;
   title: string;
   chapter?: string;
   description?: string;

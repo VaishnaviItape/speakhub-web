@@ -37,14 +37,35 @@ const StudentExams: React.FC = () => {
         const batchIds = uData.batchIds || [];
         
         if (batchIds.length > 0) {
-          const exQ = query(
-            collection(db, 'exams'), 
-            where('batchId', 'in', batchIds)
-          );
-          const exSnap = await getDocs(exQ);
+          const exSnap = await getDocs(collection(db, 'exams'));
           const list: any[] = [];
           exSnap.forEach(d => {
             const data = d.data();
+            const exStatus = (data.status || 'draft').toLowerCase();
+            if (exStatus === 'draft' || exStatus === 'inactive' || exStatus === 'cancelled') {
+              return;
+            }
+
+            // Check toggle visibility
+            let isExplicitlyDisabled = false;
+            let isExplicitlyEnabled = false;
+            if (data.batchVisibility && typeof data.batchVisibility === 'object') {
+              for (const bId of batchIds) {
+                if (data.batchVisibility[bId] === false) isExplicitlyDisabled = true;
+                if (data.batchVisibility[bId] === true) isExplicitlyEnabled = true;
+              }
+            }
+
+            if (isExplicitlyDisabled) return;
+
+            const isBatchMatch = isExplicitlyEnabled ||
+              !data.batchId ||
+              data.batchId === 'all' ||
+              batchIds.includes(data.batchId) ||
+              (Array.isArray(data.batchIds) && (data.batchIds.includes('all') || data.batchIds.some((b: string) => batchIds.includes(b))));
+
+            if (!isBatchMatch) return;
+
             let start = 'Unknown Date';
             if (data.startDate) {
                const date = data.startDate.toDate ? data.startDate.toDate() : new Date(data.startDate);

@@ -55,16 +55,36 @@ const StudentCourses: React.FC = () => {
         }
         setCourses(courseList);
 
-        // Fetch Notes for assigned batches
+        // Fetch Notes for assigned batches with multi-batch and toggle visibility support
         if (isAssigned) {
-          const notesQ = query(
-            collection(db, 'notes'), 
-            where('batchId', 'in', batchIds)
-          );
-          const notesSnap = await getDocs(notesQ);
+          const notesSnap = await getDocs(collection(db, 'notes'));
           const noteList: any[] = [];
           notesSnap.forEach(d => {
             const data = d.data();
+            if ((data.status || '').toLowerCase() === 'draft' || (data.status || '').toLowerCase() === 'inactive') {
+              return;
+            }
+
+            // Check toggle visibility
+            let isExplicitlyDisabled = false;
+            let isExplicitlyEnabled = false;
+            if (data.batchVisibility && typeof data.batchVisibility === 'object') {
+              for (const bId of batchIds) {
+                if (data.batchVisibility[bId] === false) isExplicitlyDisabled = true;
+                if (data.batchVisibility[bId] === true) isExplicitlyEnabled = true;
+              }
+            }
+
+            if (isExplicitlyDisabled) return;
+
+            const isBatchMatch = isExplicitlyEnabled ||
+              !data.batchId ||
+              data.batchId === 'all' ||
+              batchIds.includes(data.batchId) ||
+              (Array.isArray(data.batchIds) && (data.batchIds.includes('all') || data.batchIds.some((b: string) => batchIds.includes(b))));
+
+            if (!isBatchMatch) return;
+
             let date = 'Unknown Date';
             if (data.createdAt) {
                const dObj = data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
