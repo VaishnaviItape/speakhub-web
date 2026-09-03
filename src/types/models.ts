@@ -189,9 +189,13 @@ export interface ExamQuestion {
 export interface ExamAttempt {
   documentId?: string;
   examId: string;
+  examTitle?: string;
   studentId: string;
+  studentName?: string;
+  studentPhone?: string;
   answers: Record<string, string>; // questionId -> studentAnswer
   score: number;
+  totalMarks?: number;
   percentage: number;
   correctCount: number;
   wrongCount: number;
@@ -204,8 +208,8 @@ export interface ExamAttempt {
   autoSubmitReason?: string;
   rank?: number;
   grade?: string;
-  startedAt: Timestamp | Date;
-  submittedAt: Timestamp | Date;
+  startedAt?: Timestamp | Date;
+  submittedAt: Timestamp | Date | string;
 }
 
 export interface FeePlan {
