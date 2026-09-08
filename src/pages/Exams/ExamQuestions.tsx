@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, ArrowLeft, Upload, FileText, Download, Trash2, CheckCircle2, HelpCircle, Clock, Send, Calendar, Copy, Layers, Image as ImageIcon, X, Loader2, Link as LinkIcon } from 'lucide-react';
+import { Plus, ArrowLeft, Upload, FileText, Download, Trash2, CheckCircle2, HelpCircle, Clock, Send, Calendar, Copy, Layers, Image as ImageIcon, X, Loader2, Link as LinkIcon, AlertCircle } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
@@ -133,6 +133,7 @@ const ExamQuestions: React.FC = () => {
   // Bulk Paste State
   const [pastedText, setPastedText] = useState('');
   const [parsedPasteQuestions, setParsedPasteQuestions] = useState<any[]>([]);
+  const [pasteErrors, setPasteErrors] = useState<string[]>([]);
 
   // Questions Data
   const [questions, setQuestions] = useState<ExamQuestion[]>([]);
@@ -622,37 +623,99 @@ const ExamQuestions: React.FC = () => {
 
   // Parse Bulk Text Paste
   const handleParseTextPaste = () => {
+    setPasteErrors([]);
     if (!pastedText.trim()) {
       setParsedPasteQuestions([]);
+      setPasteErrors(["Please paste MCQ questions in the text box above."]);
       return;
     }
 
-    const blocks = pastedText.split(/(?=Q:|Question:|\n\d+\.)/i);
+    const text = pastedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+
+    // Regex to identify question start points:
+    // Matches: Q1:, Q:, Q.1:, Q 1:, Question 1:, Question:, 1., 1), 1:, etc.
+    const questionStartRegex = /(?:^|\n)\s*(?:Q\s*\.?\s*\d*[\.\:\)\s-]|Question\s*\d*[\.\:\)\s-]|(?:\d+)[\.\)\:-]\s+)/gi;
+    const matches = Array.from(text.matchAll(questionStartRegex));
+
+    let rawBlocks: string[] = [];
+    if (matches.length > 0) {
+      for (let i = 0; i < matches.length; i++) {
+        const start = matches[i].index!;
+        const end = (i + 1 < matches.length) ? matches[i + 1].index! : text.length;
+        const block = text.substring(start, end).trim();
+        if (block) rawBlocks.push(block);
+      }
+    } else {
+      // Fallback: split by double newlines if no standard prefix matched
+      rawBlocks = text.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
+    }
+
+    if (rawBlocks.length === 0) {
+      setParsedPasteQuestions([]);
+      setPasteErrors(["Could not detect any questions. Please ensure each question starts with 'Q1:', 'Q:', 'Question 1:' or '1.'."]);
+      return;
+    }
+
     const parsedList: any[] = [];
+    const errors: string[] = [];
 
-    for (const block of blocks) {
-      if (!block.trim()) continue;
+    rawBlocks.forEach((block, index) => {
+      // Determine question number/label
+      const headerMatch = block.match(/^(?:Q\s*\.?\s*(\d+)[\.\:\)\s-]*|Question\s*(\d+)[\.\:\)\s-]*|(\d+)[\.\)\:-]\s*)/i);
+      const qNum = headerMatch ? (headerMatch[1] || headerMatch[2] || headerMatch[3] || (index + 1)) : (index + 1);
 
-      const qMatch = block.match(/(?:Q:|Question:|\d+\.)\s*(.*?)(?=\n[A-D]\:|\nANS:|\nCorrect:|\nIMG:|\nIMAGE:|$)/is);
-      const imgMatch = block.match(/(?:IMG:|IMAGE:|Picture:|Image URL:)\s*(.*?)(?=\n[A-D]\:|\nANS:|\nCorrect:|$)/i);
-      const aMatch = block.match(/(?:A:|Option A:)\s*(.*?)(?=\n[B-D]\:|\nANS:|\nCorrect:|$)/i);
-      const bMatch = block.match(/(?:B:|Option B:)\s*(.*?)(?=\n[C-D]\:|\nANS:|\nCorrect:|$)/i);
-      const cMatch = block.match(/(?:C:|Option C:)\s*(.*?)(?=\n[D]\:|\nANS:|\nCorrect:|$)/i);
-      const dMatch = block.match(/(?:D:|Option D:)\s*(.*?)(?=\nANS:|\nCorrect:|$)/i);
-      const ansMatch = block.match(/(?:ANS:|Answer:|Correct:)\s*([A-D])/i);
-      const expMatch = block.match(/(?:EXP:|Explanation:)\s*(.*)/i);
+      // Strip starting question header prefix
+      const cleanedBlock = block.replace(/^(?:Q\s*\.?\s*\d*[\.\:\)\s-]*|Question\s*\d*[\.\:\)\s-]*|(?:\d+)[\.\)\:-]\s*)/i, '').trim();
 
-      const questionText = qMatch ? qMatch[1].trim() : '';
+      // Extract Question Text (statement before image or options or answers)
+      const qStatementMatch = cleanedBlock.match(/^([\s\S]*?)(?=(?:\n\s*(?:IMG|IMAGE|Picture|Pic|Image URL|Photo)\s*[:=-])|(?:\n\s*(?:[A-Da-d]\s*[:\)\.]|\([A-Da-d]\)|Option\s*[A-Da-d]\s*[:\)\.]?))|(?:\n\s*(?:ANS|Answer|Correct)\s*[:=-])|$)/i);
+      const questionText = qStatementMatch ? qStatementMatch[1].trim() : '';
+
+      // Match Image URL
+      const imgMatch = cleanedBlock.match(/(?:^|\n)\s*(?:IMG|IMAGE|Picture|Pic|Image URL|Photo)\s*[:=-]\s*([^\n\r]+)/i);
       const imgUrl = formatGoogleDriveImageUrl(imgMatch ? imgMatch[1].trim() : '');
+
+      // Match Options A, B, C, D
+      const aMatch = cleanedBlock.match(/(?:^|\n)\s*(?:[A|a]\s*[:\)\.]|\([A|a]\)|Option\s*[A|a]\s*[:\)\.]?)\s*(.+?)(?=\n\s*(?:[B-D|b-d]\s*[:\)\.]|\([B-D|b-d]\)|Option\s*[B-D|b-d]|ANS|Answer|Correct|MARKS|Marks|EXP|Explanation|$))/is);
+      const bMatch = cleanedBlock.match(/(?:^|\n)\s*(?:[B|b]\s*[:\)\.]|\([B|b]\)|Option\s*[B|b]\s*[:\)\.]?)\s*(.+?)(?=\n\s*(?:[C-D|c-d]\s*[:\)\.]|\([C-D|c-d]\)|Option\s*[C-D|c-d]|ANS|Answer|Correct|MARKS|Marks|EXP|Explanation|$))/is);
+      const cMatch = cleanedBlock.match(/(?:^|\n)\s*(?:[C|c]\s*[:\)\.]|\([C|c]\)|Option\s*[C|c]\s*[:\)\.]?)\s*(.+?)(?=\n\s*(?:[D|d]\s*[:\)\.]|\([D|d]\)|Option\s*[D|d]|ANS|Answer|Correct|MARKS|Marks|EXP|Explanation|$))/is);
+      const dMatch = cleanedBlock.match(/(?:^|\n)\s*(?:[D|d]\s*[:\)\.]|\([D|d]\)|Option\s*[D|d]\s*[:\)\.]?)\s*(.+?)(?=\n\s*(?:ANS|Answer|Correct|MARKS|Marks|EXP|Explanation|$))/is);
+
+      // Match Answer
+      const ansMatch = cleanedBlock.match(/(?:^|\n)\s*(?:ANS|Ans|Answer|Correct Answer|Correct Option|Correct)\s*[:=-]\s*\(?(?:Option\s*)?([A-Da-d])\b/i);
+
+      // Match Marks
+      const marksMatch = cleanedBlock.match(/(?:^|\n)\s*(?:MARKS|Marks|Mark|Points|Point)\s*[:=-]\s*(\d+(?:\.\d+)?)/i);
+
+      // Match Explanation
+      const expMatch = cleanedBlock.match(/(?:^|\n)\s*(?:EXP|Exp|Explanation|Explain)\s*[:=-]\s*([^\n\r]+)/i);
+
       const optA = aMatch ? aMatch[1].trim() : '';
       const optB = bMatch ? bMatch[1].trim() : '';
       const optC = cMatch ? cMatch[1].trim() : '';
       const optD = dMatch ? dMatch[1].trim() : '';
-      const ans = ansMatch ? ansMatch[1].toUpperCase().trim() : 'A';
-
+      const ans = ansMatch ? ansMatch[1].toUpperCase().trim() : '';
+      const marks = marksMatch ? Number(marksMatch[1]) : (Number(exam?.marksPerQuestion) || 1);
       const expText = expMatch ? expMatch[1].trim() : '';
 
-      if (questionText && optA && optB) {
+      // Validate question structure
+      const blockErrors: string[] = [];
+      if (!questionText) {
+        blockErrors.push("Question statement is missing.");
+      }
+      if (!optA) {
+        blockErrors.push("Option A is missing.");
+      }
+      if (!optB) {
+        blockErrors.push("Option B is missing.");
+      }
+      if (!ans || !['A', 'B', 'C', 'D'].includes(ans)) {
+        blockErrors.push("Valid correct answer (ANS: A, B, C, or D) is missing.");
+      }
+
+      if (blockErrors.length > 0) {
+        errors.push(`Question ${qNum}: ${blockErrors.join(' ')}`);
+      } else {
         parsedList.push({
           examId,
           question: questionText,
@@ -662,13 +725,15 @@ const ExamQuestions: React.FC = () => {
           optionB: optB,
           optionC: optC,
           optionD: optD,
-          correctAnswer: ['A','B','C','D'].includes(ans) ? ans : 'A',
-          marks: Number(exam?.marksPerQuestion) || 1,
+          correctAnswer: ans,
+          marks: marks || 1,
           explanation: expText
         });
       }
-    }
+    });
+
     setParsedPasteQuestions(parsedList);
+    setPasteErrors(errors);
   };
 
   // Upload Parsed Pasted Text Questions
@@ -1260,7 +1325,7 @@ const ExamQuestions: React.FC = () => {
       {/* Modal 3: Bulk Text Paste Upload */}
       <Modal 
         isOpen={isPasteModalOpen} 
-        onClose={() => { setIsPasteModalOpen(false); setParsedPasteQuestions([]); setPastedText(''); }} 
+        onClose={() => { setIsPasteModalOpen(false); setParsedPasteQuestions([]); setPastedText(''); setPasteErrors([]); }} 
         title="Paste MCQ Questions"
         size="lg"
       >
@@ -1286,7 +1351,7 @@ const ExamQuestions: React.FC = () => {
                   type="button" 
                   className="btn-copy-format"
                   onClick={() => {
-                    const sample = `Q: What is the past tense of run?\nA: Running\nB: Ran\nC: Runs\nD: Runned\nANS: B\nMARKS: 1\n\nQ: Choose the correct article: He is ___ honest man.\nA: a\nB: an\nC: the\nD: none\nANS: B\nMARKS: 1`;
+                    const sample = `Q1: Choose the correct sentence.\nA: I have finished my work.\nB: I has finished my work.\nC: I finished my work.\nD: I had finished my work.\nANS: A\nMARKS: 1\n\nQ2: Complete the sentence: "She ______ a book."\nA: reads\nB: readed\nC: is read\nD: has reading\nANS: A\nMARKS: 1`;
                     navigator.clipboard.writeText(sample);
                     setPastedText(sample);
                     setTimeout(() => handleParseTextPaste(), 50);
@@ -1297,7 +1362,7 @@ const ExamQuestions: React.FC = () => {
               </div>
             </div>
             <pre className="paste-snippet-box">
-{`Q: Look at the picture. What is this?
+{`Q1: Look at the picture. What is this?
 IMG: https://drive.google.com/file/d/YOUR_IMAGE_ID/view (or web url)
 A: that is wall
 B: this is ball
@@ -1314,7 +1379,7 @@ MARKS: 1`}
             <textarea
               rows={7}
               className="paste-textarea"
-              placeholder="Paste questions here in Q: / IMG: / A: / B: / C: / D: / ANS: format..."
+              placeholder="Paste questions here in Q1: / IMG: / A: / B: / C: / D: / ANS: format..."
               value={pastedText}
               onChange={(e) => setPastedText(e.target.value)}
             />
@@ -1336,6 +1401,23 @@ MARKS: 1`}
               </span>
             )}
           </div>
+
+          {/* Error / Validation Feedback Alert */}
+          {pasteErrors.length > 0 && (
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 text-xs text-rose-800">
+              <div className="flex items-center gap-1.5 font-bold text-rose-900 text-sm mb-1.5">
+                <AlertCircle size={16} className="text-rose-600 flex-shrink-0" />
+                {parsedPasteQuestions.length === 0 
+                  ? "Unable to Parse Questions" 
+                  : `Parsed ${parsedPasteQuestions.length} question(s), but ${pasteErrors.length} question(s) had issues:`}
+              </div>
+              <ul className="list-disc pl-5 space-y-1 text-[11.5px] font-medium text-rose-700 max-h-36 overflow-y-auto">
+                {pasteErrors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Parsed Results Preview Table */}
           {parsedPasteQuestions.length > 0 && (
@@ -1375,7 +1457,7 @@ MARKS: 1`}
               <div className="modal-form-footer">
                 <button 
                   type="button" 
-                  onClick={() => { setIsPasteModalOpen(false); setParsedPasteQuestions([]); setPastedText(''); }}
+                  onClick={() => { setIsPasteModalOpen(false); setParsedPasteQuestions([]); setPastedText(''); setPasteErrors([]); }}
                   className="btn-modal-cancel"
                 >
                   Cancel
