@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Calendar } from 'lucide-react';
+import { FileText, Calendar, MessageCircle, ExternalLink } from 'lucide-react';
 import { db } from '../../config/firebase';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
+import MarkdownRenderer from '../../components/common/MarkdownRenderer';
 import './StudentPortal.css';
 
 const StudentHomework: React.FC = () => {
@@ -20,31 +21,29 @@ const StudentHomework: React.FC = () => {
       const userSnap = await getDoc(doc(db, 'users', user!.id));
       if (userSnap.exists()) {
         const uData = userSnap.data();
-        const batchIds = uData.batchIds || [];
+        const batchIds = uData.batchIds || (uData.batchId ? [uData.batchId] : ['all']);
         
-        if (batchIds.length > 0) {
-          const hwQ = query(
-            collection(db, 'homework'), 
-            where('batchId', 'in', batchIds)
-          );
-          const hwSnap = await getDocs(hwQ);
-          const list: any[] = [];
-          hwSnap.forEach(d => {
-            const data = d.data();
-            let due = 'No Due Date';
+        const hwSnap = await getDocs(collection(db, 'homeworks'));
+        const list: any[] = [];
+        hwSnap.forEach(d => {
+          const data = d.data();
+          if (data.status === 'draft') return;
+          const isAssigned = !data.batchId || data.batchId === 'all' || batchIds.includes(data.batchId);
+          if (isAssigned) {
+            let due = 'Flexible';
             if (data.dueDate) {
-               const date = data.dueDate.toDate ? data.dueDate.toDate() : new Date(data.dueDate);
-               due = date.toLocaleDateString();
+              const date = data.dueDate.toDate ? data.dueDate.toDate() : new Date(data.dueDate);
+              due = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
             }
             list.push({
               id: d.id,
               ...data,
               due
             });
-          });
-          
-          setHomeworkList(list);
-        }
+          }
+        });
+        
+        setHomeworkList(list);
       }
     } catch (e) {
       console.error(e);
@@ -53,11 +52,25 @@ const StudentHomework: React.FC = () => {
     }
   };
 
+  const handleSendOnWhatsApp = (hw: any) => {
+    const studentName = user?.name || 'Student';
+    const msg = `*Speak Hub Academy - Homework Submission*\n\n` +
+      `👤 *Student Name:* ${studentName}\n` +
+      `📚 *Topic:* ${hw.title}\n` +
+      `📅 *Due Date:* ${hw.due}\n\n` +
+      `_Hello Teacher, I have completed my homework. Please check my attached voice recording / photos / notes!_`;
+
+    const rawPhone = hw.whatsappNumber || hw.teacherPhone || '9970964742';
+    const cleanPhone = String(rawPhone).replace(/[^0-9]/g, '');
+    const phoneWithCode = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+    window.open(`https://wa.me/${phoneWithCode}?text=${encodeURIComponent(msg)}`, '_blank');
+  };
+
   return (
     <div className="sp-container">
       <div className="sp-header">
         <h1 className="sp-greeting">My Homework</h1>
-        <p className="sp-subtitle">View your assigned homework.</p>
+        <p className="sp-subtitle">View and complete your assigned practice worksheets and homework.</p>
       </div>
 
       <div className="sp-section mt-4">
@@ -70,19 +83,46 @@ const StudentHomework: React.FC = () => {
           </div>
         ) : (
           homeworkList.map((hw) => (
-            <div key={hw.id} className="sp-card hw-card mb-4">
-              <div className="hw-icon"><FileText size={24} className="text-blue-600"/></div>
-              <div className="hw-info">
-                <h4 className="text-lg font-bold text-[#2b3674]">{hw.title}</h4>
-                <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
-                  <Calendar size={14} /> Due: <span className="font-semibold">{hw.due}</span>
-                </p>
-                {hw.topic && (
-                  <p className="text-xs bg-blue-50 text-blue-600 inline-block px-2 py-1 rounded mt-2 font-medium">
-                    {hw.topic}
-                  </p>
-                )}
+            <div key={hw.id} className="sp-card hw-card mb-6 p-6 bg-white rounded-2xl border border-gray-200 shadow-sm">
+              <div className="flex items-start justify-between gap-4 pb-4 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-rose-50 text-rose-600 rounded-xl">
+                    <FileText size={24}/>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">{hw.title}</h3>
+                    <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                      <Calendar size={13} /> Due: <span className="font-semibold text-slate-700">{hw.due}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleSendOnWhatsApp(hw)}
+                  className="inline-flex items-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-sm transition-all cursor-pointer"
+                >
+                  <MessageCircle size={15} /> Submit on WhatsApp
+                </button>
               </div>
+
+              {/* Formatted Markdown Content */}
+              <div className="mt-4 pt-2">
+                <MarkdownRenderer content={hw.instructions || hw.description || 'No instructions provided.'} />
+              </div>
+
+              {/* Attachments if any */}
+              {hw.attachmentUrl && (
+                <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2">
+                  <a
+                    href={hw.attachmentUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold hover:bg-rose-100"
+                  >
+                    <FileText size={14} /> Open Worksheet PDF <ExternalLink size={12} />
+                  </a>
+                </div>
+              )}
             </div>
           ))
         )}

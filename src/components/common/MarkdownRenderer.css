@@ -1,0 +1,282 @@
+.md-renderer {
+  font-family: inherit;
+  color: var(--text-main, #1e293b);
+  line-height: 1.6;
+  font-size: 0.925rem;
+  width: 100%;
+}
+
+.md-empty-line {
+  height: 0.6rem;
+}
+
+/* Headings */
+.md-h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+  border-left: 4px solid #e11d48;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  margin: 1.25rem 0 0.75rem 0;
+  color: #881337;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.md-h1.md-speaking-header {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-left-color: #0284c7;
+  color: #0369a1;
+}
+
+.md-h1.md-rule-header {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-left-color: #d97706;
+  color: #92400e;
+}
+
+.md-h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 1.25rem 0 0.5rem 0;
+  padding-bottom: 0.35rem;
+  border-bottom: 1.5px solid #f1f5f9;
+}
+
+.md-h2.md-part-header {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.5rem 0.85rem;
+  border-radius: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.md-part-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e11d48;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.md-h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #334155;
+  margin: 0.75rem 0 0.35rem 0;
+}
+
+.md-h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #475569;
+  margin: 0.5rem 0 0.25rem 0;
+}
+
+/* Marks Badge */
+.md-marks-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  margin: 0.35rem 0;
+}
+
+/* Dividers */
+.md-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 1.25rem 0;
+  position: relative;
+}
+
+.md-divider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.md-divider-diamond {
+  position: relative;
+  z-index: 1;
+  width: 8px;
+  height: 8px;
+  background: #cbd5e1;
+  transform: rotate(45deg);
+}
+
+/* Numbered Questions */
+.md-numbered-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin: 0.5rem 0;
+  padding: 0.25rem 0;
+}
+
+.md-number-badge {
+  flex-shrink: 0;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin-top: 0.1rem;
+}
+
+.md-item-content {
+  flex: 1;
+}
+
+/* Multiple Choice */
+.md-choice-option {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  margin: 0.35rem 0 0.35rem 2.25rem;
+  transition: background 0.15s;
+}
+
+.md-choice-option:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.md-choice-letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #475569;
+}
+
+/* Answer Line Box */
+.md-answer-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  margin: 0.4rem 0 0.4rem 2.25rem;
+  color: #475569;
+  font-size: 0.85rem;
+}
+
+/* Bullet Items */
+.md-bullet-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin: 0.35rem 0;
+  padding-left: 0.5rem;
+}
+
+.md-bullet-dot {
+  width: 6px;
+  height: 6px;
+  background: #e11d48;
+  border-radius: 50%;
+  margin-top: 0.55rem;
+  flex-shrink: 0;
+}
+
+/* Quotes / Rules Callouts */
+.md-quote {
+  background: #f8fafc;
+  border-left: 4px solid #6366f1;
+  padding: 0.65rem 0.9rem;
+  border-radius: 0.4rem;
+  margin: 0.6rem 0;
+  font-style: italic;
+  color: #334155;
+}
+
+/* Paragraphs */
+.md-paragraph {
+  margin: 0.35rem 0;
+  color: #1e293b;
+}
+
+.md-meta-row {
+  margin: 0.25rem 0;
+}
+
+/* Inline Styles */
+.md-bold {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.md-italic {
+  font-style: italic;
+  color: #475569;
+}
+
+.md-bold-italic {
+  font-weight: 700;
+  font-style: italic;
+  color: #0f172a;
+}
+
+.md-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: #f1f5f9;
+  color: #e11d48;
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+}
+
+.md-link {
+  color: #2563eb;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.md-blank {
+  color: #94a3b8;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}

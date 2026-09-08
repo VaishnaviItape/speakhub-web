@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, CheckSquare, Edit, Trash2, Calendar, FileText, Upload } from 'lucide-react';
+import { Plus, CheckSquare, Edit, Trash2, Calendar, FileText, Upload, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
@@ -9,6 +9,7 @@ import { db } from '../../config/firebase';
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, serverTimestamp } from 'firebase/firestore';
 import { uploadFile } from '../../utils/storageService';
 import type { Homework, Batch } from '../../types/models';
+import MarkdownRenderer from '../../components/common/MarkdownRenderer';
 import '../../components/ui/TableStyles.css';
 
 const HomeworkPage: React.FC = () => {
@@ -33,6 +34,8 @@ const HomeworkPage: React.FC = () => {
   const [pdfLink, setPdfLink] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<'published' | 'scheduled' | 'draft'>('published');
+  const [editorTab, setEditorTab] = useState<'write' | 'preview'>('write');
+  const [previewModalHw, setPreviewModalHw] = useState<Homework | null>(null);
 
   useEffect(() => {
     fetchBatches();
@@ -305,6 +308,13 @@ const HomeworkPage: React.FC = () => {
             <CheckSquare size={14}/> Submissions
           </button>
           <button 
+            className="text-indigo-600 hover:bg-indigo-50 p-1.5 rounded-lg border border-indigo-200 transition-all cursor-pointer" 
+            onClick={() => setPreviewModalHw(row)}
+            title="Preview Worksheet"
+          >
+            <Eye size={16}/>
+          </button>
+          <button 
             className="text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg border border-slate-200 transition-all cursor-pointer" 
             onClick={() => handleEdit(row)}
             title="Edit Homework"
@@ -434,28 +444,97 @@ const HomeworkPage: React.FC = () => {
           </div>
 
           {contentType === 'text' ? (
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main, #334155)', marginBottom: '0.35rem' }}>
-                Homework Instructions &amp; Questions <span style={{ color: '#ef4444' }}>*</span>
-              </label>
-              <textarea 
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #cbd5e1',
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main, #334155)' }}>
+                  Homework Instructions &amp; Questions <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <div style={{ display: 'flex', gap: '4px', backgroundColor: '#f1f5f9', padding: '3px', borderRadius: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditorTab('write')}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      border: 'none',
+                      backgroundColor: editorTab === 'write' ? '#ffffff' : 'transparent',
+                      color: editorTab === 'write' ? '#0f172a' : '#64748b',
+                      boxShadow: editorTab === 'write' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ✏️ Edit (ChatGPT Text)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditorTab('preview')}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      border: 'none',
+                      backgroundColor: editorTab === 'preview' ? '#ffffff' : 'transparent',
+                      color: editorTab === 'preview' ? '#e11d48' : '#64748b',
+                      boxShadow: editorTab === 'preview' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <Eye size={12} /> Live Preview
+                  </button>
+                </div>
+              </div>
+
+              {editorTab === 'write' ? (
+                <div>
+                  <textarea 
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '12px',
+                      backgroundColor: 'var(--bg-main, #ffffff)',
+                      color: 'var(--text-main, #0f172a)',
+                      fontSize: '0.875rem',
+                      minHeight: '160px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      fontFamily: 'inherit',
+                      lineHeight: 1.5
+                    }}
+                    placeholder="Paste or type homework with ChatGPT headings (#, ##), bold (**), questions (1., 2.), and parts (Part A, Part B)..."
+                    value={instructions}
+                    onChange={(e) => setInstructions(e.target.value)}
+                    required={contentType === 'text'}
+                  />
+                  <span style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px', display: 'block' }}>
+                    💡 Supports full Markdown: headings (#, ##), bold (**text**), italics (*text*), numbered lists, blanks (_____) and rules.
+                  </span>
+                </div>
+              ) : (
+                <div style={{
+                  padding: '1rem',
+                  border: '1px solid #e2e8f0',
                   borderRadius: '12px',
-                  backgroundColor: 'var(--bg-main, #ffffff)',
-                  color: 'var(--text-main, #0f172a)',
-                  fontSize: '0.875rem',
-                  minHeight: '120px',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-                placeholder="Type the homework tasks or questions for the students..."
-                value={instructions}
-                onChange={(e) => setInstructions(e.target.value)}
-                required={contentType === 'text'}
-              />
+                  backgroundColor: '#ffffff',
+                  minHeight: '160px',
+                  maxHeight: '300px',
+                  overflowY: 'auto'
+                }}>
+                  {instructions.trim() ? (
+                    <MarkdownRenderer content={instructions} />
+                  ) : (
+                    <p style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.85rem', margin: '1rem 0', textAlign: 'center' }}>
+                      No instructions typed yet. Switch to "Edit" tab to enter homework text.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
@@ -517,6 +596,48 @@ const HomeworkPage: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Full Worksheet Viewer Modal */}
+      <Modal 
+        isOpen={!!previewModalHw} 
+        onClose={() => setPreviewModalHw(null)} 
+        title={previewModalHw?.title || 'Homework Worksheet'}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '75vh', overflowY: 'auto', paddingRight: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f8fafc', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+            <div>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Target Batch</span>
+              <p style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>
+                {batches.find(b => b.documentId === previewModalHw?.batchId)?.batchName || previewModalHw?.batchId || 'All Batches'}
+              </p>
+            </div>
+            {previewModalHw?.attachmentUrl && (
+              <a 
+                href={previewModalHw.attachmentUrl} 
+                target="_blank" 
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold hover:bg-rose-100"
+              >
+                <FileText size={14} /> View Attached PDF
+              </a>
+            )}
+          </div>
+
+          <div style={{ backgroundColor: '#ffffff', padding: '1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            <MarkdownRenderer content={previewModalHw?.instructions || previewModalHw?.description || 'No text instructions available.'} />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+            <button 
+              type="button" 
+              className="btn btn-primary"
+              onClick={() => setPreviewModalHw(null)}
+            >
+              Close Worksheet
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
