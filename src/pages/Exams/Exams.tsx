@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Plus, ShieldAlert, Settings2, FileQuestion, BarChart2, 
-  Copy, Sparkles, Layers 
+  Copy, Sparkles, Layers, Edit, Trash2, Clock 
 } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
@@ -17,6 +17,7 @@ import { sendEmail } from '../../utils/emailService';
 import { formatIndianDateTime, formatIndianScheduleRange } from '../../utils/dateTime';
 import type { Exam, Course, Batch } from '../../types/models';
 import '../../components/ui/TableStyles.css';
+import './Exams.css';
 import { sendNotificationToBatch } from '../../services/pushNotificationService';
 
 const Exams: React.FC = () => {
@@ -531,11 +532,11 @@ const Exams: React.FC = () => {
       key: 'title',
       header: 'Exam Title',
       render: (row) => (
-        <div>
-          <span className="font-semibold text-gray-900">{row.title}</span>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-xs text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">{row.examType}</span>
-            {row.chapter && <span className="text-xs text-gray-500 font-medium">Topic: {row.chapter}</span>}
+        <div className="exam-title-cell">
+          <span className="exam-title-text">{row.title}</span>
+          <div className="exam-meta-row">
+            <span className="exam-type-pill">{row.examType || 'MCQ'}</span>
+            {row.chapter && <span className="exam-topic-text">Topic: {row.chapter}</span>}
           </div>
         </div>
       )
@@ -555,16 +556,16 @@ const Exams: React.FC = () => {
           : bIds.map(bId => batches.find(b => b.documentId === bId)?.batchName || bId).filter(Boolean);
 
         return (
-          <div className="text-xs">
-            <div className="font-semibold text-gray-800">{cName}</div>
-            <div className="flex flex-wrap gap-1 mt-1">
+          <div className="exam-batch-cell">
+            <div className="exam-course-name">{cName}</div>
+            <div className="exam-batches-list">
               {assignedBatchNames.slice(0, 2).map((b, i) => (
-                <span key={i} className="text-[11px] bg-indigo-50 text-indigo-700 font-semibold px-2 py-0.5 rounded-full border border-indigo-200">
+                <span key={i} className="exam-batch-pill">
                   {b}
                 </span>
               ))}
               {assignedBatchNames.length > 2 && (
-                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full font-bold">
+                <span className="exam-batch-more">
                   +{assignedBatchNames.length - 2} more
                 </span>
               )}
@@ -577,45 +578,66 @@ const Exams: React.FC = () => {
       key: 'schedule',
       header: 'Schedule (Indian AM/PM)',
       render: (row) => (
-        <div className="text-xs space-y-0.5">
-          <div className="font-semibold text-gray-900">
+        <div className="exam-schedule-cell">
+          <div className="exam-schedule-time">
             {formatIndianScheduleRange(row.startDate, row.endDate)}
           </div>
-          <div className="text-gray-500 font-medium">⏱️ {row.duration} mins</div>
+          <div className="exam-duration-badge">
+            <Clock size={12} />
+            <span>{row.duration} mins</span>
+          </div>
         </div>
       )
     },
     {
       key: 'marks',
       header: 'Marks',
+      align: 'center',
       render: (row) => (
-        <div className="text-xs">
-          <span className="text-green-600 font-bold">{row.passingMarks}</span>
-          <span className="text-gray-400 mx-1">/</span>
-          <span className="text-gray-900 font-bold">{row.totalMarks}</span>
-          <div className="text-[11px] text-gray-500 mt-0.5">Pass / Total</div>
+        <div className="exam-marks-cell" style={{ alignItems: 'center' }}>
+          <div className="exam-marks-score">
+            <span className="exam-pass-mark">{row.passingMarks}</span>
+            <span style={{ color: '#94a3b8', margin: '0 3px' }}>/</span>
+            <span className="exam-total-mark">{row.totalMarks}</span>
+          </div>
+          <div className="exam-marks-sub">Pass / Total</div>
         </div>
       )
     },
     {
       key: 'status',
       header: 'Status',
+      align: 'center',
       render: (row) => {
         const count = Number(row.numberOfQuestions) || 0;
         if (count === 0 && (row.status === 'published' || row.status === 'scheduled')) {
           return (
-            <span className="dt-badge pending">
-              Pending Questions
+            <span className="exam-status-badge pending">
+              <span className="exam-status-dot" />
+              <span>Pending Questions</span>
             </span>
           );
         }
-        let sc = 'pending';
-        if (row.status === 'published' || row.status === 'completed') sc = 'active';
-        if (row.status === 'cancelled') sc = 'inactive';
+        let stClass = 'draft';
+        let stLabel = 'Draft';
+        if (row.status === 'published') {
+          stClass = 'published';
+          stLabel = 'Published';
+        } else if (row.status === 'scheduled') {
+          stClass = 'scheduled';
+          stLabel = 'Scheduled';
+        } else if (row.status === 'completed') {
+          stClass = 'completed';
+          stLabel = 'Completed';
+        } else if (row.status === 'cancelled') {
+          stClass = 'pending';
+          stLabel = 'Cancelled';
+        }
 
         return (
-          <span className={`dt-badge ${sc}`}>
-            {row.status ? row.status.charAt(0).toUpperCase() + row.status.slice(1) : 'Draft'}
+          <span className={`exam-status-badge ${stClass}`}>
+            <span className="exam-status-dot" />
+            <span>{stLabel}</span>
           </span>
         );
       }
@@ -626,34 +648,54 @@ const Exams: React.FC = () => {
       render: (row) => {
         const qCount = Number(row.numberOfQuestions) || 0;
         return (
-          <div className="flex items-center gap-2">
-            {/* 1. MCQ Questions Button with tooltip */}
+          <div className="exam-actions-group">
+            {/* 1. MCQ Questions Button */}
             <Link
               to={`/exams/${row.documentId}/questions`}
-              className="w-8 h-8 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 flex items-center justify-center transition-all cursor-pointer shadow-2xs hover:border-indigo-300"
+              className="exam-action-btn questions"
               title={`MCQ Questions (${qCount} Questions Added)`}
             >
-              <FileQuestion size={16} />
+              <FileQuestion size={15} />
             </Link>
 
-            {/* 2. Assign / Schedule Next Batch Button with tooltip */}
+            {/* 2. Assign / Schedule Next Batch Button */}
             <button
               type="button"
               onClick={() => handleOpenNextBatchModal(row)}
-              className="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 flex items-center justify-center transition-all cursor-pointer shadow-2xs hover:border-blue-300"
+              className="exam-action-btn next-batch"
               title="Schedule Exam for Next Batch"
             >
               <Copy size={15} />
             </button>
 
-            {/* 3. Results Button with tooltip */}
+            {/* 3. Results & Analytics Button */}
             <Link
               to={`/exams/${row.documentId}/results`}
-              className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center justify-center transition-all cursor-pointer shadow-2xs hover:border-emerald-300"
+              className="exam-action-btn results"
               title="View Results & Student Submissions"
             >
               <BarChart2 size={16} />
             </Link>
+
+            {/* 4. Edit Exam Button */}
+            <button
+              type="button"
+              onClick={() => handleEdit(row)}
+              className="exam-action-btn edit"
+              title="Edit Exam Schedule & Settings"
+            >
+              <Edit size={15} />
+            </button>
+
+            {/* 5. Delete Exam Button */}
+            <button
+              type="button"
+              onClick={() => handleDelete(row)}
+              className="exam-action-btn delete"
+              title="Delete Exam"
+            >
+              <Trash2 size={15} />
+            </button>
           </div>
         );
       }
@@ -731,8 +773,6 @@ const Exams: React.FC = () => {
           title="Master Exam Schedule"
           data={exams}
           columns={columns}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
           onRefresh={fetchExams}
           searchPlaceholder="Search exams..."
           isLoading={isLoading}

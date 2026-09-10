@@ -151,7 +151,7 @@ const Header: React.FC = () => {
         {/* Global Search Bar */}
         <div className="search-bar-wrapper" ref={searchContainerRef}>
           <div className={`search-bar ${isDropdownOpen && searchTerm ? 'search-bar-active' : ''}`}>
-            <Search size={16} className="text-muted search-icon" />
+            <Search size={16} className="text-muted header-search-icon flex-shrink-0" />
             <input
               ref={inputRef}
               type="text"

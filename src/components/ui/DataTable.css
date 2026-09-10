@@ -58,12 +58,13 @@
   font-size: 0.875rem;
   color: #2b3674;
   outline: none;
-  width: 200px;
+  width: 280px;
+  min-width: 220px;
   transition: width 0.3s;
 }
 
 .dt-search-input:focus {
-  width: 250px;
+  width: 320px;
   box-shadow: 0 0 0 2px rgba(67, 24, 255, 0.2);
 }
 

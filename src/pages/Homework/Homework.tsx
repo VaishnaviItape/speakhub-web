@@ -11,6 +11,7 @@ import { uploadFile } from '../../utils/storageService';
 import type { Homework, Batch } from '../../types/models';
 import MarkdownRenderer from '../../components/common/MarkdownRenderer';
 import '../../components/ui/TableStyles.css';
+import './Homework.css';
 import { sendNotificationToBatch } from '../../services/pushNotificationService';
 
 const HomeworkPage: React.FC = () => {
@@ -245,9 +246,9 @@ const HomeworkPage: React.FC = () => {
           }
         }
         return (
-          <div className="flex items-center gap-1.5 font-bold text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg w-fit">
+          <div className="hw-date-badge">
             <Calendar size={13} />
-            {dStr}
+            <span>{dStr}</span>
           </div>
         );
       }
@@ -258,9 +259,9 @@ const HomeworkPage: React.FC = () => {
       render: (row) => {
         const bName = batches.find(b => b.documentId === row.batchId)?.batchName || row.batchId || 'All Batches';
         return (
-          <div className="py-1">
-            <span className="font-bold text-slate-900 dark:text-white text-sm block leading-tight">{row.title}</span>
-            <span className="text-xs font-semibold text-indigo-600 block mt-0.5">Batch: {bName}</span>
+          <div className="hw-title-block">
+            <span className="hw-title-text">{row.title}</span>
+            <span className="hw-batch-text">Batch: {bName}</span>
           </div>
         );
       }
@@ -274,13 +275,14 @@ const HomeworkPage: React.FC = () => {
             href={row.attachmentUrl} 
             target="_blank" 
             rel="noreferrer"
-            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-all"
+            className="hw-content-badge pdf-attachment"
           >
-            <FileText size={13} /> View PDF / File
+            <FileText size={13} />
+            <span>View PDF / File</span>
           </a>
         ) : (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold">
-            ✍️ Text Instructions
+          <span className="hw-content-badge text-instructions">
+            <span>✍️ Text Instructions</span>
           </span>
         )
       )
@@ -289,12 +291,13 @@ const HomeworkPage: React.FC = () => {
       key: 'status',
       header: 'Status',
       render: (row) => (
-        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+        <span className={`hw-status-badge ${
           row.status === 'published' 
-            ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
-            : (row.status === 'scheduled' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-700 border-slate-200')
+            ? 'published' 
+            : (row.status === 'scheduled' ? 'scheduled' : 'draft')
         }`}>
-          {row.status === 'published' ? '🟢 Published' : (row.status === 'scheduled' ? '🟡 Scheduled' : '⚪ Draft')}
+          <span className="hw-status-dot" />
+          <span>{row.status === 'published' ? 'Published' : (row.status === 'scheduled' ? 'Scheduled' : 'Draft')}</span>
         </span>
       )
     },
@@ -302,29 +305,35 @@ const HomeworkPage: React.FC = () => {
       key: 'actions',
       header: 'Actions',
       render: (row) => (
-        <div className="flex gap-2 items-center">
+        <div className="hw-actions-group">
           <button 
-            className="btn bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all cursor-pointer shadow-sm" 
+            type="button"
+            className="hw-btn-submissions" 
             onClick={() => navigate(`/homework/${row.documentId}/review`)}
+            title="Review student submissions"
           >
-            <CheckSquare size={14}/> Submissions
+            <CheckSquare size={14}/>
+            <span>Submissions</span>
           </button>
           <button 
-            className="text-indigo-600 hover:bg-indigo-50 p-1.5 rounded-lg border border-indigo-200 transition-all cursor-pointer" 
+            type="button"
+            className="hw-action-btn preview" 
             onClick={() => setPreviewModalHw(row)}
             title="Preview Worksheet"
           >
             <Eye size={16}/>
           </button>
           <button 
-            className="text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg border border-slate-200 transition-all cursor-pointer" 
+            type="button"
+            className="hw-action-btn edit" 
             onClick={() => handleEdit(row)}
             title="Edit Homework"
           >
             <Edit size={16}/>
           </button>
           <button 
-            className="text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg border border-rose-200 transition-all cursor-pointer" 
+            type="button"
+            className="hw-action-btn delete" 
             onClick={() => handleDelete(row)}
             title="Delete Homework"
           >

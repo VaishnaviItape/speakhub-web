@@ -4,35 +4,36 @@
 @import './utilities.css';
 
 /* CSS Reset and Base Styles */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 
-body {
-  font-family: var(--font-family);
-  background-color: var(--bg-main);
-  color: var(--text-main);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  line-height: 1.5;
-}
+  body {
+    font-family: var(--font-family);
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5;
+  }
 
-a {
-  text-decoration: none;
-  color: inherit;
-}
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
 
-button {
-  cursor: pointer;
-  border: none;
-  background: none;
-  font-family: inherit;
-}
+  button {
+    cursor: pointer;
+    font-family: inherit;
+    border: none;
+  }
 
-ul, ol {
-  list-style: none;
+  ul, ol {
+    list-style: none;
+  }
 }
 
 /* Utility Classes */
