@@ -30,20 +30,28 @@
   background-color: var(--bg-main);
 }
 
+.search-bar-wrapper {
+  position: relative;
+  width: 360px;
+}
+
 .search-bar {
   display: flex;
   align-items: center;
   background-color: var(--bg-main);
-  border-radius: 20px;
+  border-radius: 22px;
   padding: 0.5rem 1rem;
-  width: 300px;
+  width: 100%;
   gap: 0.5rem;
-  border: 1px solid transparent;
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
 }
 
-.search-bar:focus-within {
+.search-bar:focus-within,
+.search-bar.search-bar-active {
   border-color: var(--primary);
   background-color: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.1);
 }
 
 .search-bar input {
@@ -51,8 +59,192 @@
   background: transparent;
   outline: none;
   width: 100%;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   color: var(--text-main);
+}
+
+.search-shortcut {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--border-color);
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.search-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  border: none;
+}
+
+.search-clear-btn:hover {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.search-results-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 420px;
+  max-height: 420px;
+  overflow-y: auto;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  box-shadow: 0 14px 35px -6px rgba(0, 0, 0, 0.15), 0 6px 14px -3px rgba(0, 0, 0, 0.08);
+  z-index: 100;
+  animation: fadeInDown 0.15s ease-out;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.search-dropdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.search-dropdown-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.search-dropdown-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+.search-results-list {
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.search-result-item:hover,
+.search-result-item.selected {
+  background-color: var(--primary-light, rgba(225, 29, 72, 0.08));
+}
+
+.result-icon-box {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background-color: var(--bg-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.result-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.result-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.result-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result-group-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background-color: var(--bg-main);
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.result-description {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.result-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.search-result-item:hover .result-arrow,
+.search-result-item.selected .result-arrow {
+  color: var(--primary);
+  opacity: 1;
+}
+
+.search-no-results {
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+.search-no-results p {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 0.25rem;
+}
+
+.search-no-results span {
+  font-size: 0.78rem;
+  color: var(--text-muted);
 }
 
 .header-right {

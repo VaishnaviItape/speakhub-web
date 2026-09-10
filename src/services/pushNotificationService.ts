@@ -148,7 +148,7 @@ export async function sendNotificationToUser(
 
   try {
     // 1. Create Notification Record in Firestore
-    await addDoc(collection(db, 'notifications'), {
+    const notifRef = await addDoc(collection(db, 'notifications'), {
       userId,
       title: payload.title,
       body: payload.body,
@@ -170,6 +170,7 @@ export async function sendNotificationToUser(
         data: {
           ...payload.data,
           type: payload.type,
+          notificationId: notifRef.id,
         },
         sound: 'default',
         priority: 'high',
@@ -201,6 +202,7 @@ export async function sendNotificationToUsers(
 
   try {
     // 1. Batch create Firestore notification records
+    const userNotifIdMap = new Map<string, string>();
     const batchSize = 400; // Firestore limit is 500
     for (let i = 0; i < uniqueUserIds.length; i += batchSize) {
       const batchIds = uniqueUserIds.slice(i, i + batchSize);
@@ -208,6 +210,7 @@ export async function sendNotificationToUsers(
 
       batchIds.forEach(uId => {
         const notifRef = doc(collection(db, 'notifications'));
+        userNotifIdMap.set(uId, notifRef.id);
         batch.set(notifRef, {
           userId: uId,
           title: payload.title,
@@ -228,6 +231,7 @@ export async function sendNotificationToUsers(
 
     uniqueUserIds.forEach(uId => {
       const tokens = tokenMap.get(uId) || [];
+      const notifId = userNotifIdMap.get(uId);
       tokens.forEach(token => {
         messages.push({
           to: token,
@@ -236,6 +240,7 @@ export async function sendNotificationToUsers(
           data: {
             ...payload.data,
             type: payload.type,
+            notificationId: notifId,
           },
           sound: 'default',
           priority: 'high',
