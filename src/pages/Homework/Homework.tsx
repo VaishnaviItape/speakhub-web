@@ -11,6 +11,7 @@ import { uploadFile } from '../../utils/storageService';
 import type { Homework, Batch } from '../../types/models';
 import MarkdownRenderer from '../../components/common/MarkdownRenderer';
 import '../../components/ui/TableStyles.css';
+import { sendNotificationToBatch } from '../../services/pushNotificationService';
 
 const HomeworkPage: React.FC = () => {
   const navigate = useNavigate();
@@ -159,16 +160,17 @@ const HomeworkPage: React.FC = () => {
         await updateDoc(doc(db, 'homeworks', editingId), hwData);
       } else {
         await addDoc(collection(db, 'homeworks'), hwData);
-        // Create in-app mobile push notification in Firestore
-        await addDoc(collection(db, 'notifications'), {
-          title: `✍️ New Homework: ${title.trim()}`,
-          message: `New homework assignment "${title.trim()}" has been assigned for your batch.`,
-          type: 'homework',
-          batchId: batchId || 'all',
-          courseId: selectedBatch?.courseId || '',
-          route: '/(app)/homework',
-          actionLabel: 'View Homework',
-          createdAt: serverTimestamp(),
+        // Dispatch real-time mobile push notifications to all enrolled students
+        await sendNotificationToBatch(batchId || 'all', {
+          title: `📚 New Homework: ${title.trim()}`,
+          body: `Homework assignment "${title.trim()}" has been added. Due date: ${dueDate || 'Check app'}`,
+          type: 'HOMEWORK',
+          channelId: 'study',
+          data: {
+            screen: '/(app)/homework',
+            type: 'HOMEWORK',
+            batchId: batchId || 'all',
+          },
         });
       }
 

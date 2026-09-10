@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, MessageCircle, Calendar, Clock, Printer, CreditCard, Sparkles } from 'lucide-react';
+import { Plus, MessageCircle, Calendar, Clock, Printer, CreditCard, Sparkles, Edit2, Bell } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import { db } from '../../config/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import type { FeeTransaction, User, Course } from '../../types/models';
 import { validatePositiveNumber } from '../../utils/validation';
 import '../../components/ui/TableStyles.css';
 import './Fees.css';
 import ReceiptTemplate from './ReceiptTemplate';
 import { useAuth } from '../../contexts/AuthContext';
+import { sendFeeDueNotification } from '../../services/pushNotificationService';
 
 interface StudentFeeRecord {
   documentId?: string;
@@ -27,6 +28,7 @@ interface StudentFeeRecord {
   lastPaidMonth?: string;
   currentDueDate?: string;
   currentDueDateRaw?: string;
+  currentDueDay?: number;
   nextDueDate?: string;
   nextDueDateRaw?: string;
 }
@@ -77,6 +79,8 @@ const Fees: React.FC = () => {
   const [calculatedDueDate, setCalculatedDueDate] = useState<string>('');
   const [customNextDueDate, setCustomNextDueDate] = useState<string>('');
   const [periodCoverageText, setPeriodCoverageText] = useState<string>('');
+  const [isEditingCurrentDueDate, setIsEditingCurrentDueDate] = useState<boolean>(false);
+  const [currentDueDateEditVal, setCurrentDueDateEditVal] = useState<string>('');
 
   // Receipt State
   const [printedTransaction, setPrintedTransaction] = useState<FeeTransaction | null>(null);
@@ -204,15 +208,20 @@ const Fees: React.FC = () => {
         const lastTx = studentTx[0];
         const jInfo = formatJoiningDateDisplay(student.joiningDate || (student as any).createdAt);
 
-        // Student's current due date: if previous payments exist, it is lastTx.nextDueDate.
-        // Otherwise it is their joining date.
         let curDueDisplay = jInfo.display;
         let curDueRaw = jInfo.raw;
+        let curDueDay = jInfo.day;
 
-        if (lastTx?.nextDueDate) {
+        if ((student as any).feeDueDate) {
+          const formattedFeeDue = formatJoiningDateDisplay((student as any).feeDueDate);
+          curDueDisplay = formattedFeeDue.display;
+          curDueRaw = formattedFeeDue.raw;
+          curDueDay = formattedFeeDue.day;
+        } else if (lastTx?.nextDueDate) {
           const formattedLastNext = formatJoiningDateDisplay(lastTx.nextDueDate);
           curDueDisplay = formattedLastNext.display;
           curDueRaw = formattedLastNext.raw;
+          curDueDay = formattedLastNext.day;
         }
 
         return {
@@ -229,6 +238,7 @@ const Fees: React.FC = () => {
           lastPaidMonth: lastTx?.billingPeriod,
           currentDueDate: curDueDisplay,
           currentDueDateRaw: curDueRaw,
+          currentDueDay: curDueDay,
           nextDueDate: curDueDisplay,
           nextDueDateRaw: curDueRaw
         };
@@ -240,6 +250,49 @@ const Fees: React.FC = () => {
       console.error("Error fetching fee data:", e);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Quick update/save of student's Current Due Date to Firestore & local state
+  const handleSaveCurrentDueDate = async (studentId: string, newDateIso: string) => {
+    if (!newDateIso) {
+      alert("Please select a valid date.");
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'users', studentId), {
+        feeDueDate: newDateIso
+      });
+
+      const parts = newDateIso.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const d = parseInt(parts[2], 10);
+        const dateObj = new Date(y, m - 1, d);
+        const display = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        const mStr = `${monthNames[m - 1]} ${y}`;
+
+        setFeeRecords(prev => prev.map(r => {
+          if (r.studentId === studentId) {
+            return {
+              ...r,
+              currentDueDate: display,
+              currentDueDateRaw: newDateIso,
+              currentDueDay: d,
+              nextDueDate: display,
+              nextDueDateRaw: newDateIso
+            };
+          }
+          return r;
+        }));
+
+        setBillingPeriod(mStr);
+        setIsEditingCurrentDueDate(false);
+      }
+    } catch (e) {
+      console.error('Failed to update due date:', e);
+      alert('Failed to save new due date');
     }
   };
 
@@ -257,14 +310,29 @@ const Fees: React.FC = () => {
         const coverage = getPeriodCoverageLabel(startMonth, numberOfMonths);
         setPeriodCoverageText(coverage);
 
-        // Calculate next due date: starting billing month + numberOfMonths
-        // (e.g. Jul 2026 + 2 months = Sep 2026)
-        const due = calculateNextDueFromBillingPeriod(startMonth, numberOfMonths, record.joiningDay || 1);
+        // Calculate next due date using student's current due date day (or joining day)
+        const dueDay = record.currentDueDay || record.joiningDay || 1;
+        const due = calculateNextDueFromBillingPeriod(startMonth, numberOfMonths, dueDay);
         setCalculatedDueDate(due.display);
         setCustomNextDueDate(due.iso);
       }
     }
   }, [paymentStudentId, numberOfMonths, billingPeriod, feeRecords]);
+
+  // Handle user manual override of Next Due Date
+  const handleCustomDueDateChange = (newIsoDate: string) => {
+    setCustomNextDueDate(newIsoDate);
+    if (newIsoDate) {
+      const parts = newIsoDate.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        if (!isNaN(d.getTime())) {
+          const display = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+          setCalculatedDueDate(display);
+        }
+      }
+    }
+  };
 
   // Open modal with pre-configured student info
   const handleOpenPaymentModal = (record: StudentFeeRecord) => {
@@ -273,6 +341,8 @@ const Fees: React.FC = () => {
     setDiscount('0');
     setLateFee('0');
     setRemarks('');
+    setIsEditingCurrentDueDate(false);
+    setCurrentDueDateEditVal(record.currentDueDateRaw || '');
 
     // Pre-select billing month according to currentDueDate
     if (record.currentDueDateRaw) {
@@ -315,7 +385,8 @@ const Fees: React.FC = () => {
       const lf = Math.max(0, Number(lateFee) || 0);
       const netPaid = Math.max(0, amt - disc + lf);
       
-      const computedDue = calculateNextDueFromBillingPeriod(billingPeriod, numberOfMonths, record.joiningDay || 1).iso;
+      const dueDay = record.currentDueDay || record.joiningDay || 1;
+      const computedDue = calculateNextDueFromBillingPeriod(billingPeriod, numberOfMonths, dueDay).iso;
       const finalNextDueDate = customNextDueDate || computedDue;
       const coverage = periodCoverageText || `${billingPeriod} (${numberOfMonths} ${numberOfMonths === 1 ? 'Month' : 'Months'})`;
 
@@ -434,6 +505,38 @@ const Fees: React.FC = () => {
   const numLateFee = Math.max(0, Number(lateFee) || 0);
   const netPayable = Math.max(0, totalBaseFee - numDiscount + numLateFee);
 
+  const handleSendPushFeeReminder = async (row: StudentFeeRecord) => {
+    const res = await sendFeeDueNotification({
+      studentId: row.studentId,
+      studentName: row.studentName,
+      monthlyFee: row.monthlyFee,
+      dueDate: row.currentDueDate || 'due date',
+      force: true,
+    });
+    alert(res.message);
+  };
+
+  const handleNotifyAllDueStudents = async () => {
+    let sentCount = 0;
+    for (const row of feeRecords) {
+      const res = await sendFeeDueNotification({
+        studentId: row.studentId,
+        studentName: row.studentName,
+        monthlyFee: row.monthlyFee,
+        dueDate: row.currentDueDate || 'due date',
+        force: false,
+      });
+      if (res.success) {
+        sentCount++;
+      }
+    }
+    if (sentCount > 0) {
+      alert(`Sent ${sentCount} Fee Due push notification(s) to students' mobile notification bar.`);
+    } else {
+      alert("All eligible students have already received their fee notification for today.");
+    }
+  };
+
   const columns: Column<StudentFeeRecord>[] = [
     {
       key: 'studentName',
@@ -475,9 +578,24 @@ const Fees: React.FC = () => {
       key: 'currentDueDate',
       header: 'Current Due Date',
       render: (row) => (
-        <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-lg w-fit">
-          <Calendar size={13} />
-          {row.currentDueDate || row.joiningDate || '01 Mar 2026'}
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-lg w-fit">
+            <Calendar size={13} />
+            {row.currentDueDate || row.joiningDate || '01 Mar 2026'}
+          </div>
+          <button
+            type="button"
+            className="fee-edit-due-date-btn"
+            title="Edit Current Due Date"
+            onClick={() => {
+              const input = prompt(`Edit Current Due Date for ${row.studentName} (YYYY-MM-DD):`, row.currentDueDateRaw || '');
+              if (input && input.trim()) {
+                handleSaveCurrentDueDate(row.studentId, input.trim());
+              }
+            }}
+          >
+            <Edit2 size={12} />
+          </button>
         </div>
       )
     },
@@ -510,6 +628,14 @@ const Fees: React.FC = () => {
             >
               <MessageCircle size={14} className="mr-1 inline" /> WhatsApp
             </button>
+            <button 
+              className="btn bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold border border-rose-200" 
+              style={{padding: '5px 10px', fontSize: '12px', borderRadius: '8px'}} 
+              title="Send Push Notification to Student Mobile"
+              onClick={() => handleSendPushFeeReminder(row)}
+            >
+              <Bell size={13} className="mr-1 inline" /> Push Alert
+            </button>
           </div>
         );
       }
@@ -525,16 +651,24 @@ const Fees: React.FC = () => {
             <span>Fees</span> <span className="separator">/</span> <span className="current">Monthly Collection</span>
           </div>
         </div>
-        <button 
-          className="btn btn-primary flex items-center gap-2" 
-          onClick={() => { 
-            if(feeRecords.length > 0) { 
-              handleOpenPaymentModal(feeRecords[0]);
-            } 
-          }}
-        >
-          <Plus size={16} /> Record Payment
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button 
+            className="btn bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold border border-amber-300 flex items-center gap-1.5"
+            onClick={handleNotifyAllDueStudents}
+          >
+            <Bell size={15} /> Notify All Due Students
+          </button>
+          <button 
+            className="btn btn-primary flex items-center gap-2" 
+            onClick={() => { 
+              if(feeRecords.length > 0) { 
+                handleOpenPaymentModal(feeRecords[0]);
+              } 
+            }}
+          >
+            <Plus size={16} /> Record Payment
+          </button>
+        </div>
       </div>
 
       <DataTable 
@@ -571,9 +705,46 @@ const Fees: React.FC = () => {
                 <Calendar size={15} color="var(--primary, #e11d48)" />
                 <span>Joining Date: <strong>{selectedRecord.joiningDate || '01 Jan 2026'}</strong></span>
               </div>
-              <div className="fee-student-meta-item">
+              <div className="fee-student-meta-item" style={{ flexWrap: 'wrap' }}>
                 <Clock size={15} color="#d97706" />
-                <span>Current Due Date: <strong style={{ color: '#d97706' }}>{selectedRecord.currentDueDate}</strong></span>
+                {!isEditingCurrentDueDate ? (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <span>Current Due Date: <strong style={{ color: '#d97706' }}>{selectedRecord.currentDueDate}</strong></span>
+                    <button
+                      type="button"
+                      className="fee-edit-due-date-btn"
+                      title="Edit Current Due Date"
+                      onClick={() => {
+                        setIsEditingCurrentDueDate(true);
+                        setCurrentDueDateEditVal(selectedRecord.currentDueDateRaw || '');
+                      }}
+                    >
+                      <Edit2 size={13} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="fee-inline-due-edit">
+                    <input 
+                      type="date"
+                      value={currentDueDateEditVal}
+                      onChange={(e) => setCurrentDueDateEditVal(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="fee-inline-due-save-btn"
+                      onClick={() => handleSaveCurrentDueDate(selectedRecord.studentId, currentDueDateEditVal)}
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      className="fee-inline-due-cancel-btn"
+                      onClick={() => setIsEditingCurrentDueDate(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="fee-student-meta-pill">
                 <CreditCard size={14} />
@@ -638,7 +809,7 @@ const Fees: React.FC = () => {
                   type="date" 
                   className="fee-custom-date-input"
                   value={customNextDueDate}
-                  onChange={(e) => setCustomNextDueDate(e.target.value)}
+                  onChange={(e) => handleCustomDueDateChange(e.target.value)}
                 />
               </div>
             </div>

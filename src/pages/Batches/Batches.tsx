@@ -9,6 +9,7 @@ import { db } from '../../config/firebase';
 import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, where, arrayUnion } from 'firebase/firestore';
 import { validateBatchName } from '../../utils/validation';
 import { formatIndianDate } from '../../utils/dateTime';
+import { sendNotificationToBatch } from '../../services/pushNotificationService';
 
 const Batches: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -107,6 +108,19 @@ const Batches: React.FC = () => {
       } else {
         const docRef = await addDoc(collection(db, 'batches'), batchData);
         newBatchId = docRef.id;
+
+        // Dispatch mobile push notification to students
+        await sendNotificationToBatch(newBatchId, {
+          title: `👥 New Batch Added: ${batchName}`,
+          body: `Batch "${batchName}" has been created. Starts from ${startDate ? new Date(startDate).toLocaleDateString('en-GB') : 'upcoming schedule'}.`,
+          type: 'BATCH',
+          channelId: 'batches',
+          data: {
+            screen: '/(app)/notes',
+            type: 'BATCH',
+            batchId: newBatchId,
+          },
+        });
       }
 
       // If a YouTube video is attached, also sync to youtube_videos collection

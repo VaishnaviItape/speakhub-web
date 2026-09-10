@@ -17,6 +17,7 @@ import { sendEmail } from '../../utils/emailService';
 import { formatIndianDateTime, formatIndianScheduleRange } from '../../utils/dateTime';
 import type { Exam, Course, Batch } from '../../types/models';
 import '../../components/ui/TableStyles.css';
+import { sendNotificationToBatch } from '../../services/pushNotificationService';
 
 const Exams: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'table' | 'batch_manager'>('table');
@@ -310,6 +311,19 @@ const Exams: React.FC = () => {
         await batch.commit();
       }
 
+      // Dispatch push notification to students of target batch
+      await sendNotificationToBatch(nextBatchId, {
+        title: `📝 New Exam: ${nextExamTitle}`,
+        body: `Exam "${nextExamTitle}" is scheduled for your batch. Date: ${formatIndianDateTime(nextStartDate)}`,
+        type: 'EXAM',
+        channelId: 'exams',
+        data: {
+          screen: '/(app)/exams',
+          type: 'EXAM',
+          examId: newExamRef.id,
+        },
+      });
+
       alert(`🎉 Success!\n\nExam "${nextExamTitle}" scheduled for batch "${targetBatchObj?.batchName}" with all ${qSnap.size} questions!`);
       setIsNextBatchModalOpen(false);
       fetchExams();
@@ -375,6 +389,19 @@ const Exams: React.FC = () => {
         await updateDoc(doc(db, 'exams', editingId), examData);
         if (oldExam && oldExam.status !== 'published' && finalStatus === 'published') {
           await handlePublishEmail(examData as Exam, assignedBatchList);
+          for (const bId of assignedBatchList) {
+            await sendNotificationToBatch(bId, {
+              title: `📝 Exam Published: ${title}`,
+              body: `${examType} Exam "${title}" is now available. Tap to start test.`,
+              type: 'EXAM',
+              channelId: 'exams',
+              data: {
+                screen: '/(app)/exams',
+                type: 'EXAM',
+                examId: editingId,
+              },
+            });
+          }
         }
       } else {
         const docRef = await addDoc(collection(db, 'exams'), {
@@ -383,6 +410,19 @@ const Exams: React.FC = () => {
         });
         if (finalStatus === 'published') {
           await handlePublishEmail({ documentId: docRef.id, ...examData } as Exam, assignedBatchList);
+          for (const bId of assignedBatchList) {
+            await sendNotificationToBatch(bId, {
+              title: `📝 New Exam Published: ${title}`,
+              body: `${examType} Exam "${title}" is now available. Tap to start test.`,
+              type: 'EXAM',
+              channelId: 'exams',
+              data: {
+                screen: '/(app)/exams',
+                type: 'EXAM',
+                examId: docRef.id,
+              },
+            });
+          }
         }
       }
       fetchExams();
