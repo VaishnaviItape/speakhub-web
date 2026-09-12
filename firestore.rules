@@ -29,8 +29,8 @@ service cloud.firestore {
 
     // --- USERS ---
     match /users/{userId} {
-      // Authenticated users can read user docs (needed for authentication query & profile lookups)
-      allow read: if isSignedIn();
+      // Allow reading user profiles so login can resolve mobile number to email & authenticate
+      allow read: if true;
       // Admin can create/update/delete any user document. Users can update their own profile.
       allow create: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
       allow update, delete: if isAdmin() || (isSignedIn() && (request.auth.uid == userId || resource.data.uid == request.auth.uid));

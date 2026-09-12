@@ -1,8 +1,8 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 
 // We initialize a secondary app instance so that when the admin creates 
-// a new user (student) via createUserWithEmailAndPassword, the admin 
+// a new user (teacher / student) via createUserWithEmailAndPassword, the admin 
 // does not get logged out of their current session.
 
 const firebaseConfig = {
@@ -14,5 +14,7 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-export const secondaryApp = initializeApp(firebaseConfig, 'SecondaryApp');
+export const secondaryApp = getApps().find(app => app.name === 'SecondaryApp') 
+  || initializeApp(firebaseConfig, 'SecondaryApp');
 export const secondaryAuth = getAuth(secondaryApp);
+

@@ -141,11 +141,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const checkUserRoleAndReturn = async (uid: string) => {
+    let userData: any = null;
     const userDocRef = doc(db, 'users', uid);
     const userDocSnap = await getDoc(userDocRef);
 
     if (userDocSnap.exists()) {
-      const userData = userDocSnap.data();
+      userData = userDocSnap.data();
+    } else {
+      // Fallback: check users collection by email or uid field
+      const currentUserEmail = auth.currentUser?.email;
+      if (currentUserEmail) {
+        const qEmail = query(collection(db, 'users'), where('email', '==', currentUserEmail.trim()));
+        const snap = await getDocs(qEmail);
+        if (!snap.empty) {
+          userData = snap.docs[0].data();
+        }
+      }
+      if (!userData) {
+        const qUid = query(collection(db, 'users'), where('uid', '==', uid));
+        const snapUid = await getDocs(qUid);
+        if (!snapUid.empty) {
+          userData = snapUid.docs[0].data();
+        }
+      }
+    }
+
+    if (userData) {
       if (userData.role === 'student') {
         await firebaseSignOut(auth);
         setUser(null);

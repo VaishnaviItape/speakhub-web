@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, BookOpen } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
-import type { User } from '../../types/models';
+import type { User, Batch } from '../../types/models';
 import { db } from '../../config/firebase';
 import { secondaryAuth } from '../../config/secondaryFirebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, query, getDocs, updateDoc, doc, setDoc, where, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { 
+  collection, 
+  query, 
+  getDocs, 
+  updateDoc, 
+  doc, 
+  setDoc, 
+  where, 
+  serverTimestamp, 
+  deleteDoc 
+} from 'firebase/firestore';
 import { checkMobileExists } from '../../utils/phoneValidation';
 import { validateName, validateEmail, validatePhoneNumber } from '../../utils/validation';
 import '../../components/ui/TableStyles.css';
@@ -24,10 +34,26 @@ const Teachers: React.FC = () => {
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
+  const [selectedBatchIds, setSelectedBatchIds] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Data
   const [teachers, setTeachers] = useState<User[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
+
+  // Fetch batches so batchIds can be displayed with human-readable names
+  const fetchBatches = async () => {
+    try {
+      const snap = await getDocs(collection(db, 'batches'));
+      const batchList: Batch[] = [];
+      snap.forEach(d => {
+        batchList.push({ documentId: d.id, ...d.data() } as Batch);
+      });
+      setBatches(batchList);
+    } catch (err) {
+      console.error("Error fetching batches:", err);
+    }
+  };
 
   const fetchTeachers = async () => {
     try {
@@ -35,8 +61,8 @@ const Teachers: React.FC = () => {
       const q = query(collection(db, 'users'), where('role', '==', 'teacher'));
       const snapshot = await getDocs(q);
       const fetchedTeachers: User[] = [];
-      snapshot.forEach(doc => {
-        fetchedTeachers.push({ documentId: doc.id, ...doc.data() } as User);
+      snapshot.forEach(docSnap => {
+        fetchedTeachers.push({ documentId: docSnap.id, ...docSnap.data() } as User);
       });
       setTeachers(fetchedTeachers);
     } catch (error) {
@@ -48,6 +74,7 @@ const Teachers: React.FC = () => {
   };
 
   useEffect(() => {
+    fetchBatches();
     fetchTeachers();
   }, []);
 
@@ -78,28 +105,29 @@ const Teachers: React.FC = () => {
       }
 
       setIsSaving(true);
-      const fullName = `${firstName} ${lastName}`;
+      const fullName = `${firstName} ${lastName}`.trim();
 
       if (editingId) {
         // Update existing teacher
         await updateDoc(doc(db, 'users', editingId), {
           name: fullName,
-          email,
-          mobile,
+          email: email.trim(),
+          mobile: mobile.trim(),
           status,
+          batchIds: selectedBatchIds,
           updatedAt: serverTimestamp()
         });
       } else {
-        // Create new Teacher Account in Firebase Auth
-        const defaultPassword = mobile ? mobile : 'Teacher@123';
+        // Standard teacher default password
+        const defaultPassword = 'Teacher@123';
         
         let uid = '';
         try {
-          const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, defaultPassword);
+          const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), defaultPassword);
           uid = userCredential.user.uid;
         } catch (authError: any) {
           if (authError.code === 'auth/email-already-in-use') {
-            alert("A user with this email already exists. You cannot add them again.");
+            alert("A user with this email already exists in Authentication.");
             setIsSaving(false);
             return;
           } else {
@@ -111,22 +139,25 @@ const Teachers: React.FC = () => {
         await setDoc(doc(db, 'users', uid), {
           uid,
           name: fullName,
-          email,
-          mobile,
+          email: email.trim(),
+          mobile: mobile.trim(),
           role: 'teacher',
           status,
           forcePasswordChange: true,
+          batchIds: selectedBatchIds,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
+
+        alert(`Teacher Account Created Successfully!\n\nCredentials:\nEmail: ${email.trim()}\nPassword: ${defaultPassword}\nMobile: ${mobile.trim()}`);
       }
 
       setIsModalOpen(false);
       resetForm();
       fetchTeachers();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving teacher:", error);
-      alert("Failed to save teacher.");
+      alert("Failed to save teacher: " + (error.message || "Unknown error"));
     } finally {
       setIsSaving(false);
     }
@@ -138,6 +169,7 @@ const Teachers: React.FC = () => {
     setEmail('');
     setMobile('');
     setStatus('active');
+    setSelectedBatchIds([]);
     setEditingId(null);
   };
 
@@ -147,7 +179,8 @@ const Teachers: React.FC = () => {
     setLastName(parts.slice(1).join(' ') || '');
     setEmail(teacher.email || '');
     setMobile(teacher.mobile || '');
-    setStatus(teacher.status as 'active' | 'inactive');
+    setStatus((teacher.status as 'active' | 'inactive') || 'active');
+    setSelectedBatchIds(teacher.batchIds || []);
     setEditingId(teacher.documentId || null);
     setIsModalOpen(true);
   };
@@ -161,6 +194,14 @@ const Teachers: React.FC = () => {
         alert("Failed to delete teacher: " + error.message);
       }
     }
+  };
+
+  const getAssignedBatchNames = (batchIds?: string[]) => {
+    if (!batchIds || !Array.isArray(batchIds) || batchIds.length === 0) return [];
+    return batchIds.map(bId => {
+      const match = batches.find(b => b.documentId === bId);
+      return match ? match.batchName : bId;
+    });
   };
 
   const columns: Column<User>[] = [
@@ -184,6 +225,26 @@ const Teachers: React.FC = () => {
       key: 'mobile',
       header: 'Mobile',
       render: (row) => row.mobile || 'N/A'
+    },
+    {
+      key: 'batchIds',
+      header: 'Assigned Batches',
+      render: (row) => {
+        const batchNames = getAssignedBatchNames(row.batchIds);
+        if (batchNames.length === 0) {
+          return <span className="text-gray-400 text-xs italic">No Batches</span>;
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {batchNames.map((name, i) => (
+              <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                <BookOpen size={10} />
+                {name}
+              </span>
+            ))}
+          </div>
+        );
+      }
     },
     {
       key: 'status',
@@ -220,25 +281,29 @@ const Teachers: React.FC = () => {
         columns={columns} 
         onEdit={handleEdit}
         onDelete={handleDelete}
-        onRefresh={fetchTeachers}
+        onRefresh={() => { fetchBatches(); fetchTeachers(); }}
         searchPlaceholder="Search teachers..."
         isLoading={isLoading}
       />
 
-      {/* Add Teacher Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetForm(); }} title={editingId ? "Edit Teacher" : "Add Teacher"}>
+      {/* Add / Edit Teacher Modal */}
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => { setIsModalOpen(false); resetForm(); }} 
+        title={editingId ? "Edit Teacher" : "Add Teacher"}
+      >
         <form onSubmit={handleSubmit} className="modal-form">
           <div className="grid grid-cols-2 gap-4">
             <Input 
               label="First Name" 
-              placeholder="John"
+              placeholder="First name"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               required 
             />
             <Input 
               label="Last Name" 
-              placeholder="Doe"
+              placeholder="Last name"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               required 
@@ -254,15 +319,47 @@ const Teachers: React.FC = () => {
             required 
           />
           {!editingId && (
-            <p className="text-xs text-gray-500 mb-4 mt-1">A login account will automatically be created using this email.</p>
+            <p className="text-xs text-gray-500 mb-4 mt-1">
+              Default password will be <code>Teacher@123</code>. (Force change on first login).
+            </p>
           )}
           
           <Input 
-            label="Mobile Number (Optional)" 
-            placeholder="+1 234 567 890"
+            label="Mobile Number" 
+            placeholder="e.g. 9096170701"
             value={mobile}
             onChange={(e) => setMobile(e.target.value)}
           />
+
+          {/* Batch Selector */}
+          <div className="form-group mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Assign Batches
+            </label>
+            <div className="border rounded p-2 max-h-36 overflow-y-auto space-y-1 bg-white">
+              {batches.length === 0 ? (
+                <span className="text-xs text-gray-400">No batches available</span>
+              ) : (
+                batches.map(b => (
+                  <label key={b.documentId} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedBatchIds.includes(b.documentId!)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedBatchIds([...selectedBatchIds, b.documentId!]);
+                        } else {
+                          setSelectedBatchIds(selectedBatchIds.filter(id => id !== b.documentId));
+                        }
+                      }}
+                    />
+                    <span>{b.batchName}</span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+
           <Select 
             label="Status" 
             options={[{label: 'Active', value: 'active'}, {label: 'Inactive', value: 'inactive'}]} 
