@@ -317,3 +317,59 @@
 [data-theme='dark'] .login-footer-link:hover {
   color: #fda4af;
 }
+
+/* Security Icon Badge for Password Reset */
+.login-security-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: rgba(225, 29, 72, 0.08);
+  color: #e11d48;
+  margin-bottom: 0.85rem;
+  border: 1px solid rgba(225, 29, 72, 0.15);
+}
+
+[data-theme='dark'] .login-security-badge {
+  background: rgba(225, 29, 72, 0.18);
+  border-color: rgba(225, 29, 72, 0.3);
+}
+
+.login-hint-text {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0.3rem;
+  margin-bottom: 0;
+}
+
+[data-theme='dark'] .login-hint-text {
+  color: #94a3b8;
+}
+
+.login-cancel-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  transition: color 0.15s ease;
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.login-cancel-btn:hover {
+  color: #0f172a;
+  text-decoration: underline;
+}
+
+[data-theme='dark'] .login-cancel-btn:hover {
+  color: #f8fafc;
+}
