@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eye, AlertTriangle, Users, Target, TrendingUp, CheckCircle, Award, RefreshCw, Download } from 'lucide-react';
+import { ArrowLeft, Eye, AlertTriangle, Users, Target, TrendingUp, CheckCircle, Award, RefreshCw, Download, Sparkles } from 'lucide-react';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import Modal from '../../components/ui/Modal';
+import ResultPosterModal from './ResultPosterModal';
 import { db } from '../../config/firebase';
 import { collection, query, where, getDocs, doc, getDoc, writeBatch } from 'firebase/firestore';
 import { formatIndianDateTime } from '../../utils/dateTime';
@@ -39,6 +40,7 @@ const ExamResults: React.FC = () => {
 
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isPosterModalOpen, setIsPosterModalOpen] = useState(false);
 
   useEffect(() => {
     if (examId) fetchData();
@@ -620,6 +622,23 @@ const ExamResults: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <button 
+            type="button"
+            className="btn btn-primary flex items-center gap-2"
+            style={{ 
+              background: 'linear-gradient(135deg, #e91e63, #c2185b)', 
+              borderColor: '#ad1457', 
+              color: '#fff',
+              fontWeight: 700,
+              boxShadow: '0 4px 12px rgba(233, 30, 99, 0.35)'
+            }}
+            onClick={() => setIsPosterModalOpen(true)}
+            disabled={isLoading || attempts.length === 0}
+            title="Generate WhatsApp / Social Media Result Poster for this Exam"
+          >
+            <Sparkles size={16} />
+            Create Result Poster
+          </button>
+          <button 
             className="btn btn-outline flex items-center gap-2"
             style={{ 
               backgroundColor: '#ecfdf5', 
@@ -796,6 +815,15 @@ const ExamResults: React.FC = () => {
           )}
         </div>
       </Modal>
+
+      {/* Social Media Result Poster Modal */}
+      <ResultPosterModal
+        isOpen={isPosterModalOpen}
+        onClose={() => setIsPosterModalOpen(false)}
+        exam={exam}
+        batchName={batchName}
+        attempts={attempts}
+      />
     </div>
   );
 };
