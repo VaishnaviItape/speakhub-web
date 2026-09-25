@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eye, AlertTriangle, Users, Target, TrendingUp, CheckCircle, Award, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Eye, AlertTriangle, Users, Target, TrendingUp, CheckCircle, Award, RefreshCw, Download } from 'lucide-react';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import Modal from '../../components/ui/Modal';
 import { db } from '../../config/firebase';
@@ -397,10 +397,104 @@ const ExamResults: React.FC = () => {
     }
   };
 
+  const handleExportResultsExcel = (dataToExport?: any[]) => {
+    const list = dataToExport && Array.isArray(dataToExport) ? dataToExport : attempts;
+    if (!list || list.length === 0) {
+      alert("No student exam data available to download.");
+      return;
+    }
+
+    const clean = (val: any) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+
+    const headers = [
+      "Rank",
+      "Student Name",
+      "Phone Number",
+      "Email",
+      "Exam Title",
+      "Batch",
+      "Marks Obtained",
+      "Total Exam Marks",
+      "Percentage (%)",
+      "Grade",
+      "Result Status",
+      "Passing Marks Required",
+      "Total Questions",
+      "Correct Answers",
+      "Wrong Answers",
+      "Time Taken",
+      "Submission Date & Time (IST)",
+      "App Exits / Violations",
+      "Security Status"
+    ].join(',');
+
+    const totalExamMarks = Number(exam?.totalMarks) || 50;
+    const passingMarks = Number(exam?.passingMarks) || 0;
+    const totalQCount = questions.length || Number(exam?.numberOfQuestions) || 0;
+
+    const rows = list.map(row => {
+      const att = row.attempt;
+      const isAbsent = !att;
+      const score = att ? (Number(att.score) || 0) : 0;
+      const pct = att ? (totalExamMarks > 0 ? `${Math.round((score / totalExamMarks) * 100)}%` : '0%') : '0%';
+      const isPass = !isAbsent && score >= passingMarks;
+      const resultStatus = isAbsent ? 'ABSENT' : (isPass ? 'PASS' : 'FAIL');
+      const rank = att?.rank ? `#${att.rank}` : (isAbsent ? '-' : '#1');
+      const grade = att ? (att.grade || (isPass ? 'Pass' : 'Fail')) : 'ABSENT';
+      const submittedAt = att?.submittedAt ? formatIndianDateTime(att.submittedAt) : (isAbsent ? 'Absent (Not Attempted)' : 'Not Available');
+      
+      const timeTaken = att?.timeUsed 
+        ? `${Math.floor(att.timeUsed / 60)}m ${att.timeUsed % 60}s` 
+        : (isAbsent ? '-' : 'N/A');
+
+      const securityStatus = isAbsent 
+        ? '-' 
+        : att.isSuspicious 
+          ? 'Suspicious (Flagged)' 
+          : (att.appSwitchCount > 0 ? `${att.appSwitchCount} Exits (${att.totalExitDuration || 0}s)` : 'Clean');
+
+      return [
+        clean(rank),
+        clean(row.name || 'Student'),
+        clean(row.phone || ''),
+        clean(row.email || ''),
+        clean(exam?.title || 'Exam'),
+        clean(batchName || 'All Batches'),
+        clean(isAbsent ? 0 : score),
+        clean(totalExamMarks),
+        clean(pct),
+        clean(grade),
+        clean(resultStatus),
+        clean(passingMarks),
+        clean(totalQCount),
+        clean(att?.correctAnswers ?? (isAbsent ? 0 : '-')),
+        clean(att?.wrongAnswers ?? (isAbsent ? 0 : '-')),
+        clean(timeTaken),
+        clean(submittedAt),
+        clean(att?.appSwitchCount ?? (isAbsent ? '-' : 0)),
+        clean(securityStatus)
+      ].join(',');
+    });
+
+    // Prepend UTF-8 BOM (\uFEFF) so Excel opens UTF-8 without garbled text
+    const csvContent = '\uFEFF' + [headers, ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const safeTitle = (exam?.title || 'Exam_Results').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeBatch = (batchName || 'All_Batches').replace(/[^a-zA-Z0-9_-]/g, '_');
+    link.setAttribute('download', `${safeTitle}_${safeBatch}_Results_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const columns: Column<any>[] = [
     { 
       key: 'rank', 
       header: 'Rank', 
+      exportValue: (row) => row.attempt?.rank ? `#${row.attempt.rank}` : (row.attempt ? '#1' : 'ABSENT'),
       render: (row) => row.attempt ? (
         <span className="font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded text-sm">
           #{row.attempt.rank || 1}
@@ -412,6 +506,7 @@ const ExamResults: React.FC = () => {
     { 
       key: 'name', 
       header: 'Student Name', 
+      exportValue: (row) => row.name + (row.phone ? ` (${row.phone})` : ''),
       render: (row) => (
         <div>
           <div className="font-medium text-gray-900">{row.name}</div>
@@ -422,6 +517,8 @@ const ExamResults: React.FC = () => {
     { 
       key: 'marks', 
       header: 'Marks', 
+      align: 'center',
+      exportValue: (row) => row.attempt ? `${row.attempt.score} / ${exam?.totalMarks || 50}` : `0 / ${exam?.totalMarks || 50}`,
       render: (row) => row.attempt ? (
         <span className="font-semibold text-gray-800">
           {row.attempt.score} <span className="text-gray-400 text-xs">/ {exam?.totalMarks || 50}</span>
@@ -433,6 +530,8 @@ const ExamResults: React.FC = () => {
     { 
       key: 'grade', 
       header: 'Grade', 
+      align: 'center',
+      exportValue: (row) => row.attempt ? (row.attempt.grade || 'Pass') : 'ABSENT',
       render: (row) => row.attempt ? (
         <span className={`font-bold px-2 py-0.5 rounded text-xs ${
           row.attempt.grade === 'Fail' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
@@ -444,6 +543,7 @@ const ExamResults: React.FC = () => {
     {
       key: 'submittedAt',
       header: 'Submitted (Indian Time)',
+      exportValue: (row) => row.attempt?.submittedAt ? formatIndianDateTime(row.attempt.submittedAt) : 'Not Submitted',
       render: (row) => row.attempt?.submittedAt ? (
         <span className="text-xs text-gray-700 font-medium">
           {formatIndianDateTime(row.attempt.submittedAt)}
@@ -455,6 +555,13 @@ const ExamResults: React.FC = () => {
     {
       key: 'security',
       header: 'Security Logs',
+      exportValue: (row) => {
+        if (!row.attempt) return 'N/A';
+        const att = row.attempt;
+        if (att.isSuspicious) return 'Suspicious (Flagged)';
+        if (att.appSwitchCount > 0) return `${att.appSwitchCount} Exits (${att.totalExitDuration || 0}s)`;
+        return 'Clean';
+      },
       render: (row) => {
         if (!row.attempt) return <span className="text-gray-400">N/A</span>;
         const att = row.attempt;
@@ -466,6 +573,11 @@ const ExamResults: React.FC = () => {
     {
       key: 'result',
       header: 'Result',
+      align: 'center',
+      exportValue: (row) => {
+        if (!row.attempt) return 'ABSENT';
+        return Number(row.attempt.score) >= (Number(exam?.passingMarks) || 0) ? 'PASS' : 'FAIL';
+      },
       render: (row) => {
         if (!row.attempt) return <span className="text-gray-400 font-bold text-xs bg-gray-100 px-2 py-1 rounded">ABSENT</span>;
         const isPass = Number(row.attempt.score) >= (Number(exam?.passingMarks) || 0);
@@ -479,6 +591,7 @@ const ExamResults: React.FC = () => {
     {
       key: 'actions',
       header: 'Review',
+      hiddenFromExport: true,
       render: (row) => row.attempt ? (
         <button 
           className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-xs font-bold bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded transition" 
@@ -506,6 +619,21 @@ const ExamResults: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button 
+            className="btn btn-outline flex items-center gap-2"
+            style={{ 
+              backgroundColor: '#ecfdf5', 
+              borderColor: '#10b981', 
+              color: '#047857',
+              fontWeight: 700
+            }}
+            onClick={() => handleExportResultsExcel()}
+            disabled={isLoading || attempts.length === 0}
+            title="Download full Exam Results Excel/CSV sheet with all student scores, ranks, and percentages"
+          >
+            <Download size={16} />
+            Export Results (Excel / CSV)
+          </button>
           <button 
             className="btn btn-primary flex items-center gap-2"
             onClick={() => {
@@ -581,6 +709,7 @@ const ExamResults: React.FC = () => {
         searchPlaceholder="Search student..."
         isLoading={isLoading}
         onRefresh={fetchData}
+        onExport={handleExportResultsExcel}
       />
 
       {/* Student Answer Sheet Modal */}

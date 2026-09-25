@@ -9,6 +9,8 @@ export interface Column<T> {
   render?: (row: T) => React.ReactNode;
   sortable?: boolean;
   align?: 'left' | 'center' | 'right';
+  exportValue?: (row: T) => string | number | boolean | null | undefined;
+  hiddenFromExport?: boolean;
 }
 
 interface DataTableProps<T> {
@@ -18,6 +20,7 @@ interface DataTableProps<T> {
   onEdit?: (row: T) => void;
   onDelete?: (row: T) => void;
   onRefresh?: () => void;
+  onExport?: (data: T[]) => void;
   searchPlaceholder?: string;
   isLoading?: boolean;
 }
@@ -29,6 +32,7 @@ function DataTable<T extends { documentId?: string }>({
   onEdit,
   onDelete,
   onRefresh,
+  onExport,
   searchPlaceholder = "Search",
   isLoading = false
 }: DataTableProps<T>) {
@@ -51,25 +55,38 @@ function DataTable<T extends { documentId?: string }>({
   });
 
   const handleDownload = () => {
+    if (onExport) {
+      onExport(filteredData);
+      return;
+    }
+
     if (!filteredData.length) {
       alert("No data is available to download.");
       return;
     }
 
+    // Filter out actions or columns hidden from export
+    const exportColumns = columns.filter(c => !c.hiddenFromExport && c.key !== 'actions');
+
     // 1. Create Headers
-    const headers = columns.map(c => `"${c.header.replace(/"/g, '""')}"`).join(',');
+    const headers = exportColumns.map(c => `"${(c.header || '').replace(/"/g, '""')}"`).join(',');
 
     // 2. Create Rows
     const csvRows = filteredData.map(row => {
-      return columns.map(col => {
-        let val = (row as any)[col.key];
+      return exportColumns.map(col => {
+        let val: any;
+        if (typeof col.exportValue === 'function') {
+          val = col.exportValue(row);
+        } else {
+          val = (row as any)[col.key];
+        }
         
         if (val === null || val === undefined) {
           val = '';
         } else if (typeof val === 'object') {
           if (Array.isArray(val)) {
             val = val.join('; ');
-          } else if (val.toDate) {
+          } else if (val.toDate && typeof val.toDate === 'function') {
             val = val.toDate().toLocaleDateString();
           } else {
             val = JSON.stringify(val);
@@ -81,8 +98,8 @@ function DataTable<T extends { documentId?: string }>({
       }).join(',');
     });
 
-    // 3. Combine and download
-    const csvString = [headers, ...csvRows].join('\n');
+    // 3. Combine and download with UTF-8 BOM (\uFEFF) for full Microsoft Excel compatibility
+    const csvString = '\uFEFF' + [headers, ...csvRows].join('\r\n');
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

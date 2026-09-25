@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Plus, ShieldAlert, Settings2, FileQuestion, BarChart2, 
-  Copy, Sparkles, Layers, Edit, Trash2, Clock 
+  Copy, Sparkles, Layers, Edit, Trash2, Clock, Download 
 } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
@@ -545,10 +545,86 @@ const Exams: React.FC = () => {
   const enabledBatchExams = filteredExamsByCourse.filter(e => isExamEnabledForBatch(e, managerSelectedBatchId)).length;
   const disabledBatchExams = totalBatchExams - enabledBatchExams;
 
+  const handleExportExamsExcel = (examsToExport?: Exam[]) => {
+    const list = examsToExport && Array.isArray(examsToExport) ? examsToExport : exams;
+    if (!list || list.length === 0) {
+      alert("No exams available to download.");
+      return;
+    }
+
+    const clean = (val: any) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+
+    const headers = [
+      "Exam Title",
+      "Exam Type",
+      "Chapter / Topic",
+      "Course",
+      "Assigned Batches",
+      "Start Date",
+      "End Date",
+      "Schedule Range (IST)",
+      "Duration (Mins)",
+      "Total Marks",
+      "Passing Marks",
+      "Questions Uploaded",
+      "Marks Per Question",
+      "Negative Marking",
+      "Status",
+      "Anti-Cheat Max Violations"
+    ].join(',');
+
+    const rows = list.map(e => {
+      const cName = courses.find(c => c.documentId === e.courseId)?.courseName || e.courseId || 'All Courses';
+      const bIds = Array.isArray(e.batchIds) && e.batchIds.length > 0 
+        ? e.batchIds 
+        : (e.batchId ? [e.batchId] : []);
+      const isAll = bIds.includes('all');
+      const assignedBatchNames = isAll 
+        ? ['All Batches'] 
+        : bIds.map(bId => batches.find(b => b.documentId === bId)?.batchName || bId).filter(Boolean);
+
+      const count = Number(e.numberOfQuestions) || 0;
+      let displayStatus = (e.status || 'draft').toUpperCase();
+      if (count === 0 && (e.status === 'published' || e.status === 'scheduled')) {
+        displayStatus = 'PENDING QUESTIONS';
+      }
+
+      return [
+        clean(e.title),
+        clean(e.examType || 'MCQ'),
+        clean(e.chapter || '-'),
+        clean(cName),
+        clean(assignedBatchNames.join('; ') || 'All Batches'),
+        clean(e.startDate ? formatIndianDateTime(e.startDate) : ''),
+        clean(e.endDate ? formatIndianDateTime(e.endDate) : ''),
+        clean(formatIndianScheduleRange(e.startDate, e.endDate)),
+        clean(e.duration || 0),
+        clean(e.totalMarks || 0),
+        clean(e.passingMarks || 0),
+        clean(count),
+        clean(e.marksPerQuestion || 1),
+        clean(e.negativeMarking ? 'Yes' : 'No'),
+        clean(displayStatus),
+        clean(e.maxViolationsAllowed || 3)
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers, ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Exams_Master_Schedule_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const columns: Column<Exam>[] = [
     {
       key: 'title',
       header: 'Exam Title',
+      exportValue: (row) => row.title,
       render: (row) => (
         <div className="exam-title-cell">
           <span className="exam-title-text">{row.title}</span>
@@ -562,6 +638,17 @@ const Exams: React.FC = () => {
     {
       key: 'courseInfo',
       header: 'Assigned Batches',
+      exportValue: (row) => {
+        const cName = courses.find(c => c.documentId === row.courseId)?.courseName || row.courseId || 'All Courses';
+        const bIds = Array.isArray(row.batchIds) && row.batchIds.length > 0 
+          ? row.batchIds 
+          : (row.batchId ? [row.batchId] : []);
+        const isAll = bIds.includes('all');
+        const assignedBatchNames = isAll 
+          ? ['All Batches'] 
+          : bIds.map(bId => batches.find(b => b.documentId === bId)?.batchName || bId).filter(Boolean);
+        return `${cName} (${assignedBatchNames.join(', ') || 'All Batches'})`;
+      },
       render: (row) => {
         const cName = courses.find(c => c.documentId === row.courseId)?.courseName || row.courseId || 'All Courses';
         const bIds = Array.isArray(row.batchIds) && row.batchIds.length > 0 
@@ -595,6 +682,7 @@ const Exams: React.FC = () => {
     {
       key: 'schedule',
       header: 'Schedule (Indian AM/PM)',
+      exportValue: (row) => `${formatIndianScheduleRange(row.startDate, row.endDate)} (${row.duration} mins)`,
       render: (row) => (
         <div className="exam-schedule-cell">
           <div className="exam-schedule-time">
@@ -611,6 +699,7 @@ const Exams: React.FC = () => {
       key: 'marks',
       header: 'Marks',
       align: 'center',
+      exportValue: (row) => `Pass: ${row.passingMarks || 0} / Total: ${row.totalMarks || 0} (${row.marksPerQuestion || 1} mark/q)`,
       render: (row) => (
         <div className="exam-marks-cell" style={{ alignItems: 'center' }}>
           <div className="exam-marks-score">
@@ -626,6 +715,13 @@ const Exams: React.FC = () => {
       key: 'status',
       header: 'Status',
       align: 'center',
+      exportValue: (row) => {
+        const count = Number(row.numberOfQuestions) || 0;
+        if (count === 0 && (row.status === 'published' || row.status === 'scheduled')) {
+          return 'Pending Questions';
+        }
+        return (row.status || 'Draft').toUpperCase();
+      },
       render: (row) => {
         const count = Number(row.numberOfQuestions) || 0;
         if (count === 0 && (row.status === 'published' || row.status === 'scheduled')) {
@@ -663,6 +759,7 @@ const Exams: React.FC = () => {
     {
       key: 'actions',
       header: 'Actions',
+      hiddenFromExport: true,
       render: (row) => {
         const qCount = Number(row.numberOfQuestions) || 0;
         return (
@@ -734,10 +831,30 @@ const Exams: React.FC = () => {
             <span>Dashboard</span> <span className="separator">/</span> <span className="current">Exams</span>
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => { resetForm(); setIsModalOpen(true); }}>
-          <Plus size={16} />
-          Create Exam
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button 
+            type="button"
+            className="btn btn-outline" 
+            style={{ 
+              backgroundColor: '#ecfdf5', 
+              borderColor: '#10b981', 
+              color: '#047857',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            onClick={() => handleExportExamsExcel()}
+            title="Download full Exams Schedule as Excel / CSV"
+          >
+            <Download size={16} />
+            Export Schedule (Excel)
+          </button>
+          <button className="btn btn-primary" onClick={() => { resetForm(); setIsModalOpen(true); }}>
+            <Plus size={16} />
+            Create Exam
+          </button>
+        </div>
       </div>
 
       {/* Mode Switcher Tabs */}
@@ -792,6 +909,7 @@ const Exams: React.FC = () => {
           data={exams}
           columns={columns}
           onRefresh={fetchExams}
+          onExport={handleExportExamsExcel}
           searchPlaceholder="Search exams..."
           isLoading={isLoading}
         />

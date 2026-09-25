@@ -448,28 +448,32 @@ const ExamQuestions: React.FC = () => {
     }
   };
 
-  const handleExportCsv = () => {
-    if (questions.length === 0) {
+  const handleExportCsv = (questionsToExport?: any) => {
+    const list = questionsToExport && Array.isArray(questionsToExport) ? questionsToExport : questions;
+    if (list.length === 0) {
       alert("No questions to export.");
       return;
     }
-    const headers = "Question,Option A,Option B,Option C,Option D,Correct Answer (A/B/C/D),Marks,Explanation,Image URL\n";
-    const rows = questions.map(q => {
-      const clean = (str?: string) => `"${(str || '').replace(/"/g, '""')}"`;
+    const clean = (str?: any) => `"${String(str ?? '').replace(/"/g, '""')}"`;
+    const headers = "Q.No,Question,Question Type,Option A,Option B,Option C,Option D,Correct Answer (A/B/C/D),Marks,Explanation,Image URL\n";
+    const rows = list.map((q, idx) => {
       return [
+        idx + 1,
         clean(q.question),
+        clean(q.questionType || 'MCQ'),
         clean(q.optionA),
         clean(q.optionB),
         clean(q.optionC),
         clean(q.optionD),
-        q.correctAnswer,
-        q.marks,
+        clean(q.correctAnswer),
+        clean(q.marks || exam?.marksPerQuestion || 1),
         clean((q as any).explanation),
         clean(q.imageUrl)
       ].join(',');
     }).join('\n');
 
-    const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+    // UTF-8 BOM (\uFEFF) ensures Microsoft Excel opens unicode characters and special text without distortion
+    const blob = new Blob(['\uFEFF' + headers + rows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
@@ -764,6 +768,7 @@ const ExamQuestions: React.FC = () => {
     {
       key: 'question',
       header: 'Question & Options',
+      exportValue: (row) => `${row.question} [A: ${row.optionA || ''} | B: ${row.optionB || ''} | C: ${row.optionC || ''} | D: ${row.optionD || ''}]`,
       render: (row) => (
         <div style={{ maxWidth: '520px' }}>
           {row.imageUrl && (
@@ -811,6 +816,7 @@ const ExamQuestions: React.FC = () => {
     {
       key: 'correctAnswer',
       header: 'Correct Answer',
+      exportValue: (row) => `Option ${row.correctAnswer}`,
       render: (row) => (
         <span className="mcq-ans-badge">
           <CheckCircle2 size={13} className="mr-1" /> Option {row.correctAnswer}
@@ -820,6 +826,7 @@ const ExamQuestions: React.FC = () => {
     {
       key: 'marks',
       header: 'Marks',
+      exportValue: (row) => row.marks,
       render: (row) => (
         <span className="font-bold text-gray-800 bg-gray-100 px-3 py-1 rounded-full text-xs border border-gray-200">
           {row.marks} mark{row.marks > 1 ? 's' : ''}
@@ -1013,7 +1020,7 @@ const ExamQuestions: React.FC = () => {
                 </button>
               )}
               <button 
-                onClick={handleExportCsv}
+                onClick={() => handleExportCsv()}
                 className="text-xs text-gray-700 hover:text-gray-900 border border-gray-300 bg-white hover:bg-gray-50 px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 font-bold transition-all shadow-sm cursor-pointer"
               >
                 <Download size={14} /> Export CSV
@@ -1036,6 +1043,7 @@ const ExamQuestions: React.FC = () => {
         columns={columns} 
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onExport={handleExportCsv}
         searchPlaceholder="Search questions..."
         isLoading={isLoading}
       />
