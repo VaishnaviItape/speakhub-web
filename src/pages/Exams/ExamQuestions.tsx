@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, ArrowLeft, Upload, FileText, Download, Trash2, CheckCircle2, HelpCircle, Clock, Send, Calendar, Copy, Layers, Image as ImageIcon, X, Loader2, Link as LinkIcon, AlertCircle } from 'lucide-react';
+import { Plus, ArrowLeft, Upload, FileText, Download, Trash2, CheckCircle2, HelpCircle, Clock, Send, Calendar, Copy, Layers, Image as ImageIcon, X, Loader2, Link as LinkIcon, AlertCircle, RefreshCw } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
@@ -298,7 +298,7 @@ const ExamQuestions: React.FC = () => {
               optionC: q.optionC || '',
               optionD: q.optionD || '',
               correctAnswer: q.correctAnswer,
-              marks: Number(q.marks) || 1,
+              marks: Number(newExamData.marksPerQuestion) || Number(q.marks) || 1,
               explanation: (q as any).explanation || ''
             };
             batch.set(newQRef, qCopy);
@@ -544,7 +544,7 @@ const ExamQuestions: React.FC = () => {
         const optC = row[3]?.trim() || '';
         const optD = row[4]?.trim() || '';
         const correctAns = (row[5]?.trim() || 'A').toUpperCase();
-        const marksVal = Number(row[6]) || Number(exam?.marksPerQuestion) || 1;
+        const marksVal = Number(exam?.marksPerQuestion) || Number(row[6]) || 1;
         const expText = row[7]?.trim() || '';
         
         // Smarter Image URL detection: check row[8] or any trailing cell containing URL
@@ -695,7 +695,8 @@ const ExamQuestions: React.FC = () => {
       const optC = cMatch ? cMatch[1].trim() : '';
       const optD = dMatch ? dMatch[1].trim() : '';
       const ans = ansMatch ? ansMatch[1].toUpperCase().trim() : '';
-      const marks = marksMatch ? Number(marksMatch[1]) : (Number(exam?.marksPerQuestion) || 1);
+      const parsedMarks = marksMatch ? Number(marksMatch[1]) : 0;
+      const marks = Number(exam?.marksPerQuestion) || (parsedMarks > 0 ? parsedMarks : 1);
       const expText = expMatch ? expMatch[1].trim() : '';
 
       // Validate question structure
@@ -982,9 +983,35 @@ const ExamQuestions: React.FC = () => {
         <div className="text-sm font-bold text-gray-800 flex items-center gap-2">
           Question Bank <span className="bg-gray-200 text-gray-700 text-xs px-2.5 py-0.5 rounded-full font-bold">{questions.length} questions</span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           {questions.length > 0 && (
             <>
+              {totalQuestionMarks !== targetMarks && targetMarks > 0 && (
+                <button 
+                  onClick={async () => {
+                    const desired = Number(exam?.marksPerQuestion) || (targetMarks && questions.length ? Math.round(targetMarks / questions.length) : 2);
+                    if (window.confirm(`Update all ${questions.length} questions to ${desired} marks each so total matches ${targetMarks}?`)) {
+                      try {
+                        const batch = writeBatch(db);
+                        questions.forEach(q => {
+                          if (q.documentId) {
+                            batch.update(doc(db, 'exam_questions', q.documentId), { marks: desired });
+                          }
+                        });
+                        await batch.commit();
+                        alert(`✅ Updated all questions to ${desired} marks each!`);
+                        fetchQuestions();
+                      } catch (err: any) {
+                        alert("Error updating question marks: " + err.message);
+                      }
+                    }
+                  }}
+                  className="text-xs text-amber-800 border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 font-bold transition-all shadow-sm cursor-pointer"
+                  title="Fix mismatch: update all questions to match exam marks"
+                >
+                  <RefreshCw size={14} /> Sync to {exam?.marksPerQuestion || 2} Marks Each
+                </button>
+              )}
               <button 
                 onClick={handleExportCsv}
                 className="text-xs text-gray-700 hover:text-gray-900 border border-gray-300 bg-white hover:bg-gray-50 px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 font-bold transition-all shadow-sm cursor-pointer"

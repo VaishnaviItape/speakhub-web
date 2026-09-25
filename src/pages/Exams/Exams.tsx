@@ -305,6 +305,7 @@ const Exams: React.FC = () => {
           const newQRef = doc(collection(db, 'exam_questions'));
           batch.set(newQRef, {
             ...qData,
+            marks: Number(newExamData.marksPerQuestion) || Number(qData.marks) || 1,
             examId: newExamRef.id,
             createdAt: serverTimestamp(),
           });
@@ -388,6 +389,23 @@ const Exams: React.FC = () => {
       if (editingId) {
         const oldExam = exams.find(e => e.documentId === editingId);
         await updateDoc(doc(db, 'exams', editingId), examData);
+
+        // Sync all questions under this exam to match the updated marksPerQuestion
+        if (examData.marksPerQuestion && examData.marksPerQuestion > 0) {
+          try {
+            const qSnap = await getDocs(query(collection(db, 'exam_questions'), where('examId', '==', editingId)));
+            if (!qSnap.empty) {
+              const qBatch = writeBatch(db);
+              qSnap.forEach(qDoc => {
+                qBatch.update(qDoc.ref, { marks: Number(examData.marksPerQuestion) });
+              });
+              await qBatch.commit();
+            }
+          } catch (qErr) {
+            console.warn("Could not sync question marks:", qErr);
+          }
+        }
+
         if (oldExam && oldExam.status !== 'published' && finalStatus === 'published') {
           await handlePublishEmail(examData as Exam, assignedBatchList);
           for (const bId of assignedBatchList) {

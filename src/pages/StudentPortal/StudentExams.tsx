@@ -133,14 +133,16 @@ const StudentExams: React.FC = () => {
       // Calculate score
       let earned = 0;
       let total = 0;
+      const examMarksPerQ = Number(selectedExam?.marksPerQuestion) || (selectedExam?.totalMarks && questions.length > 0 ? Number(selectedExam.totalMarks) / questions.length : 0);
       questions.forEach(q => {
-        total += (q.marks || 1);
+        const qMark = examMarksPerQ > 0 ? examMarksPerQ : (q.marks || 1);
+        total += qMark;
         if (selectedAnswers[q.id] === q.correctAnswer) {
-          earned += (q.marks || 1);
+          earned += qMark;
         }
       });
       setScore(earned);
-      setTotalMarks(total);
+      setTotalMarks(selectedExam?.totalMarks || total);
       setExamFinished(true);
     }
   };

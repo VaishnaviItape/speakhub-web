@@ -98,6 +98,26 @@ const ExamResults: React.FC = () => {
           }
         });
       }
+
+      // Sync questions' marks in background if exam has explicit marksPerQuestion
+      const desiredTotalMarks = Number(examData.totalMarks) || 50;
+      const effectiveMarksPerQ = Number(examData.marksPerQuestion) || 
+        (qList.length > 0 && desiredTotalMarks ? Math.round((desiredTotalMarks / qList.length) * 100) / 100 : 1);
+
+      if (examData.marksPerQuestion && qList.length > 0) {
+        const needsQSync = qList.some(q => Number(q.marks) !== Number(examData.marksPerQuestion));
+        if (needsQSync) {
+          const qBatch = writeBatch(db);
+          qList.forEach(q => {
+            if (q.documentId) {
+              qBatch.update(doc(db, 'exam_questions', q.documentId), { marks: Number(examData.marksPerQuestion) });
+              q.marks = Number(examData.marksPerQuestion);
+            }
+          });
+          qBatch.commit().catch(err => console.warn('Could not sync question marks in background:', err));
+        }
+      }
+
       setQuestions(qList);
 
       // 3. Fetch Attempts (Submissions)
@@ -129,7 +149,49 @@ const ExamResults: React.FC = () => {
 
       const attemptList: ExamAttempt[] = Array.from(attemptMap.values());
 
-      // 4. Rank Generation Engine
+      // 4. Accurate Score Recalculation & Rank Generation Engine
+      attemptList.forEach(att => {
+        let evaluatedScore = 0;
+        let correctCount = 0;
+        let evaluatedCount = 0;
+
+        if (qList.length > 0 && att.answers && typeof att.answers === 'object') {
+          qList.forEach(q => {
+            const qKey = q.documentId || (q as any).id;
+            const studentAns = att.answers[qKey];
+            if (studentAns) {
+              evaluatedCount++;
+              if (studentAns === q.correctAnswer) {
+                correctCount++;
+                evaluatedScore += effectiveMarksPerQ;
+              }
+            }
+          });
+        }
+
+        // Determine accurate score
+        let accurateScore = Number(att.score) || 0;
+        if (evaluatedCount > 0) {
+          if (examData.negativeMarking) {
+            const wrongCount = evaluatedCount - correctCount;
+            evaluatedScore = Math.max(0, evaluatedScore - (wrongCount * 0.5));
+          }
+          accurateScore = Math.round(evaluatedScore * 10) / 10;
+        } else if (att.correctCount !== undefined && effectiveMarksPerQ > 0) {
+          accurateScore = Number(att.correctCount) * effectiveMarksPerQ;
+        } else if (effectiveMarksPerQ > 1 && qList.length > 0 && Number(att.score) <= qList.length) {
+          // Attempt was recorded assuming 1 mark per question (e.g. 25 instead of 50)
+          accurateScore = Number(att.score) * effectiveMarksPerQ;
+        }
+
+        att.score = accurateScore;
+        att.totalMarks = desiredTotalMarks;
+        att.percentage = desiredTotalMarks > 0 
+          ? Math.min(100, Math.round((accurateScore / desiredTotalMarks) * 100))
+          : 0;
+        att.grade = getGrade(att.percentage);
+      });
+
       attemptList.sort((a, b) => {
         const scoreA = Number(a.score) || 0;
         const scoreB = Number(b.score) || 0;
@@ -158,18 +220,24 @@ const ExamResults: React.FC = () => {
           : (Number(att.percentage) || 0);
         const newGrade = getGrade(calculatedPercentage);
 
-        if (att.rank !== newRank || att.grade !== newGrade) {
+        if (att.rank !== newRank || att.grade !== newGrade || att.score !== undefined) {
           att.rank = newRank;
           att.grade = newGrade;
           if (att.documentId) {
-            batch.update(doc(db, 'exam_attempts', att.documentId), { rank: newRank, grade: newGrade });
+            batch.update(doc(db, 'exam_attempts', att.documentId), { 
+              score: att.score,
+              totalMarks: att.totalMarks,
+              percentage: calculatedPercentage,
+              rank: newRank, 
+              grade: newGrade 
+            });
             needsBatchUpdate = true;
           }
         }
       });
 
       if (needsBatchUpdate) {
-        batch.commit().catch(err => console.warn('Could not update ranks in background:', err));
+        batch.commit().catch(err => console.warn('Could not update ranks and scores in background:', err));
       }
 
       // 5. Fetch Eligible Students for the targeted batch(es)
@@ -437,14 +505,28 @@ const ExamResults: React.FC = () => {
             </div>
           </div>
         </div>
-        <button 
-          className="btn btn-secondary flex items-center gap-2"
-          onClick={fetchData}
-          disabled={isLoading}
-        >
-          <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            className="btn btn-primary flex items-center gap-2"
+            onClick={() => {
+              fetchData();
+              alert("✅ Scores, ranks, and grades have been recalculated using the exam's marks per question (" + (exam?.marksPerQuestion || 2) + " marks/question) and synced!");
+            }}
+            disabled={isLoading}
+            title="Recalculate all student scores using exam marks per question and sync database"
+          >
+            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+            Recalculate & Sync Marks
+          </button>
+          <button 
+            className="btn btn-secondary flex items-center gap-2"
+            onClick={fetchData}
+            disabled={isLoading}
+          >
+            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Analytics Cards */}
@@ -540,6 +622,7 @@ const ExamResults: React.FC = () => {
               const sAns = selectedAttempt?.attempt?.answers?.[q.documentId!];
               const isCorrect = sAns === q.correctAnswer;
               const isUnanswered = !sAns;
+              const qMarks = Number(exam?.marksPerQuestion) || Number(q.marks) || 1;
               
               return (
                 <div key={q.documentId || idx} className={`mb-4 p-4 border rounded-lg ${isCorrect ? 'border-green-200 bg-green-50' : isUnanswered ? 'border-gray-200 bg-gray-50' : 'border-red-200 bg-red-50'}`}>
@@ -554,7 +637,14 @@ const ExamResults: React.FC = () => {
                       />
                     </div>
                   )}
-                  <div className="font-medium mb-2">Q{idx + 1}. {q.question}</div>
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="font-medium text-gray-900">Q{idx + 1}. {q.question}</div>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ml-2 whitespace-nowrap ${
+                      isCorrect ? 'bg-green-100 text-green-800' : isUnanswered ? 'bg-gray-100 text-gray-600' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {isCorrect ? `+${qMarks} Marks` : isUnanswered ? '0 Marks' : '0 Marks'} ({qMarks} Mark{qMarks > 1 ? 's' : ''})
+                    </span>
+                  </div>
                   <div className="flex justify-between text-sm">
                     <div className="w-1/2">
                       <span className="text-gray-500">Student Answer:</span><br/>
