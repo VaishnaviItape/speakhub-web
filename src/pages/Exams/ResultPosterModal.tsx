@@ -941,9 +941,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               className="speakhub-poster-scaler-wrapper"
               style={{
                 zoom: zoomLevel,
-                transform: typeof (document !== 'undefined' && (document.body.style as any)?.zoom === 'undefined') ? `scale(${zoomLevel})` : undefined,
-                transformOrigin: 'top center'
-              }}
+              } as React.CSSProperties}
             >
               <div className="speakhub-poster-card screen-view-only">
                 
