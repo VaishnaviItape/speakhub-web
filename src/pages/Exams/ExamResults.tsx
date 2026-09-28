@@ -636,7 +636,7 @@ const ExamResults: React.FC = () => {
             title="Generate WhatsApp / Social Media Result Poster for this Exam"
           >
             <Sparkles size={16} />
-            Create Result Poster
+            Generate Result Marksheet
           </button>
           <button 
             className="btn btn-outline flex items-center gap-2"

@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  Plus, ShieldAlert, Settings2, FileQuestion, BarChart2, 
-  Copy, Sparkles, Layers, Edit, Trash2, Clock, Download 
+import {
+  Plus, ShieldAlert, Settings2, FileQuestion, BarChart2,
+  Copy, Sparkles, Layers, Edit, Trash2, Clock, Download
 } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import { db } from '../../config/firebase';
-import { 
-  collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, 
-  serverTimestamp, where, writeBatch 
+import {
+  collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc,
+  serverTimestamp, where, writeBatch
 } from 'firebase/firestore';
 import { sendEmail } from '../../utils/emailService';
 import { formatIndianDateTime, formatIndianScheduleRange } from '../../utils/dateTime';
@@ -86,7 +86,7 @@ const Exams: React.FC = () => {
     try {
       const cSnap = await getDocs(collection(db, 'courses'));
       setCourses(cSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as Course)));
-      
+
       const bSnap = await getDocs(collection(db, 'batches'));
       const batchList = bSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as Batch));
       setBatches(batchList);
@@ -246,9 +246,10 @@ const Exams: React.FC = () => {
   const handleOpenNextBatchModal = (exam: Exam) => {
     setSourceExamForNextBatch(exam);
     setNextExamTitle(exam.title || '');
-    
-    // Choose first batch that is not currently the primary batch
-    const candidateBatch = batches.find(b => b.documentId !== exam.batchId);
+
+    // Choose first batch of the same course that is not currently the primary batch
+    const sameCourseBatches = batches.filter(b => b.courseId === exam.courseId || (courses.find(c => c.documentId === exam.courseId) && b.courseId === courses.find(c => c.documentId === exam.courseId)?.courseName));
+    const candidateBatch = sameCourseBatches.find(b => b.documentId !== exam.batchId) || sameCourseBatches[0] || batches.find(b => b.documentId !== exam.batchId);
     setNextBatchId(candidateBatch ? candidateBatch.documentId! : '');
 
     // Default start date = tomorrow 10:00 AM, end date = tomorrow 6:00 PM
@@ -257,7 +258,7 @@ const Exams: React.FC = () => {
     const yyyy = tomorrow.getFullYear();
     const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
     const dd = String(tomorrow.getDate()).padStart(2, '0');
-    
+
     setNextStartDate(`${yyyy}-${mm}-${dd}T10:00`);
     setNextEndDate(`${yyyy}-${mm}-${dd}T18:00`);
     setIsNextBatchModalOpen(true);
@@ -362,14 +363,14 @@ const Exams: React.FC = () => {
     });
 
     const examData: any = {
-      courseId, 
+      courseId,
       batchId: primaryBatch,
       batchIds: assignedBatchList,
       batchVisibility: visibilityObj,
-      title, 
-      chapter, 
-      description, 
-      instructions, 
+      title,
+      chapter,
+      description,
+      instructions,
       examType,
       duration: Number(duration),
       totalMarks: Number(totalMarks),
@@ -454,30 +455,30 @@ const Exams: React.FC = () => {
 
   const resetForm = () => {
     setEditingId(null);
-    setCourseId(''); 
+    setCourseId('');
     setBatchId('all');
     setSelectedBatchIds([]);
     setIsAllBatches(false);
     setTitle('');
-    setChapter(''); 
-    setDescription(''); 
-    setInstructions(''); 
+    setChapter('');
+    setDescription('');
+    setInstructions('');
     setExamType('MCQ');
-    setDuration(''); 
-    setTotalMarks(''); 
+    setDuration('');
+    setTotalMarks('');
     setPassingMarks('');
-    setNumberOfQuestions(''); 
+    setNumberOfQuestions('');
     setMarksPerQuestion('');
-    setNegativeMarking(false); 
-    setShuffleQuestions(false); 
+    setNegativeMarking(false);
+    setShuffleQuestions(false);
     setShuffleOptions(false);
-    setAllowReview(true); 
+    setAllowReview(true);
     setShowResultImmediately(true);
-    setMaxViolationsAllowed('3'); 
-    setMaxViolationDuration('30'); 
+    setMaxViolationsAllowed('3');
+    setMaxViolationDuration('30');
     setViolationAction('AutoSubmit');
-    setStartDate(''); 
-    setEndDate(''); 
+    setStartDate('');
+    setEndDate('');
     setStatus('draft');
   };
 
@@ -489,7 +490,7 @@ const Exams: React.FC = () => {
     const assigned = Array.isArray(exam.batchIds) && exam.batchIds.length > 0
       ? exam.batchIds
       : (exam.batchId ? [exam.batchId] : []);
-    
+
     setSelectedBatchIds(assigned);
     setIsAllBatches(assigned.includes('all'));
 
@@ -541,6 +542,22 @@ const Exams: React.FC = () => {
     ? exams
     : exams.filter(e => e.courseId === managerCourseFilter);
 
+  // Filter batches by the currently selected course in the form
+  const courseBatches = useMemo(() => {
+    if (!courseId) return [];
+    const selectedCourseObj = courses.find(c => c.documentId === courseId);
+    return batches.filter(b => {
+      return (
+        b.courseId === courseId ||
+        (selectedCourseObj && b.courseId === selectedCourseObj.courseName) ||
+        ((b as any).courseIds && Array.isArray((b as any).courseIds) && (
+          (b as any).courseIds.includes(courseId) ||
+          (selectedCourseObj && (b as any).courseIds.includes(selectedCourseObj.courseName))
+        ))
+      );
+    });
+  }, [batches, courseId, courses]);
+
   const totalBatchExams = filteredExamsByCourse.length;
   const enabledBatchExams = filteredExamsByCourse.filter(e => isExamEnabledForBatch(e, managerSelectedBatchId)).length;
   const disabledBatchExams = totalBatchExams - enabledBatchExams;
@@ -575,12 +592,12 @@ const Exams: React.FC = () => {
 
     const rows = list.map(e => {
       const cName = courses.find(c => c.documentId === e.courseId)?.courseName || e.courseId || 'All Courses';
-      const bIds = Array.isArray(e.batchIds) && e.batchIds.length > 0 
-        ? e.batchIds 
+      const bIds = Array.isArray(e.batchIds) && e.batchIds.length > 0
+        ? e.batchIds
         : (e.batchId ? [e.batchId] : []);
       const isAll = bIds.includes('all');
-      const assignedBatchNames = isAll 
-        ? ['All Batches'] 
+      const assignedBatchNames = isAll
+        ? ['All Batches']
         : bIds.map(bId => batches.find(b => b.documentId === bId)?.batchName || bId).filter(Boolean);
 
       const count = Number(e.numberOfQuestions) || 0;
@@ -640,24 +657,24 @@ const Exams: React.FC = () => {
       header: 'Assigned Batches',
       exportValue: (row) => {
         const cName = courses.find(c => c.documentId === row.courseId)?.courseName || row.courseId || 'All Courses';
-        const bIds = Array.isArray(row.batchIds) && row.batchIds.length > 0 
-          ? row.batchIds 
+        const bIds = Array.isArray(row.batchIds) && row.batchIds.length > 0
+          ? row.batchIds
           : (row.batchId ? [row.batchId] : []);
         const isAll = bIds.includes('all');
-        const assignedBatchNames = isAll 
-          ? ['All Batches'] 
+        const assignedBatchNames = isAll
+          ? ['All Batches']
           : bIds.map(bId => batches.find(b => b.documentId === bId)?.batchName || bId).filter(Boolean);
         return `${cName} (${assignedBatchNames.join(', ') || 'All Batches'})`;
       },
       render: (row) => {
         const cName = courses.find(c => c.documentId === row.courseId)?.courseName || row.courseId || 'All Courses';
-        const bIds = Array.isArray(row.batchIds) && row.batchIds.length > 0 
-          ? row.batchIds 
+        const bIds = Array.isArray(row.batchIds) && row.batchIds.length > 0
+          ? row.batchIds
           : (row.batchId ? [row.batchId] : []);
-        
+
         const isAll = bIds.includes('all');
-        const assignedBatchNames = isAll 
-          ? ['All Batches'] 
+        const assignedBatchNames = isAll
+          ? ['All Batches']
           : bIds.map(bId => batches.find(b => b.documentId === bId)?.batchName || bId).filter(Boolean);
 
         return (
@@ -695,22 +712,22 @@ const Exams: React.FC = () => {
         </div>
       )
     },
-    {
-      key: 'marks',
-      header: 'Marks',
-      align: 'center',
-      exportValue: (row) => `Pass: ${row.passingMarks || 0} / Total: ${row.totalMarks || 0} (${row.marksPerQuestion || 1} mark/q)`,
-      render: (row) => (
-        <div className="exam-marks-cell" style={{ alignItems: 'center' }}>
-          <div className="exam-marks-score">
-            <span className="exam-pass-mark">{row.passingMarks}</span>
-            <span style={{ color: '#94a3b8', margin: '0 3px' }}>/</span>
-            <span className="exam-total-mark">{row.totalMarks}</span>
-          </div>
-          <div className="exam-marks-sub">Pass / Total</div>
-        </div>
-      )
-    },
+    // {
+    //   key: 'marks',
+    //   header: 'Marks',
+    //   align: 'center',
+    //   exportValue: (row) => `Pass: ${row.passingMarks || 0} / Total: ${row.totalMarks || 0} (${row.marksPerQuestion || 1} mark/q)`,
+    //   render: (row) => (
+    //     <div className="exam-marks-cell" style={{ alignItems: 'center' }}>
+    //       <div className="exam-marks-score">
+    //         <span className="exam-pass-mark">{row.passingMarks}</span>
+    //         <span style={{ color: '#94a3b8', margin: '0 3px' }}>/</span>
+    //         <span className="exam-total-mark">{row.totalMarks}</span>
+    //       </div>
+    //       <div className="exam-marks-sub">Pass / Total</div>
+    //     </div>
+    //   )
+    // },
     {
       key: 'status',
       header: 'Status',
@@ -832,12 +849,12 @@ const Exams: React.FC = () => {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button 
+          <button
             type="button"
-            className="btn btn-outline" 
-            style={{ 
-              backgroundColor: '#ecfdf5', 
-              borderColor: '#10b981', 
+            className="btn btn-outline"
+            style={{
+              backgroundColor: '#ecfdf5',
+              borderColor: '#10b981',
               color: '#047857',
               fontWeight: 700,
               display: 'flex',
@@ -918,20 +935,20 @@ const Exams: React.FC = () => {
       {/* Tab 2: Batch Exam Manager & Visibility */}
       {activeTab === 'batch_manager' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          
+
           {/* Controls Banner */}
-          <div style={{ 
-            backgroundColor: '#ffffff', 
-            borderRadius: '16px', 
-            padding: '1.25rem', 
-            border: '1px solid #e2e8f0', 
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            padding: '1.25rem',
+            border: '1px solid #e2e8f0',
             boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
             display: 'flex',
             flexDirection: 'column',
             gap: '1rem'
           }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
-              
+
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', flex: '1' }}>
                 <div style={{ minWidth: '220px' }}>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: '800', color: '#475569', marginBottom: '4px' }}>
@@ -998,12 +1015,12 @@ const Exams: React.FC = () => {
             </div>
 
             {/* Batch Status Bar */}
-            <div style={{ 
-              display: 'flex', 
-              flexWrap: 'wrap', 
-              alignItems: 'center', 
-              gap: '12px', 
-              paddingTop: '0.75rem', 
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: '12px',
+              paddingTop: '0.75rem',
               borderTop: '1px solid #f1f5f9',
               fontSize: '0.85rem'
             }}>
@@ -1073,11 +1090,11 @@ const Exams: React.FC = () => {
                           {exam.chapter}
                         </span>
                       )}
-                      <h4 style={{ 
-                        fontSize: '1rem', 
-                        fontWeight: '800', 
-                        color: isEnabled ? '#0f172a' : '#64748b', 
-                        margin: 0 
+                      <h4 style={{
+                        fontSize: '1rem',
+                        fontWeight: '800',
+                        color: isEnabled ? '#0f172a' : '#64748b',
+                        margin: 0
                       }}>
                         {exam.title}
                       </h4>
@@ -1115,11 +1132,11 @@ const Exams: React.FC = () => {
                     </button>
 
                     <div style={{ textAlign: 'right' }}>
-                      <span style={{ 
-                        display: 'block', 
-                        fontSize: '0.75rem', 
-                        fontWeight: '800', 
-                        color: isEnabled ? '#059669' : '#94a3b8' 
+                      <span style={{
+                        display: 'block',
+                        fontSize: '0.75rem',
+                        fontWeight: '800',
+                        color: isEnabled ? '#059669' : '#94a3b8'
                       }}>
                         {isEnabled ? 'Active in Batch' : 'Hidden from Batch'}
                       </span>
@@ -1166,33 +1183,87 @@ const Exams: React.FC = () => {
       {/* Modal 1: Create / Edit Exam Modal */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Exam" : "Create New Exam"}>
         <form onSubmit={handleSubmit} className="modal-form" style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '10px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          
+
           <div style={{ backgroundColor: 'var(--bg-main, #f8fafc)', padding: '1rem', borderRadius: '14px', border: '1px solid var(--border-color, #e2e8f0)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.85rem', color: 'var(--primary, #e11d48)', fontWeight: '800', fontSize: '0.875rem' }}>
               <Settings2 size={16} />
               <span>Exam Identification &amp; Target Batches</span>
             </div>
-            
+
             <Input label="Exam Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.75rem' }}>
-              <Select label="Course" options={courses.map(c => ({ label: c.courseName, value: c.documentId! }))} value={courseId} onChange={(e) => setCourseId(e.target.value)} required />
+              <Select 
+                label="Course" 
+                options={courses.map(c => ({ label: c.courseName, value: c.documentId! }))} 
+                value={courseId} 
+                onChange={(e) => {
+                  const newCourseId = e.target.value;
+                  setCourseId(newCourseId);
+                  
+                  // Filter out any selected batches that do not belong to the newly selected course
+                  if (!isAllBatches) {
+                    const cObj = courses.find(c => c.documentId === newCourseId);
+                    const validBatches = batches.filter(b => 
+                      b.courseId === newCourseId || 
+                      (cObj && b.courseId === cObj.courseName) ||
+                      ((b as any).courseIds && Array.isArray((b as any).courseIds) && (b as any).courseIds.includes(newCourseId))
+                    );
+                    const validIds = validBatches.map(b => b.documentId!).filter(Boolean);
+                    setSelectedBatchIds(prev => prev.filter(id => validIds.includes(id)));
+                    if (validIds.length > 0) {
+                      setBatchId(validIds[0]);
+                    }
+                  }
+                }} 
+                required 
+              />
               <Select label="Exam Type" options={[
                 { label: 'MCQ', value: 'MCQ' }, { label: 'Reading', value: 'Reading' }, { label: 'Speaking', value: 'Speaking' }, { label: 'Abacus', value: 'Abacus' }
               ]} value={examType} onChange={(e) => setExamType(e.target.value as any)} required />
             </div>
 
-            {/* Target Batches Checkboxes */}
+            {/* Target Batches Checkboxes (Filtered by Selected Course) */}
             <div style={{ marginTop: '0.85rem' }}>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '800', color: '#334155', marginBottom: '6px' }}>
-                Assign to Batches:
-              </label>
-              
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: '800', color: '#334155' }}>
+                  Assign to Batches: {courseId && courseBatches.length > 0 && (
+                    <span style={{ fontWeight: '600', color: '#64748b' }}>({courseBatches.length} for selected course)</span>
+                  )}
+                </label>
+                {courseBatches.length > 1 && !isAllBatches && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allBatchIds = courseBatches.map(b => b.documentId!).filter(Boolean);
+                      const allSelected = allBatchIds.every(id => selectedBatchIds.includes(id));
+                      if (allSelected) {
+                        setSelectedBatchIds(prev => prev.filter(id => !allBatchIds.includes(id)));
+                      } else {
+                        setSelectedBatchIds(prev => Array.from(new Set([...prev, ...allBatchIds])));
+                        if (allBatchIds.length > 0) setBatchId(allBatchIds[0]);
+                      }
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#2563eb',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                  >
+                    {courseBatches.every(b => selectedBatchIds.includes(b.documentId!)) ? 'Deselect All' : 'Select All'}
+                  </button>
+                )}
+              </div>
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: '700', color: '#2563eb', cursor: 'pointer' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={isAllBatches} 
+                  <input
+                    type="checkbox"
+                    checked={isAllBatches}
                     onChange={(e) => {
                       setIsAllBatches(e.target.checked);
                       if (e.target.checked) {
@@ -1200,35 +1271,47 @@ const Exams: React.FC = () => {
                       } else {
                         setSelectedBatchIds([]);
                       }
-                    }} 
+                    }}
                   />
                   <span>All Batches (Universal Exam)</span>
                 </label>
               </div>
 
               {!isAllBatches && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', maxHeight: '120px', overflowY: 'auto', padding: '6px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  {batches.map(b => {
-                    const isChecked = selectedBatchIds.includes(b.documentId!);
-                    return (
-                      <label key={b.documentId} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#334155', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedBatchIds(prev => [...prev, b.documentId!]);
-                              setBatchId(b.documentId!);
-                            } else {
-                              setSelectedBatchIds(prev => prev.filter(id => id !== b.documentId));
-                            }
-                          }}
-                        />
-                        <span style={{ fontWeight: isChecked ? '700' : '500' }}>{b.batchName}</span>
-                      </label>
-                    );
-                  })}
-                </div>
+                <>
+                  {!courseId ? (
+                    <div style={{ padding: '12px', fontSize: '0.82rem', color: '#64748b', fontStyle: 'italic', textAlign: 'center', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+                      Please select a Course above to view and assign its batches.
+                    </div>
+                  ) : courseBatches.length === 0 ? (
+                    <div style={{ padding: '12px', fontSize: '0.82rem', color: '#dc2626', fontWeight: 600, textAlign: 'center', backgroundColor: '#fef2f2', borderRadius: '8px', border: '1px solid #fecaca' }}>
+                      No batches found for this course. Please create a batch under &quot;{courses.find(c => c.documentId === courseId)?.courseName || 'this course'}&quot; first, or select &quot;All Batches&quot;.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', maxHeight: '130px', overflowY: 'auto', padding: '8px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      {courseBatches.map(b => {
+                        const isChecked = selectedBatchIds.includes(b.documentId!);
+                        return (
+                          <label key={b.documentId} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#334155', cursor: 'pointer', padding: '3px 6px', borderRadius: '4px', backgroundColor: isChecked ? '#eff6ff' : 'transparent', transition: 'background-color 0.15s' }}>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedBatchIds(prev => [...prev, b.documentId!]);
+                                  setBatchId(b.documentId!);
+                                } else {
+                                  setSelectedBatchIds(prev => prev.filter(id => id !== b.documentId));
+                                }
+                              }}
+                            />
+                            <span style={{ fontWeight: isChecked ? '700' : '500', color: isChecked ? '#1d4ed8' : '#334155' }}>{b.batchName}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -1340,11 +1423,11 @@ const Exams: React.FC = () => {
             Schedule the identical exam and same questions for a new batch with custom start and end dates.
           </p>
 
-          <Input 
-            label="Exam Title for Next Batch" 
-            value={nextExamTitle} 
-            onChange={(e) => setNextExamTitle(e.target.value)} 
-            required 
+          <Input
+            label="Exam Title for Next Batch"
+            value={nextExamTitle}
+            onChange={(e) => setNextExamTitle(e.target.value)}
+            required
           />
 
           <div style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
@@ -1373,19 +1456,19 @@ const Exams: React.FC = () => {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-            <Input 
-              type="datetime-local" 
-              label="New Start Date & Time" 
-              value={nextStartDate} 
-              onChange={(e) => setNextStartDate(e.target.value)} 
-              required 
+            <Input
+              type="datetime-local"
+              label="New Start Date & Time"
+              value={nextStartDate}
+              onChange={(e) => setNextStartDate(e.target.value)}
+              required
             />
-            <Input 
-              type="datetime-local" 
-              label="New End Date & Time" 
-              value={nextEndDate} 
-              onChange={(e) => setNextEndDate(e.target.value)} 
-              required 
+            <Input
+              type="datetime-local"
+              label="New End Date & Time"
+              value={nextEndDate}
+              onChange={(e) => setNextEndDate(e.target.value)}
+              required
             />
           </div>
 
@@ -1393,9 +1476,9 @@ const Exams: React.FC = () => {
             <button type="button" className="btn-modal-cancel" onClick={() => setIsNextBatchModalOpen(false)}>
               Cancel
             </button>
-            <button 
-              type="button" 
-              className="btn-modal-primary" 
+            <button
+              type="button"
+              className="btn-modal-primary"
               onClick={handleScheduleForNextBatch}
               disabled={isSubmitting || !nextBatchId}
             >

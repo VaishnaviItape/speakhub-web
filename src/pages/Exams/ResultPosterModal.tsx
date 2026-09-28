@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   X, Download, Printer, Copy, Check, Sparkles, 
-  Settings, Award, Calendar, User, MapPin, Palette 
+  Settings, Award, Calendar, User, MapPin, ChevronLeft, ChevronRight, Layers, Phone
 } from 'lucide-react';
 import type { Exam } from '../../types/models';
 import './ResultPosterModal.css';
@@ -21,9 +21,9 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
   batchName = '',
   attempts = []
 }) => {
-  // Format current or exam date for default display: e.g. "23 SEPTEMBER 2026"
-  const getFormattedDate = () => {
-    const rawDate: any = exam?.startDate || new Date();
+  // Format current or exam date for default display: e.g. "27 SEPTEMBER 2026"
+  const getFormattedDate = (rawDateVal?: any) => {
+    const rawDate: any = rawDateVal || exam?.startDate || new Date();
     let d: Date;
     if (rawDate && typeof rawDate.toDate === 'function') {
       d = rawDate.toDate();
@@ -41,303 +41,164 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
   };
 
-  // Customizable Poster Fields
-  const [instituteTitle, setInstituteTitle] = useState('SPEAK HUB ABACUS');
-  const [tagline, setTagline] = useState('Fun With Mathematics');
-  const [batchType, setBatchType] = useState(batchName ? `${batchName.toUpperCase()} BATCH` : 'OFFLINE ABACUS BATCH');
-  const [examDate, setExamDate] = useState(getFormattedDate());
-  const [batchCategory, setBatchCategory] = useState('ALL BATCHES');
-  const [teacherNames, setTeacherNames] = useState('Mrs. SHWETA & GAYATRI');
-  const [posterTitle, setPosterTitle] = useState(
-    exam?.title 
-      ? `${exam.title.toUpperCase()} TEST RESULT` 
-      : 'SEPTEMBER ABACUS BATCH TEST RESULT'
-  );
+  const getMonthYear = (rawDateVal?: any) => {
+    const rawDate: any = rawDateVal || exam?.startDate || new Date();
+    let d: Date;
+    if (rawDate && typeof rawDate.toDate === 'function') {
+      d = rawDate.toDate();
+    } else if (rawDate instanceof Date) {
+      d = rawDate;
+    } else {
+      d = new Date(rawDate);
+    }
+    if (isNaN(d.getTime())) d = new Date();
+
+    const months = [
+      'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+      'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'
+    ];
+    return `${months[d.getMonth()]} ${d.getFullYear()}`;
+  };
+
+  // Marksheet Customization State matching user format identically
+  const [instituteTitle, setInstituteTitle] = useState('SPEAK HUB ACADEMY');
+  const [tagline, setTagline] = useState('Offline & Online Spoken English Classes.');
+  const [courseName, setCourseName] = useState('SPOKEN ENGLISH - FOUNDATION');
+  const [batchTiming, setBatchTiming] = useState(batchName ? `${batchName.toUpperCase()} BATCH` : '6 TO 7 PM BATCH');
+  const [resultDate, setResultDate] = useState(getFormattedDate());
+  const [teacherName, setTeacherName] = useState('Mrs. NILAM');
+  const [mainResultTitle, setMainResultTitle] = useState(`${getMonthYear()} ONLINE EXAM RESULT`);
+  const [examDate, setExamDate] = useState(`EXAM DATE – ${getFormattedDate()}`);
+  const [contactInfo, setContactInfo] = useState('For Admission Contact – 9970964742, 8999080975.');
   const [address, setAddress] = useState(
-    'Office - Omkar Apartment, Near Canara Bank, Warje-Malwadi, Pune-58.'
+    'Office – Omkar Aprtment, Near Canara Bank, NDA Road, Warje-Malwadi, Pune – 58.'
   );
-  
-  // Filtering & Ordering
-  const [studentLimit, setStudentLimit] = useState<'all' | '10' | '12' | '15'>('12');
-  const [sortBy, setSortBy] = useState<'score' | 'rank' | 'time'>('score');
-  const [colorTheme, setColorTheme] = useState<'magenta' | 'purple' | 'navy' | 'emerald'>('magenta');
+  const [totalMarks, setTotalMarks] = useState<number>(Number(exam?.totalMarks) || 20);
 
-  // Copy state
-  const [isCopied, setIsCopied] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  // Filter & Sort Settings
+  const [includeAbsent, setIncludeAbsent] = useState<boolean>(true);
+  const [sortBy, setSortBy] = useState<'alphabetical' | 'score' | 'rank'>('alphabetical');
 
-  // Canvas ref for drawing the high-res PNG export
+  // Multi-part Pagination State (10 students per part)
+  const [activePart, setActivePart] = useState<number>(1);
+  const [isCopied, setIsCopied] = useState<boolean>(false);
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+
+  // Canvas for crisp export
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Synchronize defaults when exam changes
+  // Sync defaults when exam or batch changes
   useEffect(() => {
     if (exam) {
       const isAbacus = (exam.title || '').toLowerCase().includes('abacus') || 
                        (exam.examType || '').toLowerCase().includes('abacus');
-      setInstituteTitle(isAbacus ? 'SPEAK HUB ABACUS' : 'SPEAK HUB ACADEMY');
-      setTagline(isAbacus ? 'Fun With Mathematics' : 'Excellence in Learning');
-      setPosterTitle(`${exam.title.toUpperCase()} TEST RESULT`);
+      
+      if (isAbacus) {
+        setInstituteTitle('SPEAK HUB ABACUS');
+        setTagline('Fun With Mathematics');
+        setCourseName('ABACUS FOUNDATION');
+      } else {
+        setInstituteTitle('SPEAK HUB ACADEMY');
+        setTagline('Offline & Online Spoken English Classes.');
+        setCourseName(exam.title ? exam.title.toUpperCase() : 'SPOKEN ENGLISH - FOUNDATION');
+      }
+
+      setMainResultTitle(`${getMonthYear(exam.startDate)} ONLINE EXAM RESULT`);
+      setExamDate(`EXAM DATE – ${getFormattedDate(exam.startDate)}`);
+      setTotalMarks(Number(exam.totalMarks) || 20);
+
       if (batchName) {
-        setBatchType(`${batchName.toUpperCase()}`);
+        setBatchTiming(`${batchName.toUpperCase()} BATCH`);
       }
     }
   }, [exam, batchName]);
 
-  if (!isOpen) return null;
-
-  // Filter only submitted attempts with scores (exclude absents from the celebratory poster)
-  const submittedStudents = attempts
-    .filter(a => a.attempt && a.attempt.score !== undefined)
-    .map(a => {
+  // Process and sort students
+  const processedStudents = useMemo(() => {
+    let list = attempts.map((a) => {
       const att = a.attempt;
-      const score = Number(att.score) || 0;
-      const timeSeconds = Number(att.timeUsed) || 360;
-      
-      // Calculate formatted time taken (e.g. 6, 7:28, 10, 9:50)
-      const m = Math.floor(timeSeconds / 60);
-      const s = timeSeconds % 60;
-      const timeTakeFormatted = s === 0 ? `${m || 5}` : `${m}:${s < 10 ? '0' : ''}${s}`;
-
+      const score = att && att.score !== undefined ? Number(att.score) : undefined;
+      const rank = att && att.rank !== undefined ? Number(att.rank) : 9999;
       return {
+        id: a.id || a.documentId || Math.random().toString(),
         name: a.name || 'Student',
         score,
-        timeSeconds,
-        timeTake: timeTakeFormatted,
-        rank: Number(att.rank) || 1
+        isAbsent: score === undefined,
+        rank,
+        attempt: att
       };
     });
 
-  // Sort according to selection
-  submittedStudents.sort((a, b) => {
-    if (sortBy === 'score') {
-      if (b.score !== a.score) return b.score - a.score;
-      return a.timeSeconds - b.timeSeconds; // tie-breaker: faster time wins
+    if (!includeAbsent) {
+      list = list.filter((s) => !s.isAbsent);
     }
-    if (sortBy === 'rank') return a.rank - b.rank;
-    if (sortBy === 'time') return a.timeSeconds - b.timeSeconds;
-    return 0;
-  });
 
-  // Slice based on limit
-  const displayStudents = studentLimit === 'all' 
-    ? submittedStudents 
-    : submittedStudents.slice(0, parseInt(studentLimit, 10));
-
-  const totalMarks = Number(exam?.totalMarks) || 100;
-
-  // Color Palettes
-  const themes = {
-    magenta: {
-      primary: '#d81b60',
-      dark: '#ad1457',
-      light: '#fce4ec',
-      accent: '#c2185b',
-      titleColor: '#b71c1c',
-      badgeBg: '#ffffff'
-    },
-    purple: {
-      primary: '#7c3aed',
-      dark: '#5b21b6',
-      light: '#ede9fe',
-      accent: '#6d28d9',
-      titleColor: '#4c1d95',
-      badgeBg: '#ffffff'
-    },
-    navy: {
-      primary: '#1e40af',
-      dark: '#1e3a8a',
-      light: '#eff6ff',
-      accent: '#1d4ed8',
-      titleColor: '#172554',
-      badgeBg: '#ffffff'
-    },
-    emerald: {
-      primary: '#059669',
-      dark: '#065f46',
-      light: '#ecfdf5',
-      accent: '#047857',
-      titleColor: '#064e3b',
-      badgeBg: '#ffffff'
-    }
-  };
-
-  const currentTheme = themes[colorTheme];
-
-  // Draw High-Resolution Poster on Canvas (Exact 800 x 1100 resolution)
-  const drawPosterOnCanvas = (): HTMLCanvasElement | null => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-
-    const W = 800;
-    // Calculate required height based on rows
-    const rowHeight = 36;
-    const headerHeight = 230;
-    const footerHeight = 300;
-    const H = headerHeight + (displayStudents.length * rowHeight) + footerHeight;
-
-    canvas.width = W;
-    canvas.height = H;
-
-    // Background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, W, H);
-
-    // 1. TOP LOGO & HEADER
-    ctx.fillStyle = currentTheme.titleColor;
-    ctx.font = '900 36px "Segoe UI", Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(instituteTitle, W / 2, 45);
-
-    ctx.fillStyle = '#111827';
-    ctx.font = '700 20px "Segoe UI", Arial, sans-serif';
-    ctx.fillText(tagline, W / 2, 75);
-
-    // Mini decorative abacus frame on top right
-    drawAbacusBeads(ctx, W - 140, 20, 110, 48);
-
-    // 2. MAGENTA/THEME BANNER SECTION
-    ctx.fillStyle = currentTheme.primary;
-    ctx.fillRect(0, 95, W, 125);
-
-    // Left info
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '800 15px "Segoe UI", Arial, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(batchType, 30, 125);
-    ctx.font = '600 13px "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = '#fce4ec';
-    ctx.fillText(examDate, 30, 145);
-
-    // Right info
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '800 15px "Segoe UI", Arial, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText(batchCategory, W - 30, 125);
-    ctx.font = '700 13px "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = '#fffbeb';
-    ctx.fillText(teacherNames, W - 30, 145);
-
-    // Center Badge: TEST RESULT PILL
-    const badgeW = 520;
-    const badgeH = 40;
-    const badgeX = (W - badgeW) / 2;
-    const badgeY = 162;
-
-    ctx.fillStyle = '#ffffff';
-    roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 10, true, false);
-    ctx.strokeStyle = '#f472b6';
-    ctx.lineWidth = 1.5;
-    roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 10, false, true);
-
-    ctx.fillStyle = '#111827';
-    ctx.font = '900 19px "Segoe UI", Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(posterTitle, W / 2, badgeY + 27);
-
-    // 3. TABLE HEADER
-    const tableTop = 220;
-    ctx.fillStyle = currentTheme.dark;
-    ctx.fillRect(0, tableTop, W, 38);
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '800 14px "Segoe UI", Arial, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('TIME TAKE (Minutes)', 35, tableTop + 24);
-
-    ctx.textAlign = 'center';
-    ctx.fillText('SCORE', 380, tableTop + 24);
-
-    ctx.textAlign = 'left';
-    ctx.fillText('STUDENT NAME', 520, tableTop + 24);
-
-    // 4. STUDENT ROWS
-    let currentY = tableTop + 38;
-    displayStudents.forEach((student, idx) => {
-      // Alternating background
-      ctx.fillStyle = idx % 2 === 0 ? '#fffdf7' : '#ffffff';
-      ctx.fillRect(0, currentY, W, rowHeight);
-
-      // Subtle divider
-      ctx.strokeStyle = '#f1f5f9';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(20, currentY + rowHeight);
-      ctx.lineTo(W - 20, currentY + rowHeight);
-      ctx.stroke();
-
-      // Time
-      ctx.fillStyle = '#0f172a';
-      ctx.font = '800 16px "Segoe UI", Arial, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(student.timeTake, 75, currentY + 24);
-
-      // Score
-      ctx.fillStyle = '#0f172a';
-      ctx.font = '800 17px "Segoe UI", Arial, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(`${student.score} / ${totalMarks}`, 380, currentY + 24);
-
-      // Student Name
-      ctx.fillStyle = '#0f172a';
-      ctx.font = '900 17px "Segoe UI", Arial, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(student.name, 520, currentY + 24);
-
-      currentY += rowHeight;
+    list.sort((a, b) => {
+      if (sortBy === 'alphabetical') {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      if (sortBy === 'score') {
+        if (a.isAbsent && !b.isAbsent) return 1;
+        if (!a.isAbsent && b.isAbsent) return -1;
+        return (b.score || 0) - (a.score || 0);
+      }
+      if (sortBy === 'rank') {
+        if (a.isAbsent && !b.isAbsent) return 1;
+        if (!a.isAbsent && b.isAbsent) return -1;
+        return a.rank - b.rank;
+      }
+      return 0;
     });
 
-    // 5. BOTTOM ILLUSTRATION & BENEFITS SECTION
-    const bottomY = currentY;
-    const bottomH = 220;
+    return list;
+  }, [attempts, includeAbsent, sortBy]);
 
-    // Gradient background for illustration box
-    const grad = ctx.createLinearGradient(0, bottomY, W, bottomY + bottomH);
-    grad.addColorStop(0, '#1e3a8a');
-    grad.addColorStop(1, '#0f172a');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, bottomY, W, bottomH);
+  // Calculate total parts (10 students per part, minimum 1)
+  const totalParts = Math.max(1, Math.ceil(processedStudents.length / 10));
 
-    // Left: Draw Student with Abacus Illustration
-    drawStudentStudyGraphic(ctx, 40, bottomY + 25);
+  // Reset active part if out of range
+  useEffect(() => {
+    if (activePart > totalParts) {
+      setActivePart(1);
+    }
+  }, [totalParts, activePart]);
 
-    // Center: Draw Golden Trophy
-    drawGoldenTrophy(ctx, W / 2 - 35, bottomY + 30);
+  if (!isOpen) return null;
 
-    // Trophy pedestal text
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '800 12px "Segoe UI", Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Keep Practicing', W / 2, bottomY + 175);
-    ctx.fillText('Keep Achieving', W / 2, bottomY + 192);
-
-    // Right: Draw Benefits Grid
-    drawBenefitsBlock(ctx, W - 260, bottomY + 20);
-
-    // 6. BOTTOM FOOTER STRIP
-    const footerY = bottomY + bottomH;
-    ctx.fillStyle = '#e2e8f0';
-    ctx.fillRect(0, footerY, W, 42);
-
-    ctx.fillStyle = '#1e293b';
-    ctx.font = '700 14px "Segoe UI", Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(address, W / 2, footerY + 26);
-
-    return canvas;
+  // Build the 10 rows for a specific part (1-indexed)
+  const getRowsForPart = (partNum: number) => {
+    const startIndex = (partNum - 1) * 10;
+    const rows = [];
+    for (let i = 0; i < 10; i++) {
+      const globalIndex = startIndex + i;
+      const srNo = String(globalIndex + 1).padStart(2, '0');
+      const student = processedStudents[globalIndex];
+      let scoreText = '';
+      if (student) {
+        scoreText = student.isAbsent ? 'AB' : `${student.score} / ${totalMarks}`;
+      }
+      rows.push({
+        srNo,
+        name: student ? student.name : '',
+        score: scoreText,
+        isAbsent: student?.isAbsent ?? false,
+        hasData: !!student
+      });
+    }
+    return rows;
   };
 
-  // Helper: Round Rectangle
+  const currentPartRows = getRowsForPart(activePart);
+
+  // Helper: Round Rectangle on Canvas
   const roundRect = (
-    ctx: CanvasRenderingContext2D, 
-    x: number, 
-    y: number, 
-    w: number, 
-    h: number, 
-    r: number, 
-    fill: boolean, 
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    r: number,
+    fill: boolean,
     stroke: boolean
   ) => {
     ctx.beginPath();
@@ -351,213 +212,281 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     if (stroke) ctx.stroke();
   };
 
-  // Helper: Draw Abacus frame on top right
-  const drawAbacusBeads = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) => {
-    ctx.fillStyle = '#78350f';
-    roundRect(ctx, x, y, w, h, 6, true, false);
-
-    // Dividing bar
-    ctx.fillStyle = '#b45309';
-    ctx.fillRect(x, y + 16, w, 4);
-
-    // Metal rods and beads
-    const rods = 5;
-    const rodStep = w / (rods + 1);
-    for (let i = 1; i <= rods; i++) {
-      const rx = x + (i * rodStep);
-      ctx.fillStyle = '#d1d5db';
-      ctx.fillRect(rx - 1, y + 4, 2, h - 8);
-
-      // Top beads (brown / amber)
-      ctx.fillStyle = '#f59e0b';
-      ctx.beginPath();
-      ctx.arc(rx, y + 9, 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Bottom beads
-      ctx.fillStyle = '#d97706';
-      ctx.beginPath();
-      ctx.arc(rx, y + 26, 4, 0, Math.PI * 2);
-      ctx.arc(rx, y + 36, 4, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  };
-
-  // Helper: Draw Golden Trophy
-  const drawGoldenTrophy = (ctx: CanvasRenderingContext2D, x: number, y: number) => {
-    // Cup body
-    ctx.fillStyle = '#fbbf24';
-    ctx.beginPath();
-    ctx.moveTo(x + 10, y + 10);
-    ctx.lineTo(x + 60, y + 10);
-    ctx.quadraticCurveTo(x + 60, y + 65, x + 35, y + 75);
-    ctx.quadraticCurveTo(x + 10, y + 65, x + 10, y + 10);
-    ctx.fill();
-
-    // Handles
-    ctx.strokeStyle = '#f59e0b';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(x + 8, y + 35, 14, Math.PI * 0.5, Math.PI * 1.5);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(x + 62, y + 35, 14, Math.PI * 1.5, Math.PI * 0.5);
-    ctx.stroke();
-
-    // Star in trophy
-    ctx.fillStyle = '#fef08a';
-    ctx.font = '22px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('★', x + 35, y + 45);
-
-    // Stem
-    ctx.fillStyle = '#f59e0b';
-    ctx.fillRect(x + 30, y + 75, 10, 25);
-
-    // Base pedestal
-    ctx.fillStyle = '#1e293b';
-    roundRect(ctx, x - 25, y + 100, 120, 50, 8, true, false);
-    ctx.strokeStyle = '#fbbf24';
-    ctx.lineWidth = 1.5;
-    roundRect(ctx, x - 25, y + 100, 120, 50, 8, false, true);
-  };
-
-  // Helper: Draw Student with Abacus & Math symbols
-  const drawStudentStudyGraphic = (ctx: CanvasRenderingContext2D, x: number, y: number) => {
-    // Student head & smile
-    ctx.fillStyle = '#fcd34d';
-    ctx.beginPath();
-    ctx.arc(x + 50, y + 40, 28, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Hair
-    ctx.fillStyle = '#1e1b4b';
-    ctx.beginPath();
-    ctx.arc(x + 50, y + 30, 28, Math.PI * 0.8, Math.PI * 2.2);
-    ctx.fill();
-
-    // Eyes
-    ctx.fillStyle = '#0f172a';
-    ctx.beginPath();
-    ctx.arc(x + 42, y + 38, 3, 0, Math.PI * 2);
-    ctx.arc(x + 58, y + 38, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Smile
-    ctx.strokeStyle = '#0f172a';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(x + 50, y + 44, 12, 0.1 * Math.PI, 0.9 * Math.PI);
-    ctx.stroke();
-
-    // Shirt / body
-    ctx.fillStyle = '#3b82f6';
-    roundRect(ctx, x + 25, y + 70, 50, 45, 10, true, false);
-
-    // Student Abacus toy on desk
-    ctx.fillStyle = '#78350f';
-    roundRect(ctx, x + 15, y + 115, 80, 40, 4, true, false);
-    ctx.fillStyle = '#f97316';
-    for (let r = 0; r < 4; r++) {
-      ctx.beginPath();
-      ctx.arc(x + 28 + (r * 18), y + 128, 5, 0, Math.PI * 2);
-      ctx.arc(x + 28 + (r * 18), y + 142, 5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // Floating colorful math symbols
-    ctx.font = 'bold 20px "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = '#ec4899';
-    ctx.fillText('+', x - 5, y + 25);
-    ctx.fillStyle = '#22c55e';
-    ctx.fillText('=', x + 20, y + 15);
-    ctx.fillStyle = '#eab308';
-    ctx.fillText('%', x - 8, y + 65);
-    ctx.fillStyle = '#38bdf8';
-    ctx.fillText('1', x + 105, y + 20);
-    ctx.fillStyle = '#a855f7';
-    ctx.fillText('2', x + 115, y + 45);
-    ctx.fillStyle = '#fb923c';
-    ctx.fillText('3', x + 120, y + 75);
-  };
-
-  // Helper: Draw Benefits Block
-  const drawBenefitsBlock = (ctx: CanvasRenderingContext2D, x: number, y: number) => {
-    const boxW = 240;
-    const boxH = 175;
-
-    // Outer card
-    ctx.fillStyle = '#0f172a';
-    roundRect(ctx, x, y, boxW, boxH, 12, true, false);
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 1.5;
-    roundRect(ctx, x, y, boxW, boxH, 12, false, true);
-
-    // Badge Title
-    ctx.fillStyle = '#0284c7';
-    roundRect(ctx, x + 35, y - 10, 170, 26, 13, true, false);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '800 12px "Segoe UI", Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('ABACUS BENEFITS', x + 120, y + 8);
-
-    // 2x2 Grid of benefits
-    const items = [
-      { icon: '🧠', title: 'Improves', sub: 'Concentration' },
-      { icon: '⚡', title: 'Faster', sub: 'Calculation' },
-      { icon: '💡', title: 'Boosts', sub: 'Memory' },
-      { icon: '🎯', title: 'Sharpens', sub: 'Brain' }
-    ];
-
-    items.forEach((item, idx) => {
-      const col = idx % 2;
-      const row = Math.floor(idx / 2);
-      const ix = x + 15 + (col * 115);
-      const iy = y + 28 + (row * 68);
-
-      ctx.font = '22px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(item.icon, ix + 45, iy + 22);
-
-      ctx.font = '700 11px "Segoe UI", Arial, sans-serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.fillText(item.title, ix + 45, iy + 42);
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '600 10px "Segoe UI", Arial, sans-serif';
-      ctx.fillText(item.sub, ix + 45, iy + 55);
+  // Helper to load logo image safely
+  const loadLogoImage = (): Promise<HTMLImageElement | null> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = '/logo.png';
     });
   };
 
-  // 1. Download Poster as PNG Image
-  const handleDownloadImage = () => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      try {
-        const canvas = drawPosterOnCanvas();
-        if (!canvas) return;
+  // Render high-res exact graphic for a specific part on Canvas
+  const drawPosterOnCanvas = async (partNum: number): Promise<HTMLCanvasElement | null> => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
 
-        const url = canvas.toDataURL('image/png');
-        const link = document.createElement('a');
-        link.href = url;
-        const safeTitle = (exam?.title || 'Exam_Result').replace(/[^a-zA-Z0-9_-]/g, '_');
-        link.download = `${safeTitle}_Poster.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } catch (err: any) {
-        alert('Could not download image: ' + err.message);
-      } finally {
-        setIsGenerating(false);
-      }
-    }, 100);
+    // High resolution canvas width and height
+    const W = 800;
+    const H = 940;
+
+    canvas.width = W;
+    canvas.height = H;
+
+    // 1. Clean White Background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+
+    // 2. Header with Logo & Brand Title
+    const logoImg = await loadLogoImage();
+    if (logoImg) {
+      // Draw official Speak Hub Logo
+      ctx.drawImage(logoImg, 25, 12, 85, 80);
+    } else {
+      // Vector fallback logo swirl
+      ctx.fillStyle = '#cc0000';
+      ctx.beginPath();
+      ctx.arc(65, 45, 24, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 20px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('S', 65, 52);
+    }
+
+    // Institute Title (Bold Red Serif)
+    ctx.fillStyle = '#d32f2f';
+    ctx.font = '900 36px "Times New Roman", Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(instituteTitle, W / 2 + 35, 50);
+
+    // Tagline (Bold Black Sans-serif)
+    ctx.fillStyle = '#000000';
+    ctx.font = '700 19px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(tagline, W / 2 + 35, 82);
+
+    // 3. Navy Blue Header Section
+    const blueY = 104;
+    const blueH = 158;
+    ctx.fillStyle = '#002868';
+    ctx.fillRect(0, blueY, W, blueH);
+
+    // Left Column (Course & Batch)
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 15px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(courseName, 205, blueY + 28);
+
+    // Left Horizontal Divider
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(35, blueY + 38);
+    ctx.lineTo(375, blueY + 38);
+    ctx.stroke();
+
+    // Left Batch Timing
+    ctx.fillText(batchTiming, 205, blueY + 58);
+
+    // Middle Vertical Divider Line
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(400, blueY + 12);
+    ctx.lineTo(400, blueY + 68);
+    ctx.stroke();
+
+    // Right Column (Date & Teacher)
+    ctx.fillText(resultDate, 595, blueY + 28);
+
+    // Right Horizontal Divider
+    ctx.beginPath();
+    ctx.moveTo(425, blueY + 38);
+    ctx.lineTo(765, blueY + 38);
+    ctx.stroke();
+
+    // Right Teacher Name
+    ctx.fillText(teacherName, 595, blueY + 58);
+
+    // Center Pill: Result Title with Part number
+    const pillW = 690;
+    const pillH = 38;
+    const pillX = (W - pillW) / 2;
+    const pillY = blueY + 76;
+
+    ctx.fillStyle = '#fef4e8';
+    roundRect(ctx, pillX, pillY, pillW, pillH, 8, true, false);
+
+    ctx.fillStyle = '#c62828';
+    ctx.font = '900 18px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${mainResultTitle} PART - ${partNum}`, W / 2, pillY + 25);
+
+    // Yellow Golden Exam Date
+    ctx.fillStyle = '#ffc107';
+    ctx.font = '800 16px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(examDate, W / 2, blueY + 142);
+
+    // 4. Results Table
+    const tableY = blueY + blueH;
+    const thH = 42;
+
+    // Header Gold Amber Fill
+    ctx.fillStyle = '#f5a623';
+    ctx.fillRect(0, tableY, W, thH);
+
+    // Header Vertical Separators
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(170, tableY);
+    ctx.lineTo(170, tableY + thH);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(600, tableY);
+    ctx.lineTo(600, tableY + thH);
+    ctx.stroke();
+
+    // Table Header Labels
+    ctx.fillStyle = '#000000';
+    ctx.font = '900 17px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('SR. NO', 85, tableY + 27);
+    ctx.fillText('STUDENT NAME', 385, tableY + 27);
+    ctx.fillText('SCORE', 700, tableY + 27);
+
+    // 10 Rows (Always exactly 10 rows for uniform grid)
+    const rowH = 43;
+    const rowsStartY = tableY + thH;
+    const rows = getRowsForPart(partNum);
+
+    rows.forEach((row, i) => {
+      const ry = rowsStartY + (i * rowH);
+
+      // Alternating Background: peach cream & white
+      ctx.fillStyle = i % 2 === 0 ? '#fae8d4' : '#ffffff';
+      ctx.fillRect(0, ry, W, rowH);
+
+      // Vertical Dividers
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(170, ry);
+      ctx.lineTo(170, ry + rowH);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(600, ry);
+      ctx.lineTo(600, ry + rowH);
+      ctx.stroke();
+
+      // Subtle row border
+      ctx.strokeStyle = '#ffe0c0';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(0, ry + rowH);
+      ctx.lineTo(W, ry + rowH);
+      ctx.stroke();
+
+      // Row Text
+      ctx.fillStyle = '#000000';
+      ctx.font = '800 17px Arial, sans-serif';
+      ctx.textAlign = 'center';
+
+      // SR. NO
+      ctx.fillText(row.srNo, 85, ry + 27);
+
+      // Student Name
+      ctx.fillText(row.name, 385, ry + 27);
+
+      // Score
+      ctx.fillText(row.score, 700, ry + 27);
+    });
+
+    // 5. Footer Section
+    const footerStartY = rowsStartY + (10 * rowH) + 12;
+
+    // Admission Banner (Purple/Magenta Pill)
+    const admW = 770;
+    const admH = 44;
+    const admX = (W - admW) / 2;
+
+    ctx.fillStyle = '#7d1867';
+    roundRect(ctx, admX, footerStartY, admW, admH, 8, true, false);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 17px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(contactInfo, W / 2, footerStartY + 28);
+
+    // Office Address
+    ctx.fillStyle = '#000000';
+    ctx.font = '800 13px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(address, W / 2, footerStartY + admH + 24);
+
+    return canvas;
   };
 
-  // 2. Copy Poster Image to Clipboard
+  // 1. Download Current Part as PNG
+  const handleDownloadPart = async (partNum: number) => {
+    setIsGenerating(true);
+    try {
+      const canvas = await drawPosterOnCanvas(partNum);
+      if (!canvas) return;
+
+      const url = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = url;
+      const safeTitle = (exam?.title || 'Exam_Result').replace(/[^a-zA-Z0-9_-]/g, '_');
+      link.download = `${safeTitle}_Marksheet_Part_${partNum}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      alert('Could not download image: ' + err.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // 2. Download All Parts sequentially
+  const handleDownloadAllParts = async () => {
+    setIsGenerating(true);
+    try {
+      for (let p = 1; p <= totalParts; p++) {
+        const canvas = await drawPosterOnCanvas(p);
+        if (canvas) {
+          const url = canvas.toDataURL('image/png');
+          const link = document.createElement('a');
+          link.href = url;
+          const safeTitle = (exam?.title || 'Exam_Result').replace(/[^a-zA-Z0-9_-]/g, '_');
+          link.download = `${safeTitle}_Marksheet_Part_${p}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          // Small pause between multiple downloads
+          await new Promise(r => setTimeout(r, 400));
+        }
+      }
+    } catch (err: any) {
+      alert('Error during bulk download: ' + err.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // 3. Copy Current Part Image to Clipboard for instant WhatsApp paste
   const handleCopyToClipboard = async () => {
     try {
-      const canvas = drawPosterOnCanvas();
+      const canvas = await drawPosterOnCanvas(activePart);
       if (!canvas) return;
 
       canvas.toBlob(async (blob) => {
@@ -569,7 +498,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
           setIsCopied(true);
           setTimeout(() => setIsCopied(false), 2500);
         } catch {
-          alert('Direct image copy is not supported in this browser. Please use "Download PNG" instead.');
+          alert('Direct image copy is not supported in this browser. Please click "Download PNG" instead.');
         }
       });
     } catch (e: any) {
@@ -577,340 +506,455 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     }
   };
 
-  // 3. Print Poster
+  // 4. Print / Save as PDF
   const handlePrint = () => {
     window.print();
   };
 
   return (
-    <div className="result-poster-overlay">
-      <div className="result-poster-modal">
+    <div className="speakhub-result-modal-overlay">
+      <div className="speakhub-result-modal">
         
-        {/* Modal Header */}
-        <div className="result-poster-header">
+        {/* Top Action Header */}
+        <div className="speakhub-modal-header">
           <div className="flex items-center gap-2">
-            <span className="poster-header-badge">
-              <Sparkles size={16} /> Result Poster Generator
+            <span className="modal-title-badge">
+              <Sparkles size={16} /> Official Result Marksheet Generator
             </span>
-            <span className="text-xs text-gray-500 font-medium">WhatsApp / Social Media Format</span>
+            <span className="text-xs text-gray-500 font-semibold hidden md:inline">
+              Speak Hub Academy Official Format
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
             <button 
               type="button" 
-              className="poster-btn-copy" 
+              className="action-btn copy-btn" 
               onClick={handleCopyToClipboard}
-              title="Copy poster image directly to paste into WhatsApp Web"
+              title="Copy current part image to clipboard (Ctrl+V in WhatsApp)"
             >
               {isCopied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
-              {isCopied ? 'Copied to Clipboard!' : 'Copy Image'}
+              {isCopied ? 'Copied Image!' : 'Copy Image'}
             </button>
 
             <button 
               type="button" 
-              className="poster-btn-print" 
+              className="action-btn print-btn" 
               onClick={handlePrint}
-              title="Print poster or save as PDF"
+              title="Print all parts or Save as PDF"
             >
               <Printer size={14} /> Print / PDF
             </button>
 
             <button 
               type="button" 
-              className="poster-btn-download" 
-              onClick={handleDownloadImage}
+              className="action-btn download-btn" 
+              onClick={() => handleDownloadPart(activePart)}
               disabled={isGenerating}
-              title="Download high-resolution image to post on WhatsApp status"
+              title="Download high-resolution image for current part"
             >
               <Download size={14} /> 
-              {isGenerating ? 'Rendering...' : 'Download PNG'}
+              {isGenerating ? 'Rendering...' : `Download Part ${activePart} (PNG)`}
             </button>
 
-            <button type="button" className="poster-btn-close" onClick={onClose}>
+            {totalParts > 1 && (
+              <button 
+                type="button" 
+                className="action-btn download-all-btn" 
+                onClick={handleDownloadAllParts}
+                disabled={isGenerating}
+                title="Download all parts as individual PNGs"
+              >
+                <Layers size={14} /> All Parts ({totalParts})
+              </button>
+            )}
+
+            <button type="button" className="close-btn" onClick={onClose}>
               <X size={18} />
             </button>
           </div>
         </div>
 
-        {/* Modal Body: Editor Sidebar + Live Visual Poster Preview */}
-        <div className="result-poster-content">
+        {/* Modal Body: Editor Sidebar + Live Visual Marksheet Preview */}
+        <div className="speakhub-modal-body">
           
           {/* Controls Sidebar */}
-          <div className="poster-editor-sidebar">
-            <h3 className="editor-section-title">
-              <Settings size={15} /> Customize Poster Content
+          <div className="speakhub-sidebar">
+            <h3 className="sidebar-heading">
+              <Settings size={15} /> Customize Marksheet Details
             </h3>
 
-            <div className="editor-form-group">
+            <div className="form-group">
               <label><Award size={13} /> Institute Name</label>
               <input 
                 type="text" 
                 value={instituteTitle} 
                 onChange={(e) => setInstituteTitle(e.target.value)} 
-                placeholder="e.g. SPEAK HUB ABACUS"
+                placeholder="SPEAK HUB ACADEMY"
               />
             </div>
 
-            <div className="editor-form-group">
+            <div className="form-group">
               <label>Tagline</label>
               <input 
                 type="text" 
                 value={tagline} 
                 onChange={(e) => setTagline(e.target.value)} 
-                placeholder="e.g. Fun With Mathematics"
+                placeholder="Offline & Online Spoken English Classes."
               />
             </div>
 
-            <div className="editor-grid-2">
-              <div className="editor-form-group">
-                <label>Batch Mode / Type</label>
+            <div className="grid-2">
+              <div className="form-group">
+                <label>Course / Subject</label>
                 <input 
                   type="text" 
-                  value={batchType} 
-                  onChange={(e) => setBatchType(e.target.value)} 
-                  placeholder="e.g. OFFLINE ABACUS BATCH"
+                  value={courseName} 
+                  onChange={(e) => setCourseName(e.target.value)} 
+                  placeholder="SPOKEN ENGLISH - FOUNDATION"
                 />
               </div>
 
-              <div className="editor-form-group">
-                <label><Calendar size={13} /> Exam Date</label>
+              <div className="form-group">
+                <label>Batch Timing</label>
+                <input 
+                  type="text" 
+                  value={batchTiming} 
+                  onChange={(e) => setBatchTiming(e.target.value)} 
+                  placeholder="6 TO 7 PM BATCH"
+                />
+              </div>
+            </div>
+
+            <div className="grid-2">
+              <div className="form-group">
+                <label><Calendar size={13} /> Result Date</label>
+                <input 
+                  type="text" 
+                  value={resultDate} 
+                  onChange={(e) => setResultDate(e.target.value)} 
+                  placeholder="27 SEPTEMBER 2026"
+                />
+              </div>
+
+              <div className="form-group">
+                <label><User size={13} /> Teacher / Mentor</label>
+                <input 
+                  type="text" 
+                  value={teacherName} 
+                  onChange={(e) => setTeacherName(e.target.value)} 
+                  placeholder="Mrs. NILAM"
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Pill Title (Part is added automatically)</label>
+              <input 
+                type="text" 
+                value={mainResultTitle} 
+                onChange={(e) => setMainResultTitle(e.target.value)} 
+                placeholder="SEPTEMBER 2026 ONLINE EXAM RESULT"
+              />
+            </div>
+
+            <div className="grid-2">
+              <div className="form-group">
+                <label>Exam Date Banner</label>
                 <input 
                   type="text" 
                   value={examDate} 
                   onChange={(e) => setExamDate(e.target.value)} 
-                  placeholder="e.g. 23 SEPTEMBER 2026"
+                  placeholder="EXAM DATE – 17 SEPTEMBER 2026"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Total Marks</label>
+                <input 
+                  type="number" 
+                  value={totalMarks} 
+                  onChange={(e) => setTotalMarks(Number(e.target.value) || 20)} 
+                  placeholder="20"
                 />
               </div>
             </div>
 
-            <div className="editor-grid-2">
-              <div className="editor-form-group">
-                <label>Batch Category</label>
-                <input 
-                  type="text" 
-                  value={batchCategory} 
-                  onChange={(e) => setBatchCategory(e.target.value)} 
-                  placeholder="e.g. ALL BATCHES"
-                />
-              </div>
-
-              <div className="editor-form-group">
-                <label><User size={13} /> Teachers / Mentors</label>
-                <input 
-                  type="text" 
-                  value={teacherNames} 
-                  onChange={(e) => setTeacherNames(e.target.value)} 
-                  placeholder="e.g. Mrs. SHWETA & GAYATRI"
-                />
-              </div>
-            </div>
-
-            <div className="editor-form-group">
-              <label>Poster Main Title Badge</label>
+            <div className="form-group">
+              <label><Phone size={13} /> Admission Contact Banner</label>
               <input 
                 type="text" 
-                value={posterTitle} 
-                onChange={(e) => setPosterTitle(e.target.value)} 
-                placeholder="e.g. SEPTEMBER ABACUS BATCH TEST RESULT"
+                value={contactInfo} 
+                onChange={(e) => setContactInfo(e.target.value)} 
+                placeholder="For Admission Contact – 9970964742, 8999080975."
               />
             </div>
 
-            <div className="editor-form-group">
+            <div className="form-group">
               <label><MapPin size={13} /> Office Address (Footer)</label>
               <textarea 
                 rows={2}
                 value={address} 
                 onChange={(e) => setAddress(e.target.value)} 
-                placeholder="e.g. Office - Omkar Apartment, Near Canara Bank..."
+                placeholder="Office – Omkar Aprtment, Near Canara Bank, NDA Road, Warje-Malwadi, Pune – 58."
               />
             </div>
 
-            {/* Filter & Sort controls */}
-            <h3 className="editor-section-title mt-4">
-              <Palette size={15} /> Display &amp; Themes
+            {/* Filter & Sorting Controls */}
+            <h3 className="sidebar-heading mt-3">
+              <Settings size={15} /> Student Roster &amp; Display
             </h3>
 
-            <div className="editor-grid-2">
-              <div className="editor-form-group">
-                <label>Theme Color</label>
+            <div className="grid-2">
+              <div className="form-group">
+                <label>Sort Order</label>
                 <select 
-                  value={colorTheme} 
-                  onChange={(e) => setColorTheme(e.target.value as any)}
+                  value={sortBy} 
+                  onChange={(e) => setSortBy(e.target.value as any)}
                 >
-                  <option value="magenta">Magenta / Pink (Standard)</option>
-                  <option value="purple">Royal Purple</option>
-                  <option value="navy">Navy Blue</option>
-                  <option value="emerald">Emerald Green</option>
+                  <option value="alphabetical">Student Name (A - Z)</option>
+                  <option value="score">Highest Marks First</option>
+                  <option value="rank">Exam Rank (#1, #2...)</option>
                 </select>
               </div>
 
-              <div className="editor-form-group">
-                <label>Students on Poster</label>
-                <select 
-                  value={studentLimit} 
-                  onChange={(e) => setStudentLimit(e.target.value as any)}
-                >
-                  <option value="10">Top 10 Toppers</option>
-                  <option value="12">Top 12 Students (Ideal)</option>
-                  <option value="15">Top 15 Students</option>
-                  <option value="all">All Submitted Students</option>
-                </select>
+              <div className="form-group">
+                <label>Absent Students</label>
+                <label className="checkbox-toggle">
+                  <input 
+                    type="checkbox" 
+                    checked={includeAbsent} 
+                    onChange={(e) => setIncludeAbsent(e.target.checked)} 
+                  />
+                  <span>Show &quot;AB&quot; for absent</span>
+                </label>
               </div>
             </div>
 
-            <div className="editor-form-group">
-              <label>Sort Students By</label>
-              <select 
-                value={sortBy} 
-                onChange={(e) => setSortBy(e.target.value as any)}
-              >
-                <option value="score">Highest Score (Marks)</option>
-                <option value="time">Fastest Time Taken</option>
-                <option value="rank">Student Rank</option>
-              </select>
-            </div>
+            {/* Multi-part Selector */}
+            {totalParts > 1 && (
+              <div className="parts-selector-box">
+                <label className="text-xs font-bold text-gray-700">Jump to Part / Page:</label>
+                <div className="parts-buttons-grid">
+                  {Array.from({ length: totalParts }, (_, i) => i + 1).map((p) => (
+                    <button 
+                      key={p}
+                      type="button"
+                      className={`part-pill-btn ${activePart === p ? 'active' : ''}`}
+                      onClick={() => setActivePart(p)}
+                    >
+                      Part {p} ({String((p - 1) * 10 + 1).padStart(2, '0')}-{String(Math.min(p * 10, processedStudents.length)).padStart(2, '0')})
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
-            <div className="poster-tip-box">
-              <strong>💡 Status Tip:</strong> You can download this PNG or copy it directly into WhatsApp Web to celebrate your students' exam achievements on social media.
+            <div className="sidebar-tip-box">
+              <strong>💡 Pro Tip:</strong> Each part holds exactly 10 students. You can copy the image directly to WhatsApp Web using <b>&quot;Copy Image&quot;</b> or click <b>&quot;Print / PDF&quot;</b> to generate a multi-page PDF identical to your shared format!
             </div>
           </div>
 
-          {/* Live Poster Preview (Exact Format as requested) */}
-          <div className="poster-preview-panel">
-            <div className="poster-sheet print-area" style={{ '--theme-primary': currentTheme.primary, '--theme-dark': currentTheme.dark } as any}>
+          {/* Live Preview Panel */}
+          <div className="speakhub-preview-panel">
+            
+            {/* Part switcher above the preview */}
+            <div className="preview-top-toolbar no-print">
+              <div className="flex items-center gap-2">
+                <button 
+                  type="button" 
+                  className="nav-page-btn" 
+                  disabled={activePart <= 1}
+                  onClick={() => setActivePart(p => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft size={16} /> Prev Part
+                </button>
+                <span className="font-bold text-sm text-gray-700">
+                  Part {activePart} of {totalParts} ({processedStudents.length} Students Total)
+                </span>
+                <button 
+                  type="button" 
+                  className="nav-page-btn" 
+                  disabled={activePart >= totalParts}
+                  onClick={() => setActivePart(p => Math.min(totalParts, p + 1))}
+                >
+                  Next Part <ChevronRight size={16} />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button 
+                  type="button" 
+                  className="btn-quick-download" 
+                  onClick={() => handleDownloadPart(activePart)}
+                >
+                  <Download size={13} /> Save Part {activePart} PNG
+                </button>
+              </div>
+            </div>
+
+            {/* SCREEN VIEW: Shows the currently selected part */}
+            <div className="speakhub-poster-card screen-view-only">
               
-              {/* 1. White Top Header with Logo & Abacus graphic */}
-              <div className="poster-top-bar">
-                <div className="poster-branding">
-                  <h1 className="poster-main-title" style={{ color: currentTheme.titleColor }}>{instituteTitle}</h1>
-                  <p className="poster-tagline">{tagline}</p>
+              {/* 1. Header with Logo & Brand */}
+              <div className="card-top-header">
+                <div className="logo-box">
+                  <img src="/logo.png" alt="Speak Hub Logo" className="logo-img" />
                 </div>
-                
-                <div className="poster-mini-abacus" title="Speak Hub Abacus">
-                  <div className="abacus-rod"></div>
-                  <div className="abacus-rod"></div>
-                  <div className="abacus-rod"></div>
-                  <div className="abacus-rod"></div>
-                  <div className="abacus-rod"></div>
-                  <div className="abacus-separator"></div>
+                <div className="title-box">
+                  <h1 className="brand-title">{instituteTitle}</h1>
+                  <p className="brand-subtitle">{tagline}</p>
                 </div>
               </div>
 
-              {/* 2. Theme Colored Banner */}
-              <div className="poster-banner-bar" style={{ backgroundColor: currentTheme.primary }}>
-                <div className="banner-side left">
-                  <span className="banner-highlight">{batchType}</span>
-                  <span className="banner-sub">{examDate}</span>
+              {/* 2. Navy Blue Banner Section */}
+              <div className="card-blue-banner">
+                <div className="banner-two-cols">
+                  <div className="col-side left">
+                    <span className="col-text">{courseName}</span>
+                    <div className="col-divider-h"></div>
+                    <span className="col-text">{batchTiming}</span>
+                  </div>
+
+                  <div className="col-divider-v"></div>
+
+                  <div className="col-side right">
+                    <span className="col-text">{resultDate}</span>
+                    <div className="col-divider-h"></div>
+                    <span className="col-text">{teacherName}</span>
+                  </div>
                 </div>
 
-                <div className="banner-side right">
-                  <span className="banner-highlight">{batchCategory}</span>
-                  <span className="banner-sub">{teacherNames}</span>
+                {/* Light Rounded Pill */}
+                <div className="banner-result-pill">
+                  {mainResultTitle} PART - {activePart}
                 </div>
 
-                {/* White Result Pill */}
-                <div className="poster-result-pill">
-                  {posterTitle}
+                {/* Yellow Exam Date */}
+                <div className="banner-exam-date">
+                  {examDate}
                 </div>
               </div>
 
-              {/* 3. Result Table Header */}
-              <div className="poster-table-header" style={{ backgroundColor: currentTheme.dark }}>
-                <div className="col-time">TIME TAKE (Minutes)</div>
-                <div className="col-score">SCORE</div>
-                <div className="col-name">STUDENT NAME</div>
-              </div>
-
-              {/* 4. Result Rows */}
-              <div className="poster-table-body">
-                {displayStudents.length > 0 ? (
-                  displayStudents.map((st, index) => (
-                    <div key={index} className={`poster-table-row ${index % 2 === 0 ? 'even' : 'odd'}`}>
-                      <div className="col-time font-black">{st.timeTake}</div>
-                      <div className="col-score font-black">{st.score} / {totalMarks}</div>
-                      <div className="col-name font-black">{st.name}</div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="py-8 text-center text-gray-400 font-bold">
-                    No submitted student marks found to display.
-                  </div>
-                )}
-              </div>
-
-              {/* 5. Bottom Graphic Banner with Trophy & Benefits */}
-              <div className="poster-bottom-graphic">
-                
-                {/* Left: Study character with Math symbols */}
-                <div className="poster-character-box">
-                  <div className="floating-math-symbol s1">+</div>
-                  <div className="floating-math-symbol s2">=</div>
-                  <div className="floating-math-symbol s3">%</div>
-                  <div className="floating-math-symbol s4">1</div>
-                  <div className="floating-math-symbol s5">2</div>
-                  <div className="floating-math-symbol s6">3</div>
-                  
-                  <div className="student-avatar-art">
-                    <span className="avatar-face">👦</span>
-                    <span className="avatar-thumbs">👍</span>
-                  </div>
-                  <div className="mini-desk-abacus">
-                    <span className="bead b1"></span>
-                    <span className="bead b2"></span>
-                    <span className="bead b3"></span>
-                    <span className="bead b4"></span>
-                  </div>
+              {/* 3. Results Table */}
+              <div className="card-table">
+                <div className="table-header-row">
+                  <div className="th-cell th-sr">SR. NO</div>
+                  <div className="th-cell th-name">STUDENT NAME</div>
+                  <div className="th-cell th-score">SCORE</div>
                 </div>
 
-                {/* Center: Golden Trophy */}
-                <div className="poster-trophy-box">
-                  <div className="trophy-cup">
-                    <div className="trophy-handle left"></div>
-                    <div className="trophy-body">★</div>
-                    <div className="trophy-handle right"></div>
-                  </div>
-                  <div className="trophy-stem"></div>
-                  <div className="trophy-pedestal">
-                    <span>Keep Practicing</span>
-                    <span>Keep Achieving</span>
-                  </div>
+                <div className="table-rows-container">
+                  {currentPartRows.map((row, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`table-body-row ${idx % 2 === 0 ? 'bg-peach' : 'bg-white'}`}
+                    >
+                      <div className="td-cell td-sr">{row.srNo}</div>
+                      <div className="td-cell td-name">{row.name}</div>
+                      <div className={`td-cell td-score ${row.isAbsent ? 'text-absent' : ''}`}>
+                        {row.score}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-
-                {/* Right: Abacus Benefits Grid */}
-                <div className="poster-benefits-card">
-                  <div className="benefits-badge">ABACUS BENEFITS</div>
-                  <div className="benefits-grid">
-                    <div className="benefit-item">
-                      <span className="b-icon">🧠</span>
-                      <span className="b-title">Improves</span>
-                      <span className="b-sub">Concentration</span>
-                    </div>
-                    <div className="benefit-item">
-                      <span className="b-icon">⚡</span>
-                      <span className="b-title">Faster</span>
-                      <span className="b-sub">Calculation</span>
-                    </div>
-                    <div className="benefit-item">
-                      <span className="b-icon">💡</span>
-                      <span className="b-title">Boosts</span>
-                      <span className="b-sub">Memory</span>
-                    </div>
-                    <div className="benefit-item">
-                      <span className="b-icon">🎯</span>
-                      <span className="b-title">Sharpens</span>
-                      <span className="b-sub">Brain</span>
-                    </div>
-                  </div>
-                </div>
-
               </div>
 
-              {/* 6. Footer Office Address */}
-              <div className="poster-footer-strip">
-                {address}
+              {/* 4. Footer */}
+              <div className="card-footer">
+                <div className="footer-admission-pill">
+                  {contactInfo}
+                </div>
+                <div className="footer-address">
+                  {address}
+                </div>
               </div>
 
             </div>
+
+            {/* PRINT VIEW ONLY: Renders ALL parts sequentially with page breaks */}
+            <div className="print-view-only">
+              {Array.from({ length: totalParts }, (_, pIdx) => {
+                const partNum = pIdx + 1;
+                const partRows = getRowsForPart(partNum);
+                return (
+                  <div key={partNum} className="speakhub-poster-card print-page">
+                    {/* Header */}
+                    <div className="card-top-header">
+                      <div className="logo-box">
+                        <img src="/logo.png" alt="Speak Hub Logo" className="logo-img" />
+                      </div>
+                      <div className="title-box">
+                        <h1 className="brand-title">{instituteTitle}</h1>
+                        <p className="brand-subtitle">{tagline}</p>
+                      </div>
+                    </div>
+
+                    {/* Navy Blue Banner */}
+                    <div className="card-blue-banner">
+                      <div className="banner-two-cols">
+                        <div className="col-side left">
+                          <span className="col-text">{courseName}</span>
+                          <div className="col-divider-h"></div>
+                          <span className="col-text">{batchTiming}</span>
+                        </div>
+
+                        <div className="col-divider-v"></div>
+
+                        <div className="col-side right">
+                          <span className="col-text">{resultDate}</span>
+                          <div className="col-divider-h"></div>
+                          <span className="col-text">{teacherName}</span>
+                        </div>
+                      </div>
+
+                      <div className="banner-result-pill">
+                        {mainResultTitle} PART - {partNum}
+                      </div>
+
+                      <div className="banner-exam-date">
+                        {examDate}
+                      </div>
+                    </div>
+
+                    {/* Table */}
+                    <div className="card-table">
+                      <div className="table-header-row">
+                        <div className="th-cell th-sr">SR. NO</div>
+                        <div className="th-cell th-name">STUDENT NAME</div>
+                        <div className="th-cell th-score">SCORE</div>
+                      </div>
+
+                      <div className="table-rows-container">
+                        {partRows.map((row, idx) => (
+                          <div 
+                            key={idx} 
+                            className={`table-body-row ${idx % 2 === 0 ? 'bg-peach' : 'bg-white'}`}
+                          >
+                            <div className="td-cell td-sr">{row.srNo}</div>
+                            <div className="td-cell td-name">{row.name}</div>
+                            <div className={`td-cell td-score ${row.isAbsent ? 'text-absent' : ''}`}>
+                              {row.score}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="card-footer">
+                      <div className="footer-admission-pill">
+                        {contactInfo}
+                      </div>
+                      <div className="footer-address">
+                        {address}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
           </div>
 
         </div>
