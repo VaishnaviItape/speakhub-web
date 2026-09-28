@@ -31,6 +31,7 @@ interface StudentFeeRecord {
   currentDueDay?: number;
   nextDueDate?: string;
   nextDueDateRaw?: string;
+  createdAt?: any;
 }
 
 const Fees: React.FC = () => {
@@ -240,7 +241,8 @@ const Fees: React.FC = () => {
           currentDueDateRaw: curDueRaw,
           currentDueDay: curDueDay,
           nextDueDate: curDueDisplay,
-          nextDueDateRaw: curDueRaw
+          nextDueDateRaw: curDueRaw,
+          createdAt: student.createdAt || student.joiningDate || jInfo.raw || (lastTx?.paymentDate ? new Date((lastTx.paymentDate as any)?.seconds * 1000) : undefined)
         };
       });
 

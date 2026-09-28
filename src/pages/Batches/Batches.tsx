@@ -6,7 +6,7 @@ import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import type { Batch, Course, User } from '../../types/models';
 import { db } from '../../config/firebase';
-import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, where, arrayUnion } from 'firebase/firestore';
+import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, where, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import { validateBatchName } from '../../utils/validation';
 import { formatIndianDate } from '../../utils/dateTime';
 import { sendNotificationToBatch } from '../../services/pushNotificationService';
@@ -104,9 +104,16 @@ const Batches: React.FC = () => {
 
       let newBatchId = editingId;
       if (editingId) {
-        await updateDoc(doc(db, 'batches', editingId), batchData);
+        await updateDoc(doc(db, 'batches', editingId), {
+          ...batchData,
+          updatedAt: serverTimestamp()
+        });
       } else {
-        const docRef = await addDoc(collection(db, 'batches'), batchData);
+        const docRef = await addDoc(collection(db, 'batches'), {
+          ...batchData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
         newBatchId = docRef.id;
 
         // Dispatch mobile push notification to students

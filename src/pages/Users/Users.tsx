@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../config/firebase';
 import { collection, query, getDocs, orderBy } from 'firebase/firestore';
-import { Search, ChevronDown } from 'lucide-react';
 import type { User } from '../../types/models';
-import EmptyState from '../../components/ui/EmptyState';
+import DataTable, { type Column } from '../../components/ui/DataTable';
 import '../../components/ui/TableStyles.css';
 
 const Users: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -18,7 +16,6 @@ const Users: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
-      // Attempt to order by createdAt if it exists, otherwise fallback to simple query
       let fetchedUsers: User[] = [];
       try {
         const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
@@ -42,12 +39,6 @@ const Users: React.FC = () => {
     }
   };
 
-  const filteredUsers = users.filter(user => 
-    (user.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-    (user.email?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-    (user.role?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-  );
-
   const getStatusBadge = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'active': return <span className="status-badge status-active">Active</span>;
@@ -56,6 +47,57 @@ const Users: React.FC = () => {
       default: return <span className="status-badge status-inactive">{status || 'Unknown'}</span>;
     }
   };
+
+  const columns: Column<User>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      render: (row) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="dt-avatar" style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '50%',
+            backgroundColor: '#e0e7ff',
+            color: '#4338ca',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 700,
+            fontSize: '12px'
+          }}>
+            {row.name ? row.name.charAt(0).toUpperCase() : 'U'}
+          </div>
+          <span style={{ fontWeight: 600 }}>{row.name || 'N/A'}</span>
+        </div>
+      ),
+      exportValue: (row) => row.name || ''
+    },
+    {
+      key: 'role',
+      header: 'Role',
+      render: (row) => <span style={{ textTransform: 'capitalize' }}>{row.role || '-'}</span>,
+      exportValue: (row) => row.role || ''
+    },
+    {
+      key: 'email',
+      header: 'Email',
+      render: (row) => <span>{row.email || '-'}</span>,
+      exportValue: (row) => row.email || ''
+    },
+    {
+      key: 'mobile',
+      header: 'Phone / Mobile',
+      render: (row) => <span>{row.mobile || row.phone || '-'}</span>,
+      exportValue: (row) => row.mobile || row.phone || ''
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (row) => getStatusBadge(row.status),
+      exportValue: (row) => row.status || ''
+    }
+  ];
 
   return (
     <div className="page-container">
@@ -68,65 +110,14 @@ const Users: React.FC = () => {
         </div>
       </div>
 
-      <div className="data-card">
-        <div className="data-card-header">
-          <h3 className="data-card-title">System Users</h3>
-          <div className="data-card-actions">
-            <div className="search-wrapper">
-              <Search className="search-icon" size={16} />
-              <input
-                type="text"
-                placeholder="Search name, email, or role..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="search-input"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Name <ChevronDown size={14} className="sort-icon" /></th>
-                <th>Role</th>
-                <th>Email</th>
-                <th>Phone / Mobile</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan={5} className="empty-state">
-                    Loading users...
-                  </td>
-                </tr>
-              ) : filteredUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={5} style={{ padding: 0 }}>
-                    <EmptyState 
-                      title="No users found"
-                      description={searchQuery ? `No users matched "${searchQuery}". Try a different keyword.` : "No registered user records are currently available."}
-                    />
-                  </td>
-                </tr>
-              ) : (
-                filteredUsers.map(user => (
-                  <tr key={user.documentId || user.uid}>
-                    <td style={{ fontWeight: 600 }}>{user.name || 'N/A'}</td>
-                    <td style={{ textTransform: 'capitalize' }}>{user.role}</td>
-                    <td>{user.email || '-'}</td>
-                    <td>{user.mobile || user.phone || '-'}</td>
-                    <td>{getStatusBadge(user.status)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        title="System Users"
+        data={users}
+        columns={columns}
+        isLoading={isLoading}
+        onRefresh={fetchUsers}
+        searchPlaceholder="Search name, email, or role..."
+      />
     </div>
   );
 };

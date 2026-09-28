@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Download, 
   TrendingUp, 
@@ -11,7 +11,10 @@ import {
   CheckCircle2, 
   UserX,
   CreditCard,
-  RefreshCw
+  RefreshCw,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -294,6 +297,38 @@ const FeeReports: React.FC = () => {
     window.print();
   };
 
+  // Sorting states
+  const [defaulterSort, setDefaulterSort] = useState<{ key: string | null; direction: 'asc' | 'desc' }>({
+    key: null,
+    direction: 'desc'
+  });
+
+  const [auditSort, setAuditSort] = useState<{ key: string | null; direction: 'asc' | 'desc' }>({
+    key: null,
+    direction: 'desc'
+  });
+
+  const toggleDefaulterSort = (key: string) => {
+    setDefaulterSort(prev => {
+      if (prev.key === key) {
+        if (prev.direction === 'asc') return { key, direction: 'desc' };
+        return { key: null, direction: 'desc' };
+      }
+      return { key, direction: 'asc' };
+    });
+  };
+
+  const toggleAuditSort = (key: string) => {
+    setAuditSort(prev => {
+      if (prev.key === key) {
+        if (prev.direction === 'asc') return { key, direction: 'desc' };
+        return { key: null, direction: 'desc' };
+      }
+      const isDescDefault = ['paymentDate', 'amount'].includes(key);
+      return { key, direction: isDescDefault ? 'desc' : 'asc' };
+    });
+  };
+
   const filteredDefaulters = defaulterList.filter(item => {
     const matchesSearch = item.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           item.courseName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -302,6 +337,48 @@ const FeeReports: React.FC = () => {
     if (dueFilter === 'this_month') return matchesSearch && (item.status === 'overdue' || item.status === 'due_soon');
     return matchesSearch;
   });
+
+  const sortedDefaulters = useMemo(() => {
+    const list = [...filteredDefaulters];
+    if (!defaulterSort.key) return list;
+    const { key, direction } = defaulterSort;
+    return list.sort((a: any, b: any) => {
+      const valA = a[key];
+      const valB = b[key];
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return direction === 'asc' ? valA - valB : valB - valA;
+      }
+      const strA = String(valA || '').toLowerCase();
+      const strB = String(valB || '').toLowerCase();
+      return direction === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  }, [filteredDefaulters, defaulterSort]);
+
+  const sortedTransactions = useMemo(() => {
+    const list = transactionList.filter(t => 
+      t.receiptNumber?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      t.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.courseName.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    if (!auditSort.key) {
+      // Default: recent payments on top
+      return list.sort((a, b) => new Date(b.paymentDate as any).getTime() - new Date(a.paymentDate as any).getTime());
+    }
+    const { key, direction } = auditSort;
+    return list.sort((a: any, b: any) => {
+      const valA = a[key];
+      const valB = b[key];
+      if (valA instanceof Date && valB instanceof Date) {
+        return direction === 'asc' ? valA.getTime() - valB.getTime() : valB.getTime() - valA.getTime();
+      }
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return direction === 'asc' ? valA - valB : valB - valA;
+      }
+      const strA = String(valA || '').toLowerCase();
+      const strB = String(valB || '').toLowerCase();
+      return direction === 'asc' ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  }, [transactionList, searchQuery, auditSort]);
 
   return (
     <div className="page-container">
@@ -487,7 +564,7 @@ const FeeReports: React.FC = () => {
                 </div>
               </div>
 
-              {filteredDefaulters.length === 0 ? (
+              {sortedDefaulters.length === 0 ? (
                 <div className="p-12 text-center text-slate-500">
                   <CheckCircle2 size={40} className="text-emerald-500 mx-auto mb-2" />
                   <p className="font-bold text-slate-800 dark:text-white">All Clear! No pending fee dues found.</p>
@@ -499,18 +576,30 @@ const FeeReports: React.FC = () => {
                     <thead>
                       <tr>
                         <th>#</th>
-                        <th>Student Name</th>
-                        <th>Course Name</th>
-                        <th>Joining Date</th>
+                        <th className="cursor-pointer select-none hover:text-indigo-600 transition-colors" onClick={() => toggleDefaulterSort('studentName')}>
+                          <div className="flex items-center gap-1">Student Name {defaulterSort.key === 'studentName' ? (defaulterSort.direction === 'asc' ? <ArrowUp size={12} className="text-indigo-600" /> : <ArrowDown size={12} className="text-indigo-600" />) : <ArrowUpDown size={12} className="opacity-40" />}</div>
+                        </th>
+                        <th className="cursor-pointer select-none hover:text-indigo-600 transition-colors" onClick={() => toggleDefaulterSort('courseName')}>
+                          <div className="flex items-center gap-1">Course Name {defaulterSort.key === 'courseName' ? (defaulterSort.direction === 'asc' ? <ArrowUp size={12} className="text-indigo-600" /> : <ArrowDown size={12} className="text-indigo-600" />) : <ArrowUpDown size={12} className="opacity-40" />}</div>
+                        </th>
+                        <th className="cursor-pointer select-none hover:text-indigo-600 transition-colors" onClick={() => toggleDefaulterSort('joiningDate')}>
+                          <div className="flex items-center gap-1">Joining Date {defaulterSort.key === 'joiningDate' ? (defaulterSort.direction === 'asc' ? <ArrowUp size={12} className="text-indigo-600" /> : <ArrowDown size={12} className="text-indigo-600" />) : <ArrowUpDown size={12} className="opacity-40" />}</div>
+                        </th>
                         <th>Last Paid</th>
-                        <th>Next Due Date</th>
-                        <th style={{ textAlign: 'center' }}>Due Status</th>
-                        <th>Pending Dues</th>
+                        <th className="cursor-pointer select-none hover:text-indigo-600 transition-colors" onClick={() => toggleDefaulterSort('nextDueDate')}>
+                          <div className="flex items-center gap-1">Next Due Date {defaulterSort.key === 'nextDueDate' ? (defaulterSort.direction === 'asc' ? <ArrowUp size={12} className="text-indigo-600" /> : <ArrowDown size={12} className="text-indigo-600" />) : <ArrowUpDown size={12} className="opacity-40" />}</div>
+                        </th>
+                        <th style={{ textAlign: 'center' }} className="cursor-pointer select-none hover:text-indigo-600 transition-colors" onClick={() => toggleDefaulterSort('status')}>
+                          <div className="flex items-center justify-center gap-1">Due Status {defaulterSort.key === 'status' ? (defaulterSort.direction === 'asc' ? <ArrowUp size={12} className="text-indigo-600" /> : <ArrowDown size={12} className="text-indigo-600" />) : <ArrowUpDown size={12} className="opacity-40" />}</div>
+                        </th>
+                        <th className="cursor-pointer select-none hover:text-indigo-600 transition-colors" onClick={() => toggleDefaulterSort('pendingAmount')}>
+                          <div className="flex items-center gap-1">Pending Dues {defaulterSort.key === 'pendingAmount' ? (defaulterSort.direction === 'asc' ? <ArrowUp size={12} className="text-indigo-600" /> : <ArrowDown size={12} className="text-indigo-600" />) : <ArrowUpDown size={12} className="opacity-40" />}</div>
+                        </th>
                         <th style={{ textAlign: 'center' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredDefaulters.map((item, idx) => (
+                      {sortedDefaulters.map((item, idx) => (
                         <tr key={item.studentId}>
                           <td style={{ color: 'var(--text-light)', fontWeight: '600' }}>{idx + 1}</td>
                           <td>
@@ -607,7 +696,7 @@ const FeeReports: React.FC = () => {
                 </div>
               </div>
 
-              {transactionList.length === 0 ? (
+              {sortedTransactions.length === 0 ? (
                 <div className="p-12 text-center text-slate-500">
                   No payment transactions recorded yet.
                 </div>
@@ -616,19 +705,29 @@ const FeeReports: React.FC = () => {
                   <table className="premium-table">
                     <thead>
                       <tr>
-                        <th>Receipt No</th>
-                        <th>Student Name</th>
-                        <th>Course</th>
-                        <th>Billing Month / Period</th>
-                        <th>Payment Date</th>
+                        <th className="cursor-pointer select-none hover:text-indigo-600 transition-colors" onClick={() => toggleAuditSort('receiptNumber')}>
+                          <div className="flex items-center gap-1">Receipt No {auditSort.key === 'receiptNumber' ? (auditSort.direction === 'asc' ? <ArrowUp size={12} className="text-indigo-600" /> : <ArrowDown size={12} className="text-indigo-600" />) : <ArrowUpDown size={12} className="opacity-40" />}</div>
+                        </th>
+                        <th className="cursor-pointer select-none hover:text-indigo-600 transition-colors" onClick={() => toggleAuditSort('studentName')}>
+                          <div className="flex items-center gap-1">Student Name {auditSort.key === 'studentName' ? (auditSort.direction === 'asc' ? <ArrowUp size={12} className="text-indigo-600" /> : <ArrowDown size={12} className="text-indigo-600" />) : <ArrowUpDown size={12} className="opacity-40" />}</div>
+                        </th>
+                        <th className="cursor-pointer select-none hover:text-indigo-600 transition-colors" onClick={() => toggleAuditSort('courseName')}>
+                          <div className="flex items-center gap-1">Course {auditSort.key === 'courseName' ? (auditSort.direction === 'asc' ? <ArrowUp size={12} className="text-indigo-600" /> : <ArrowDown size={12} className="text-indigo-600" />) : <ArrowUpDown size={12} className="opacity-40" />}</div>
+                        </th>
+                        <th className="cursor-pointer select-none hover:text-indigo-600 transition-colors" onClick={() => toggleAuditSort('billingPeriod')}>
+                          <div className="flex items-center gap-1">Billing Month / Period {auditSort.key === 'billingPeriod' ? (auditSort.direction === 'asc' ? <ArrowUp size={12} className="text-indigo-600" /> : <ArrowDown size={12} className="text-indigo-600" />) : <ArrowUpDown size={12} className="opacity-40" />}</div>
+                        </th>
+                        <th className="cursor-pointer select-none hover:text-indigo-600 transition-colors" onClick={() => toggleAuditSort('paymentDate')}>
+                          <div className="flex items-center gap-1">Payment Date {auditSort.key === 'paymentDate' ? (auditSort.direction === 'asc' ? <ArrowUp size={12} className="text-indigo-600" /> : <ArrowDown size={12} className="text-indigo-600" />) : <ArrowUpDown size={12} className="opacity-40" />}</div>
+                        </th>
                         <th>Mode</th>
-                        <th>Amount Paid</th>
+                        <th className="cursor-pointer select-none hover:text-indigo-600 transition-colors" onClick={() => toggleAuditSort('amount')}>
+                          <div className="flex items-center gap-1">Amount Paid {auditSort.key === 'amount' ? (auditSort.direction === 'asc' ? <ArrowUp size={12} className="text-indigo-600" /> : <ArrowDown size={12} className="text-indigo-600" />) : <ArrowUpDown size={12} className="opacity-40" />}</div>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {transactionList
-                        .filter(t => t.receiptNumber?.toLowerCase().includes(searchQuery.toLowerCase()) || t.studentName.toLowerCase().includes(searchQuery.toLowerCase()))
-                        .map((t, idx) => (
+                      {sortedTransactions.map((t, idx) => (
                           <tr key={t.documentId || idx}>
                             <td className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
                               {t.receiptNumber}

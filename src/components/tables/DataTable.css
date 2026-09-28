@@ -21,6 +21,39 @@
   text-transform: capitalize;
   border-bottom: 1px solid var(--border-color);
   white-space: nowrap;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.data-table th.sortable-th {
+  cursor: pointer;
+  user-select: none;
+}
+
+.data-table th.sortable-th:hover {
+  background-color: rgba(67, 24, 255, 0.05);
+  color: var(--primary);
+}
+
+.th-content-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.active-th-title {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.sort-icon {
+  color: var(--text-muted);
+  opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.active-sort-icon {
+  color: var(--primary) !important;
+  opacity: 1 !important;
 }
 
 .data-table td {

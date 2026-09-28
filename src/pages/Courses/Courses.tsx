@@ -6,7 +6,7 @@ import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import type { Course } from '../../types/models';
 import { db } from '../../config/firebase';
-import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { validateName, validatePositiveNumber } from '../../utils/validation';
 import '../../components/ui/TableStyles.css';
 
@@ -74,10 +74,17 @@ const Courses: React.FC = () => {
       if (editingId) {
         // Update existing course
         const courseRef = doc(db, 'courses', editingId);
-        await updateDoc(courseRef, coursePayload);
+        await updateDoc(courseRef, {
+          ...coursePayload,
+          updatedAt: serverTimestamp()
+        });
       } else {
         // Add new course
-        await addDoc(collection(db, 'courses'), coursePayload);
+        await addDoc(collection(db, 'courses'), {
+          ...coursePayload,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
       }
       setIsModalOpen(false);
       resetForm();
