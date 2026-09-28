@@ -73,37 +73,38 @@ const ExamResults: React.FC = () => {
       setExam(examData);
 
       // Fetch batch name and assigned teacher of the batch
-      const targetBId = examData.batchId && examData.batchId !== 'all'
+      let targetBId = examData.batchId && examData.batchId !== 'all'
         ? examData.batchId
         : (Array.isArray(examData.batchIds) && examData.batchIds.length > 0 && examData.batchIds[0] !== 'all' ? examData.batchIds[0] : '');
 
       if (targetBId) {
-        getDoc(doc(db, 'batches', targetBId)).then(async (bDoc) => {
+        try {
+          const bDoc = await getDoc(doc(db, 'batches', targetBId));
           if (bDoc.exists()) {
             const bData = bDoc.data();
             setBatchName(bData?.batchName || '');
 
-            const tId = bData?.teacherId || (examData as any)?.teacherId;
+            const tId = bData?.teacherId || bData?.trainerId || (examData as any)?.teacherId;
             if (tId) {
-              try {
-                const tDoc = await getDoc(doc(db, 'users', tId));
-                if (tDoc.exists()) {
-                  const tData = tDoc.data();
-                  const foundName = tData?.name || tData?.displayName || '';
+              const tDoc = await getDoc(doc(db, 'users', tId));
+              if (tDoc.exists()) {
+                const tData = tDoc.data();
+                const foundName = tData?.name || tData?.displayName || '';
+                if (foundName) setTeacherName(foundName);
+              } else {
+                const uSnap = await getDocs(query(collection(db, 'users'), where('uid', '==', tId)));
+                if (!uSnap.empty) {
+                  const foundName = uSnap.docs[0].data()?.name || '';
                   if (foundName) setTeacherName(foundName);
-                } else {
-                  const uSnap = await getDocs(query(collection(db, 'users'), where('uid', '==', tId)));
-                  if (!uSnap.empty) {
-                    const foundName = uSnap.docs[0].data()?.name || '';
-                    if (foundName) setTeacherName(foundName);
-                  }
                 }
-              } catch (tErr) {
-                console.warn('Could not fetch teacher details:', tErr);
               }
+            } else if (bData?.teacherName || bData?.trainerName) {
+              setTeacherName(bData.teacherName || bData.trainerName);
             }
           }
-        }).catch(() => {});
+        } catch (bErr) {
+          console.warn('Could not fetch batch/teacher details:', bErr);
+        }
       } else if ((examData as any)?.teacherName) {
         setTeacherName((examData as any).teacherName);
       }

@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   X, Download, Printer, Copy, Check, Sparkles, 
-  Settings, Award, Calendar, User, MapPin, ChevronLeft, ChevronRight, Layers, Phone
+  Settings, Calendar, User, ChevronLeft, ChevronRight, Layers, Clock, BookOpen, Layers2
 } from 'lucide-react';
+import { db } from '../../config/firebase';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import type { Exam } from '../../types/models';
 import './ResultPosterModal.css';
 
@@ -14,6 +16,12 @@ interface ResultPosterModalProps {
   teacherName?: string;
   attempts: any[];
 }
+
+// Permanent Speak Hub Academy official details (Non-editable as requested)
+const INSTITUTE_TITLE = 'SPEAK HUB ACADEMY';
+const TAGLINE = 'Offline & Online Spoken English Classes.';
+const CONTACT_INFO = 'For Admission Contact – 9970964742, 8999080975.';
+const ADDRESS = 'Office – Omkar Aprtment, Near Canara Bank, NDA Road, Warje-Malwadi, Pune – 58.';
 
 export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
   isOpen,
@@ -62,34 +70,58 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     return `${months[d.getMonth()]} ${d.getFullYear()}`;
   };
 
-  // Marksheet Customization State matching user format identically
-  const [instituteTitle, setInstituteTitle] = useState('SPEAK HUB ACADEMY');
-  const [tagline, setTagline] = useState('Offline & Online Spoken English Classes.');
+  const getISODateOnly = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  // Helper: Format Teacher / Trainer Name nicely (e.g. "Mrs. VAISHNAVI" or "Mrs. NILAM")
+  const formatTeacherName = (rawName: string) => {
+    if (!rawName || !rawName.trim()) return 'Mrs. NILAM';
+    const trimmed = rawName.trim();
+    if (/^(mrs\.|mr\.|ms\.|miss|dr\.|prof\.)/i.test(trimmed)) {
+      return trimmed.toUpperCase();
+    }
+    return `Mrs. ${trimmed.toUpperCase()}`;
+  };
+
+  // Configurable Marksheet State
   const [courseName, setCourseName] = useState('SPOKEN ENGLISH - FOUNDATION');
   const [batchTiming, setBatchTiming] = useState(batchName ? `${batchName.toUpperCase()} BATCH` : '6 TO 7 PM BATCH');
-  const [resultDate, setResultDate] = useState(() => getFormattedDate(new Date()));
-  const [teacherName, setTeacherName] = useState(() => teacherNameProp ? teacherNameProp.toUpperCase() : 'Mrs. NILAM');
+  const [resultDateRaw, setResultDateRaw] = useState(() => getISODateOnly(new Date()));
+  const [teacherName, setTeacherName] = useState(() => formatTeacherName(teacherNameProp));
   const [mainResultTitle, setMainResultTitle] = useState(() => `${getMonthYear(exam?.startDate || new Date())} ONLINE EXAM RESULT`);
-  const [examDate, setExamDate] = useState(() => `EXAM DATE – ${getFormattedDate(exam?.startDate || new Date())}`);
-  const [contactInfo, setContactInfo] = useState('For Admission Contact – 9970964742, 8999080975.');
-  const [address, setAddress] = useState(
-    'Office – Omkar Aprtment, Near Canara Bank, NDA Road, Warje-Malwadi, Pune – 58.'
-  );
   const [totalMarks, setTotalMarks] = useState<number>(Number(exam?.totalMarks) || 20);
 
-  // Filter, Layout & Sort Settings
+  // Layout & Display Settings
+  const [pageSize, setPageSize] = useState<'auto' | 'all' | '10' | '12' | '15'>('auto');
+  const [showPartSuffix, setShowPartSuffix] = useState<boolean>(false);
   const [includeAbsent, setIncludeAbsent] = useState<boolean>(true);
   const [sortBy, setSortBy] = useState<'alphabetical' | 'score' | 'rank'>('alphabetical');
-  const [pageSize, setPageSize] = useState<'all' | '10' | '12' | '15' | '20'>('all');
-  const [showPartSuffix, setShowPartSuffix] = useState<boolean>(false);
 
   // Pagination State
   const [activePart, setActivePart] = useState<number>(1);
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
-  // Canvas for crisp export
+  // Canvas for export
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Formatted Result Date displayed on top right of Blue Banner
+  const formattedResultDate = useMemo(() => {
+    if (!resultDateRaw) return getFormattedDate(new Date());
+    const [y, m, d] = resultDateRaw.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    return getFormattedDate(dateObj);
+  }, [resultDateRaw]);
+
+  // Exam Date displayed in Gold Yellow in the Blue Banner (Taken automatically from exam)
+  const examDateDisplay = useMemo(() => {
+    const d = exam?.startDate || new Date();
+    return `EXAM DATE – ${getFormattedDate(d)}`;
+  }, [exam?.startDate]);
 
   // Sync defaults when exam or batch changes
   useEffect(() => {
@@ -97,19 +129,12 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
       const isAbacus = (exam.title || '').toLowerCase().includes('abacus') || 
                        (exam.examType || '').toLowerCase().includes('abacus');
       
-      if (isAbacus) {
-        setInstituteTitle('SPEAK HUB ABACUS');
-        setTagline('Fun With Mathematics');
-        setCourseName('ABACUS FOUNDATION');
-      } else {
-        setInstituteTitle('SPEAK HUB ACADEMY');
-        setTagline('Offline & Online Spoken English Classes.');
-        setCourseName(exam.title ? exam.title.toUpperCase() : 'SPOKEN ENGLISH - FOUNDATION');
-      }
-
+      setCourseName(
+        isAbacus 
+          ? 'ABACUS FOUNDATION' 
+          : (exam.title ? exam.title.toUpperCase() : 'SPOKEN ENGLISH - FOUNDATION')
+      );
       setMainResultTitle(`${getMonthYear(exam.startDate || new Date())} ONLINE EXAM RESULT`);
-      setExamDate(`EXAM DATE – ${getFormattedDate(exam.startDate || new Date())}`);
-      setResultDate(getFormattedDate(new Date()));
       setTotalMarks(Number(exam.totalMarks) || 20);
 
       if (batchName) {
@@ -118,14 +143,46 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     }
   }, [exam, batchName]);
 
-  // Sync teacher name when prop changes from assigned batch teacher
+  // Robust Trainer / Teacher Name Resolution:
+  // Checks teacherNameProp, exam.teacherName, or directly queries the assigned batch and user in Firestore
   useEffect(() => {
     if (teacherNameProp && teacherNameProp.trim()) {
-      setTeacherName(teacherNameProp.trim().toUpperCase());
-    }
-  }, [teacherNameProp]);
+      setTeacherName(formatTeacherName(teacherNameProp));
+    } else {
+      // Find batch ID to lookup assigned trainer
+      const bId = exam?.batchId && exam.batchId !== 'all' 
+        ? exam.batchId 
+        : (Array.isArray(exam?.batchIds) && exam.batchIds.length > 0 && exam.batchIds[0] !== 'all' ? exam.batchIds[0] : '');
 
-  // Process and sort students
+      if (bId) {
+        getDoc(doc(db, 'batches', bId)).then(async (bDoc) => {
+          if (bDoc.exists()) {
+            const bData = bDoc.data();
+            const tId = bData?.teacherId || bData?.trainerId || (exam as any)?.teacherId;
+            if (tId) {
+              const tDoc = await getDoc(doc(db, 'users', tId));
+              if (tDoc.exists()) {
+                const name = tDoc.data()?.name || tDoc.data()?.displayName || '';
+                if (name) setTeacherName(formatTeacherName(name));
+              } else {
+                const uSnap = await getDocs(query(collection(db, 'users'), where('uid', '==', tId)));
+                if (!uSnap.empty) {
+                  const name = uSnap.docs[0].data()?.name || '';
+                  if (name) setTeacherName(formatTeacherName(name));
+                }
+              }
+            } else if (bData?.teacherName || bData?.trainerName) {
+              setTeacherName(formatTeacherName(bData.teacherName || bData.trainerName));
+            }
+          }
+        }).catch(() => {});
+      } else if ((exam as any)?.teacherName) {
+        setTeacherName(formatTeacherName((exam as any).teacherName));
+      }
+    }
+  }, [teacherNameProp, exam]);
+
+  // Process and sort students list
   const processedStudents = useMemo(() => {
     let list = attempts.map((a) => {
       const att = a.attempt;
@@ -165,15 +222,23 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     return list;
   }, [attempts, includeAbsent, sortBy]);
 
-  // Calculate effective page size and total parts
+  // Smart Page Sizing:
+  // If 'auto' and total students <= 15: Fit all on 1 page!
+  // If 'auto' and total students > 15: Split into 2 balanced pages!
   const effectivePageSize = useMemo(() => {
+    const total = processedStudents.length;
+    if (pageSize === 'auto') {
+      if (total <= 15) return total;
+      return Math.ceil(total / 2); // Split into 2 clean pages
+    }
     if (pageSize === 'all') {
-      return Math.max(10, processedStudents.length);
+      return total;
     }
     return parseInt(pageSize, 10);
   }, [pageSize, processedStudents.length]);
 
   const totalParts = useMemo(() => {
+    if (effectivePageSize <= 0) return 1;
     return Math.max(1, Math.ceil(processedStudents.length / effectivePageSize));
   }, [processedStudents.length, effectivePageSize]);
 
@@ -187,26 +252,22 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
   if (!isOpen) return null;
 
   // Build rows for a specific part (1-indexed)
+  // Renders EXACTLY the students in the part — NO giant empty space or unnecessary rows!
   const getRowsForPart = (partNum: number) => {
     const startIndex = (partNum - 1) * effectivePageSize;
-    const rows = [];
-    for (let i = 0; i < effectivePageSize; i++) {
+    const partStudents = processedStudents.slice(startIndex, startIndex + effectivePageSize);
+    
+    return partStudents.map((student, i) => {
       const globalIndex = startIndex + i;
       const srNo = String(globalIndex + 1).padStart(2, '0');
-      const student = processedStudents[globalIndex];
-      let scoreText = '';
-      if (student) {
-        scoreText = student.isAbsent ? 'AB' : `${student.score} / ${totalMarks}`;
-      }
-      rows.push({
+      let scoreText = student.isAbsent ? 'AB' : `${student.score} / ${totalMarks}`;
+      return {
         srNo,
-        name: student ? student.name : '',
+        name: student.name,
         score: scoreText,
-        isAbsent: student?.isAbsent ?? false,
-        hasData: !!student
-      });
-    }
-    return rows;
+        isAbsent: student.isAbsent
+      };
+    });
   };
 
   const currentPartRows = getRowsForPart(activePart);
@@ -244,7 +305,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     });
   };
 
-  // Helper: Resolve title pill text for current part
+  // Resolve title pill text for current part
   const getPillTitle = (partNum: number) => {
     if (totalParts > 1 || showPartSuffix) {
       return `${mainResultTitle} PART - ${partNum}`;
@@ -252,7 +313,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     return mainResultTitle;
   };
 
-  // Render high-res exact graphic for a specific part on Canvas
+  // Render high-res exact graphic for a specific part on Canvas with NO wasted space
   const drawPosterOnCanvas = async (partNum: number): Promise<HTMLCanvasElement | null> => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
@@ -260,19 +321,19 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     if (!ctx) return null;
 
     const rows = getRowsForPart(partNum);
-    const rowH = 43;
+    const rowH = 40; // Proportional clean row height
     const blueY = 104;
     const blueH = 158;
     const tableY = blueY + blueH;
-    const thH = 42;
+    const thH = 40;
     const rowsStartY = tableY + thH;
     const tableTotalH = rows.length * rowH;
-    const footerStartY = rowsStartY + tableTotalH + 12;
-    const admH = 44;
+    const footerStartY = rowsStartY + tableTotalH + 10; // Clean 10px snug spacing
+    const admH = 42;
     
-    // High resolution canvas width and height
+    // Exact dynamic canvas height matching student count
     const W = 800;
-    const H = footerStartY + admH + 38;
+    const H = footerStartY + admH + 34;
 
     canvas.width = W;
     canvas.height = H;
@@ -281,7 +342,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, W, H);
 
-    // 2. Header with Logo & Brand Title
+    // 2. Header with Logo & Brand Title (Permanent)
     const logoImg = await loadLogoImage();
     if (logoImg) {
       ctx.drawImage(logoImg, 25, 12, 85, 80);
@@ -296,17 +357,17 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
       ctx.fillText('S', 65, 52);
     }
 
-    // Institute Title (Bold Red Serif)
+    // Permanent Institute Title (Bold Red Serif)
     ctx.fillStyle = '#d32f2f';
     ctx.font = '900 36px "Times New Roman", Georgia, serif';
     ctx.textAlign = 'center';
-    ctx.fillText(instituteTitle, W / 2 + 35, 50);
+    ctx.fillText(INSTITUTE_TITLE, W / 2 + 35, 50);
 
-    // Tagline (Bold Black Sans-serif)
+    // Permanent Tagline (Bold Black Sans-serif)
     ctx.fillStyle = '#000000';
     ctx.font = '700 19px Arial, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(tagline, W / 2 + 35, 82);
+    ctx.fillText(TAGLINE, W / 2 + 35, 82);
 
     // 3. Navy Blue Header Section
     ctx.fillStyle = '#002868';
@@ -337,8 +398,8 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     ctx.lineTo(400, blueY + 68);
     ctx.stroke();
 
-    // Right Column (Date & Teacher)
-    ctx.fillText(resultDate, 595, blueY + 28);
+    // Right Column (Result Date & Teacher / Mentor)
+    ctx.fillText(formattedResultDate, 595, blueY + 28);
 
     // Right Horizontal Divider
     ctx.beginPath();
@@ -346,7 +407,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     ctx.lineTo(765, blueY + 38);
     ctx.stroke();
 
-    // Right Teacher Name
+    // Right Teacher / Mentor Name
     ctx.fillText(teacherName, 595, blueY + 58);
 
     // Center Pill: Result Title
@@ -363,14 +424,13 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     ctx.textAlign = 'center';
     ctx.fillText(getPillTitle(partNum), W / 2, pillY + 25);
 
-    // Yellow Golden Exam Date
+    // Yellow Golden Exam Date (Automatically taken from exam)
     ctx.fillStyle = '#ffc107';
     ctx.font = '800 16px Arial, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(examDate, W / 2, blueY + 142);
+    ctx.fillText(examDateDisplay, W / 2, blueY + 142);
 
     // 4. Results Table
-    // Header Gold Amber Fill
     ctx.fillStyle = '#f5a623';
     ctx.fillRect(0, tableY, W, thH);
 
@@ -391,11 +451,11 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     ctx.fillStyle = '#000000';
     ctx.font = '900 17px Arial, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('SR. NO', 85, tableY + 27);
-    ctx.fillText('STUDENT NAME', 385, tableY + 27);
-    ctx.fillText('SCORE', 700, tableY + 27);
+    ctx.fillText('SR. NO', 85, tableY + 26);
+    ctx.fillText('STUDENT NAME', 385, tableY + 26);
+    ctx.fillText('SCORE', 700, tableY + 26);
 
-    // Rows (Fits all 12 or selected count seamlessly)
+    // Rows (Fits exact student count with no trailing blank void)
     rows.forEach((row, i) => {
       const ry = rowsStartY + (i * rowH);
 
@@ -416,7 +476,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
       ctx.lineTo(600, ry + rowH);
       ctx.stroke();
 
-      // Subtle row border
+      // Row bottom border
       ctx.strokeStyle = '#ffe0c0';
       ctx.lineWidth = 0.8;
       ctx.beginPath();
@@ -430,16 +490,16 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
       ctx.textAlign = 'center';
 
       // SR. NO
-      ctx.fillText(row.srNo, 85, ry + 27);
+      ctx.fillText(row.srNo, 85, ry + 26);
 
       // Student Name
-      ctx.fillText(row.name, 385, ry + 27);
+      ctx.fillText(row.name, 385, ry + 26);
 
       // Score
-      ctx.fillText(row.score, 700, ry + 27);
+      ctx.fillText(row.score, 700, ry + 26);
     });
 
-    // 5. Footer Section
+    // 5. Permanent Footer Section
     const admW = 770;
     const admX = (W - admW) / 2;
 
@@ -449,13 +509,13 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     ctx.fillStyle = '#ffffff';
     ctx.font = '800 17px Arial, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(contactInfo, W / 2, footerStartY + 28);
+    ctx.fillText(CONTACT_INFO, W / 2, footerStartY + 27);
 
-    // Office Address
+    // Permanent Office Address
     ctx.fillStyle = '#000000';
     ctx.font = '800 13px Arial, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(address, W / 2, footerStartY + admH + 24);
+    ctx.fillText(ADDRESS, W / 2, footerStartY + admH + 22);
 
     return canvas;
   };
@@ -508,7 +568,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     }
   };
 
-  // 3. Copy Current Part Image to Clipboard for instant WhatsApp paste
+  // 3. Copy Current Part Image to Clipboard
   const handleCopyToClipboard = async () => {
     try {
       const canvas = await drawPosterOnCanvas(activePart);
@@ -603,35 +663,54 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
         {/* Modal Body: Editor Sidebar + Live Visual Marksheet Preview */}
         <div className="speakhub-modal-body">
           
-          {/* Controls Sidebar */}
+          {/* Controls Sidebar (Streamlined with only necessary admin controls) */}
           <div className="speakhub-sidebar">
             <h3 className="sidebar-heading">
-              <Settings size={15} /> Customize Marksheet Details
+              <Settings size={15} /> Marksheet Controls
             </h3>
 
-            <div className="form-group">
-              <label><Award size={13} /> Institute Name</label>
+            {/* 1. Result Date Selector (Only Date Admin Needs to Pick) */}
+            <div className="form-group highlight-control">
+              <label><Calendar size={14} className="text-blue-600" /> Result Publication Date (Pick Date):</label>
               <input 
-                type="text" 
-                value={instituteTitle} 
-                onChange={(e) => setInstituteTitle(e.target.value)} 
-                placeholder="SPEAK HUB ACADEMY"
+                type="date" 
+                value={resultDateRaw} 
+                onChange={(e) => setResultDateRaw(e.target.value)} 
+                className="date-input-featured"
               />
+              <span className="text-[11px] font-bold text-blue-700">
+                Displaying on Marksheet: <strong>{formattedResultDate}</strong>
+              </span>
             </div>
 
-            <div className="form-group">
-              <label>Tagline</label>
+            {/* 2. Trainer / Teacher Name (Auto-linked to assigned batch trainer) */}
+            <div className="form-group highlight-control">
+              <label><User size={14} className="text-purple-600" /> Trainer / Teacher (Auto-linked from Batch):</label>
               <input 
                 type="text" 
-                value={tagline} 
-                onChange={(e) => setTagline(e.target.value)} 
-                placeholder="Offline & Online Spoken English Classes."
+                value={teacherName} 
+                onChange={(e) => setTeacherName(e.target.value)} 
+                placeholder="e.g. Mrs. VAISHNAVI"
               />
+              <span className="text-[10px] text-gray-500">
+                ✓ Automatically fetched from assigned batch trainer.
+              </span>
             </div>
 
+            {/* 3. Exam Schedule Date (Readonly indicator taken from exam) */}
+            <div className="exam-date-info-card">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-amber-900">
+                <Clock size={13} /> Exam Date (Taken on this day):
+              </div>
+              <div className="text-sm font-extrabold text-amber-800 mt-0.5">
+                {examDateDisplay}
+              </div>
+            </div>
+
+            {/* 4. Course & Batch Info */}
             <div className="grid-2">
               <div className="form-group">
-                <label>Course / Subject</label>
+                <label><BookOpen size={12} /> Course / Subject</label>
                 <input 
                   type="text" 
                   value={courseName} 
@@ -651,61 +730,20 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               </div>
             </div>
 
+            {/* 5. Title & Total Marks */}
             <div className="grid-2">
               <div className="form-group">
-                <label><Calendar size={13} /> Result Date</label>
+                <label>Result Badge Title</label>
                 <input 
                   type="text" 
-                  value={resultDate} 
-                  onChange={(e) => setResultDate(e.target.value)} 
-                  placeholder="28 SEPTEMBER 2026"
+                  value={mainResultTitle} 
+                  onChange={(e) => setMainResultTitle(e.target.value)} 
+                  placeholder="SEPTEMBER 2026 ONLINE EXAM RESULT"
                 />
               </div>
 
               <div className="form-group">
-                <label><User size={13} /> Teacher / Mentor (Assigned to Batch)</label>
-                <input 
-                  type="text" 
-                  value={teacherName} 
-                  onChange={(e) => setTeacherName(e.target.value)} 
-                  placeholder="Mrs. NILAM"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <div className="flex items-center justify-between">
-                <label>Main Result Badge Title</label>
-                <label className="text-[11px] font-bold text-gray-500 flex items-center gap-1 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={showPartSuffix} 
-                    onChange={(e) => setShowPartSuffix(e.target.checked)} 
-                  />
-                  <span>Show &quot;PART - {activePart}&quot;</span>
-                </label>
-              </div>
-              <input 
-                type="text" 
-                value={mainResultTitle} 
-                onChange={(e) => setMainResultTitle(e.target.value)} 
-                placeholder="SEPTEMBER 2026 ONLINE EXAM RESULT"
-              />
-            </div>
-
-            <div className="grid-2">
-              <div className="form-group">
-                <label>Exam Date Banner</label>
-                <input 
-                  type="text" 
-                  value={examDate} 
-                  onChange={(e) => setExamDate(e.target.value)} 
-                  placeholder="EXAM DATE – 17 SEPTEMBER 2026"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Total Marks</label>
+                <label>Total Exam Marks</label>
                 <input 
                   type="number" 
                   value={totalMarks} 
@@ -715,29 +753,9 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               </div>
             </div>
 
-            <div className="form-group">
-              <label><Phone size={13} /> Admission Contact Banner</label>
-              <input 
-                type="text" 
-                value={contactInfo} 
-                onChange={(e) => setContactInfo(e.target.value)} 
-                placeholder="For Admission Contact – 9970964742, 8999080975."
-              />
-            </div>
-
-            <div className="form-group">
-              <label><MapPin size={13} /> Office Address (Footer)</label>
-              <textarea 
-                rows={2}
-                value={address} 
-                onChange={(e) => setAddress(e.target.value)} 
-                placeholder="Office – Omkar Aprtment, Near Canara Bank, NDA Road, Warje-Malwadi, Pune – 58."
-              />
-            </div>
-
-            {/* Filter & Layout Controls */}
-            <h3 className="sidebar-heading mt-3">
-              <Settings size={15} /> Page Layout &amp; Student List
+            {/* 6. Page Layout & Multi-Page Control */}
+            <h3 className="sidebar-heading mt-2">
+              <Layers2 size={15} /> Page Layout &amp; Multi-Page
             </h3>
 
             <div className="grid-2">
@@ -750,16 +768,16 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                     setActivePart(1);
                   }}
                 >
-                  <option value="all">All on 1 Page ({processedStudents.length} Students)</option>
+                  <option value="auto">Auto (1 Page if ≤15, else 2 Pages)</option>
+                  <option value="all">Fit All on 1 Page ({processedStudents.length} Students)</option>
                   <option value="10">10 Students / Page</option>
                   <option value="12">12 Students / Page</option>
                   <option value="15">15 Students / Page</option>
-                  <option value="20">20 Students / Page</option>
                 </select>
               </div>
 
               <div className="form-group">
-                <label>Sort Order</label>
+                <label>Sort Students</label>
                 <select 
                   value={sortBy} 
                   onChange={(e) => setSortBy(e.target.value as any)}
@@ -771,21 +789,30 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               </div>
             </div>
 
-            <div className="form-group mt-1">
+            <div className="grid-2">
               <label className="checkbox-toggle">
                 <input 
                   type="checkbox" 
                   checked={includeAbsent} 
                   onChange={(e) => setIncludeAbsent(e.target.checked)} 
                 />
-                <span>Include Absent Students (Shows &quot;AB&quot;)</span>
+                <span>Include Absent (&quot;AB&quot;)</span>
+              </label>
+
+              <label className="checkbox-toggle">
+                <input 
+                  type="checkbox" 
+                  checked={showPartSuffix} 
+                  onChange={(e) => setShowPartSuffix(e.target.checked)} 
+                />
+                <span>Add &quot;PART - X&quot; Badge</span>
               </label>
             </div>
 
-            {/* Multi-part Selector (if split across multiple parts) */}
+            {/* Multi-part Selector (only if split across multiple pages) */}
             {totalParts > 1 && (
               <div className="parts-selector-box">
-                <label className="text-xs font-bold text-gray-700">Jump to Part / Page:</label>
+                <label className="text-xs font-bold text-gray-700">Switch Page / Part:</label>
                 <div className="parts-buttons-grid">
                   {Array.from({ length: totalParts }, (_, i) => i + 1).map((p) => (
                     <button 
@@ -801,12 +828,25 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               </div>
             )}
 
-            <div className="sidebar-tip-box">
-              <strong>💡 Layout Notice:</strong> <b>&quot;All on 1 Page&quot;</b> is selected. All {processedStudents.length} students are rendered together on a single marksheet poster!
+            {/* Permanent Official Speak Hub Details Card (Locked) */}
+            <div className="official-branding-lock-card">
+              <div className="text-[11px] font-bold text-gray-700 mb-1">
+                🔒 Permanent Official Branding:
+              </div>
+              <div className="text-[11px] text-gray-600 space-y-0.5">
+                <div>• Institute: <strong>{INSTITUTE_TITLE}</strong></div>
+                <div>• Tagline: <strong>{TAGLINE}</strong></div>
+                <div>• Helpline: <strong>9970964742, 8999080975</strong></div>
+                <div>• Office: <strong>Omkar Aprtment, Warje-Malwadi, Pune – 58</strong></div>
+              </div>
+              <div className="text-[10px] text-emerald-700 font-bold mt-1.5 flex items-center gap-1">
+                ✓ Locked to official Speak Hub Academy identity
+              </div>
             </div>
+
           </div>
 
-          {/* Live Preview Panel */}
+          {/* Live Marksheet Visual Preview Panel */}
           <div className="speakhub-preview-panel">
             
             {/* Part switcher above the preview */}
@@ -820,10 +860,10 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                       disabled={activePart <= 1}
                       onClick={() => setActivePart(p => Math.max(1, p - 1))}
                     >
-                      <ChevronLeft size={16} /> Prev Part
+                      <ChevronLeft size={16} /> Prev Page
                     </button>
                     <span className="font-bold text-sm text-gray-700">
-                      Part {activePart} of {totalParts} ({processedStudents.length} Students Total)
+                      Page {activePart} of {totalParts} ({processedStudents.length} Students Total)
                     </span>
                     <button 
                       type="button" 
@@ -831,12 +871,12 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                       disabled={activePart >= totalParts}
                       onClick={() => setActivePart(p => Math.min(totalParts, p + 1))}
                     >
-                      Next Part <ChevronRight size={16} />
+                      Next Page <ChevronRight size={16} />
                     </button>
                   </>
                 ) : (
                   <span className="font-bold text-sm text-gray-700">
-                    Single Page Marksheet ({processedStudents.length} Students)
+                    Single Page Marksheet • All {processedStudents.length} Students
                   </span>
                 )}
               </div>
@@ -852,7 +892,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               </div>
             </div>
 
-            {/* SCREEN VIEW: Shows the marksheet */}
+            {/* SCREEN VIEW: Shows the marksheet with compact padding and zero wasted space */}
             <div className="speakhub-poster-card screen-view-only">
               
               {/* 1. Header with Logo & Brand */}
@@ -861,8 +901,8 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                   <img src="/logo.png" alt="Speak Hub Logo" className="logo-img" />
                 </div>
                 <div className="title-box">
-                  <h1 className="brand-title">{instituteTitle}</h1>
-                  <p className="brand-subtitle">{tagline}</p>
+                  <h1 className="brand-title">{INSTITUTE_TITLE}</h1>
+                  <p className="brand-subtitle">{TAGLINE}</p>
                 </div>
               </div>
 
@@ -878,7 +918,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                   <div className="col-divider-v"></div>
 
                   <div className="col-side right">
-                    <span className="col-text">{resultDate}</span>
+                    <span className="col-text">{formattedResultDate}</span>
                     <div className="col-divider-h"></div>
                     <span className="col-text">{teacherName}</span>
                   </div>
@@ -889,13 +929,13 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                   {getPillTitle(activePart)}
                 </div>
 
-                {/* Yellow Exam Date */}
+                {/* Yellow Exam Date (Taken automatically from exam schedule) */}
                 <div className="banner-exam-date">
-                  {examDate}
+                  {examDateDisplay}
                 </div>
               </div>
 
-              {/* 3. Results Table */}
+              {/* 3. Results Table (Renders exact student count with no trailing gap) */}
               <div className="card-table">
                 <div className="table-header-row">
                   <div className="th-cell th-sr">SR. NO</div>
@@ -919,13 +959,13 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                 </div>
               </div>
 
-              {/* 4. Footer */}
+              {/* 4. Permanent Footer */}
               <div className="card-footer">
                 <div className="footer-admission-pill">
-                  {contactInfo}
+                  {CONTACT_INFO}
                 </div>
                 <div className="footer-address">
-                  {address}
+                  {ADDRESS}
                 </div>
               </div>
 
@@ -944,8 +984,8 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                         <img src="/logo.png" alt="Speak Hub Logo" className="logo-img" />
                       </div>
                       <div className="title-box">
-                        <h1 className="brand-title">{instituteTitle}</h1>
-                        <p className="brand-subtitle">{tagline}</p>
+                        <h1 className="brand-title">{INSTITUTE_TITLE}</h1>
+                        <p className="brand-subtitle">{TAGLINE}</p>
                       </div>
                     </div>
 
@@ -961,7 +1001,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                         <div className="col-divider-v"></div>
 
                         <div className="col-side right">
-                          <span className="col-text">{resultDate}</span>
+                          <span className="col-text">{formattedResultDate}</span>
                           <div className="col-divider-h"></div>
                           <span className="col-text">{teacherName}</span>
                         </div>
@@ -972,7 +1012,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                       </div>
 
                       <div className="banner-exam-date">
-                        {examDate}
+                        {examDateDisplay}
                       </div>
                     </div>
 
@@ -1003,10 +1043,10 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                     {/* Footer */}
                     <div className="card-footer">
                       <div className="footer-admission-pill">
-                        {contactInfo}
+                        {CONTACT_INFO}
                       </div>
                       <div className="footer-address">
-                        {address}
+                        {ADDRESS}
                       </div>
                     </div>
                   </div>
