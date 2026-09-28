@@ -302,14 +302,76 @@
 /* Top toolbar above poster preview */
 .preview-top-toolbar {
   width: 100%;
-  max-width: 580px;
+  max-width: 650px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   background-color: #ffffff;
   padding: 8px 12px;
   border-radius: 8px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.zoom-toggle-group {
+  display: inline-flex;
+  align-items: center;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.zoom-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: #334155;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.zoom-btn:hover:not(:disabled) {
+  background-color: #e2e8f0;
+}
+
+.zoom-btn.active {
+  background-color: #002868;
+  color: #ffffff;
+}
+
+.zoom-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.zoom-btn.icon-only {
+  padding: 4px 6px;
+}
+
+.zoom-level-text {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #475569;
+  padding: 0 4px;
+  min-width: 32px;
+  text-align: center;
+}
+
+.speakhub-poster-scaler-wrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding-bottom: 2rem;
+  transition: transform 0.15s ease-out;
 }
 
 .nav-page-btn {

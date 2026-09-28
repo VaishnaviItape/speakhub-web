@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   X, Download, Printer, Copy, Check, Sparkles, 
-  Settings, Calendar, User, ChevronLeft, ChevronRight, Layers, Clock, BookOpen, Layers2
+  Settings, Calendar, User, ChevronLeft, ChevronRight, Layers, Clock, BookOpen, Layers2,
+  ZoomIn, ZoomOut, Eye
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
@@ -105,6 +106,9 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
   const [activePart, setActivePart] = useState<number>(1);
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+
+  // Zoom / Scale level for preview (0.72 fits all students + footer cleanly on screen)
+  const [zoomLevel, setZoomLevel] = useState<number>(0.72);
 
   // Canvas for export
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -849,7 +853,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
           {/* Live Marksheet Visual Preview Panel */}
           <div className="speakhub-preview-panel">
             
-            {/* Part switcher above the preview */}
+            {/* Part switcher & Zoom toolbar above the preview */}
             <div className="preview-top-toolbar no-print">
               <div className="flex items-center gap-2">
                 {totalParts > 1 ? (
@@ -875,13 +879,53 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                     </button>
                   </>
                 ) : (
-                  <span className="font-bold text-sm text-gray-700">
-                    Single Page Marksheet • All {processedStudents.length} Students
+                  <span className="font-bold text-xs sm:text-sm text-gray-800 flex items-center gap-1.5">
+                    <Check size={15} className="text-emerald-600" />
+                    Single Page Marksheet • Showing All {processedStudents.length} Students
                   </span>
                 )}
               </div>
 
+              {/* View / Zoom scale toggles so user can see all students & footer at a glance */}
               <div className="flex items-center gap-2">
+                <div className="zoom-toggle-group">
+                  <button
+                    type="button"
+                    title="Fit entire marksheet with all students & footer on screen"
+                    className={`zoom-btn ${zoomLevel === 0.72 ? 'active' : ''}`}
+                    onClick={() => setZoomLevel(0.72)}
+                  >
+                    <Eye size={13} /> Fit Full Result
+                  </button>
+                  <button
+                    type="button"
+                    title="View 100% actual size"
+                    className={`zoom-btn ${zoomLevel === 1.0 ? 'active' : ''}`}
+                    onClick={() => setZoomLevel(1.0)}
+                  >
+                    100%
+                  </button>
+                  <button
+                    type="button"
+                    title="Zoom Out"
+                    className="zoom-btn icon-only"
+                    disabled={zoomLevel <= 0.4}
+                    onClick={() => setZoomLevel(prev => Math.max(0.4, Number((prev - 0.1).toFixed(2))))}
+                  >
+                    <ZoomOut size={13} />
+                  </button>
+                  <span className="zoom-level-text">{Math.round(zoomLevel * 100)}%</span>
+                  <button
+                    type="button"
+                    title="Zoom In"
+                    className="zoom-btn icon-only"
+                    disabled={zoomLevel >= 1.5}
+                    onClick={() => setZoomLevel(prev => Math.min(1.5, Number((prev + 0.1).toFixed(2))))}
+                  >
+                    <ZoomIn size={13} />
+                  </button>
+                </div>
+
                 <button 
                   type="button" 
                   className="btn-quick-download" 
@@ -892,83 +936,92 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               </div>
             </div>
 
-            {/* SCREEN VIEW: Shows the marksheet with compact padding and zero wasted space */}
-            <div className="speakhub-poster-card screen-view-only">
-              
-              {/* 1. Header with Logo & Brand */}
-              <div className="card-top-header">
-                <div className="logo-box">
-                  <img src="/logo.png" alt="Speak Hub Logo" className="logo-img" />
-                </div>
-                <div className="title-box">
-                  <h1 className="brand-title">{INSTITUTE_TITLE}</h1>
-                  <p className="brand-subtitle">{TAGLINE}</p>
-                </div>
-              </div>
-
-              {/* 2. Navy Blue Banner Section */}
-              <div className="card-blue-banner">
-                <div className="banner-two-cols">
-                  <div className="col-side left">
-                    <span className="col-text">{courseName}</span>
-                    <div className="col-divider-h"></div>
-                    <span className="col-text">{batchTiming}</span>
+            {/* SCREEN VIEW: Scaled container that fits all students & footer cleanly */}
+            <div 
+              className="speakhub-poster-scaler-wrapper"
+              style={{
+                zoom: zoomLevel,
+                transform: typeof (document !== 'undefined' && (document.body.style as any)?.zoom === 'undefined') ? `scale(${zoomLevel})` : undefined,
+                transformOrigin: 'top center'
+              }}
+            >
+              <div className="speakhub-poster-card screen-view-only">
+                
+                {/* 1. Header with Logo & Brand */}
+                <div className="card-top-header">
+                  <div className="logo-box">
+                    <img src="/logo.png" alt="Speak Hub Logo" className="logo-img" />
                   </div>
-
-                  <div className="col-divider-v"></div>
-
-                  <div className="col-side right">
-                    <span className="col-text">{formattedResultDate}</span>
-                    <div className="col-divider-h"></div>
-                    <span className="col-text">{teacherName}</span>
+                  <div className="title-box">
+                    <h1 className="brand-title">{INSTITUTE_TITLE}</h1>
+                    <p className="brand-subtitle">{TAGLINE}</p>
                   </div>
                 </div>
 
-                {/* Light Rounded Pill */}
-                <div className="banner-result-pill">
-                  {getPillTitle(activePart)}
-                </div>
-
-                {/* Yellow Exam Date (Taken automatically from exam schedule) */}
-                <div className="banner-exam-date">
-                  {examDateDisplay}
-                </div>
-              </div>
-
-              {/* 3. Results Table (Renders exact student count with no trailing gap) */}
-              <div className="card-table">
-                <div className="table-header-row">
-                  <div className="th-cell th-sr">SR. NO</div>
-                  <div className="th-cell th-name">STUDENT NAME</div>
-                  <div className="th-cell th-score">SCORE</div>
-                </div>
-
-                <div className="table-rows-container">
-                  {currentPartRows.map((row, idx) => (
-                    <div 
-                      key={idx} 
-                      className={`table-body-row ${idx % 2 === 0 ? 'bg-peach' : 'bg-white'}`}
-                    >
-                      <div className="td-cell td-sr">{row.srNo}</div>
-                      <div className="td-cell td-name">{row.name}</div>
-                      <div className={`td-cell td-score ${row.isAbsent ? 'text-absent' : ''}`}>
-                        {row.score}
-                      </div>
+                {/* 2. Navy Blue Banner Section */}
+                <div className="card-blue-banner">
+                  <div className="banner-two-cols">
+                    <div className="col-side left">
+                      <span className="col-text">{courseName}</span>
+                      <div className="col-divider-h"></div>
+                      <span className="col-text">{batchTiming}</span>
                     </div>
-                  ))}
-                </div>
-              </div>
 
-              {/* 4. Permanent Footer */}
-              <div className="card-footer">
-                <div className="footer-admission-pill">
-                  {CONTACT_INFO}
-                </div>
-                <div className="footer-address">
-                  {ADDRESS}
-                </div>
-              </div>
+                    <div className="col-divider-v"></div>
 
+                    <div className="col-side right">
+                      <span className="col-text">{formattedResultDate}</span>
+                      <div className="col-divider-h"></div>
+                      <span className="col-text">{teacherName}</span>
+                    </div>
+                  </div>
+
+                  {/* Light Rounded Pill */}
+                  <div className="banner-result-pill">
+                    {getPillTitle(activePart)}
+                  </div>
+
+                  {/* Yellow Exam Date (Taken automatically from exam schedule) */}
+                  <div className="banner-exam-date">
+                    {examDateDisplay}
+                  </div>
+                </div>
+
+                {/* 3. Results Table (Renders exact student count with no trailing gap) */}
+                <div className="card-table">
+                  <div className="table-header-row">
+                    <div className="th-cell th-sr">SR. NO</div>
+                    <div className="th-cell th-name">STUDENT NAME</div>
+                    <div className="th-cell th-score">SCORE</div>
+                  </div>
+
+                  <div className="table-rows-container">
+                    {currentPartRows.map((row, idx) => (
+                      <div 
+                        key={idx} 
+                        className={`table-body-row ${idx % 2 === 0 ? 'bg-peach' : 'bg-white'}`}
+                      >
+                        <div className="td-cell td-sr">{row.srNo}</div>
+                        <div className="td-cell td-name">{row.name}</div>
+                        <div className={`td-cell td-score ${row.isAbsent ? 'text-absent' : ''}`}>
+                          {row.score}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4. Permanent Footer */}
+                <div className="card-footer">
+                  <div className="footer-admission-pill">
+                    {CONTACT_INFO}
+                  </div>
+                  <div className="footer-address">
+                    {ADDRESS}
+                  </div>
+                </div>
+
+              </div>
             </div>
 
             {/* PRINT VIEW ONLY: Renders all parts sequentially with page breaks */}
