@@ -31,6 +31,7 @@ const ExamResults: React.FC = () => {
   
   const [exam, setExam] = useState<Exam | null>(null);
   const [batchName, setBatchName] = useState<string>('');
+  const [teacherName, setTeacherName] = useState<string>('');
   const [attempts, setAttempts] = useState<any[]>([]); 
   const [questions, setQuestions] = useState<ExamQuestion[]>([]);
   
@@ -71,13 +72,40 @@ const ExamResults: React.FC = () => {
       }
       setExam(examData);
 
-      // Fetch batch name for breadcrumb/title info
-      if (examData.batchId && examData.batchId !== 'all') {
-        getDoc(doc(db, 'batches', examData.batchId)).then(bDoc => {
+      // Fetch batch name and assigned teacher of the batch
+      const targetBId = examData.batchId && examData.batchId !== 'all'
+        ? examData.batchId
+        : (Array.isArray(examData.batchIds) && examData.batchIds.length > 0 && examData.batchIds[0] !== 'all' ? examData.batchIds[0] : '');
+
+      if (targetBId) {
+        getDoc(doc(db, 'batches', targetBId)).then(async (bDoc) => {
           if (bDoc.exists()) {
-            setBatchName(bDoc.data()?.batchName || '');
+            const bData = bDoc.data();
+            setBatchName(bData?.batchName || '');
+
+            const tId = bData?.teacherId || (examData as any)?.teacherId;
+            if (tId) {
+              try {
+                const tDoc = await getDoc(doc(db, 'users', tId));
+                if (tDoc.exists()) {
+                  const tData = tDoc.data();
+                  const foundName = tData?.name || tData?.displayName || '';
+                  if (foundName) setTeacherName(foundName);
+                } else {
+                  const uSnap = await getDocs(query(collection(db, 'users'), where('uid', '==', tId)));
+                  if (!uSnap.empty) {
+                    const foundName = uSnap.docs[0].data()?.name || '';
+                    if (foundName) setTeacherName(foundName);
+                  }
+                }
+              } catch (tErr) {
+                console.warn('Could not fetch teacher details:', tErr);
+              }
+            }
           }
         }).catch(() => {});
+      } else if ((examData as any)?.teacherName) {
+        setTeacherName((examData as any).teacherName);
       }
 
       // 2. Fetch Questions
@@ -822,6 +850,7 @@ const ExamResults: React.FC = () => {
         onClose={() => setIsPosterModalOpen(false)}
         exam={exam}
         batchName={batchName}
+        teacherName={teacherName}
         attempts={attempts}
       />
     </div>

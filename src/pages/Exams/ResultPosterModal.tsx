@@ -11,6 +11,7 @@ interface ResultPosterModalProps {
   onClose: () => void;
   exam: Exam | null;
   batchName?: string;
+  teacherName?: string;
   attempts: any[];
 }
 
@@ -19,11 +20,12 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
   onClose,
   exam,
   batchName = '',
+  teacherName: teacherNameProp = '',
   attempts = []
 }) => {
-  // Format current or exam date for default display: e.g. "27 SEPTEMBER 2026"
+  // Format date for display: e.g. "28 SEPTEMBER 2026"
   const getFormattedDate = (rawDateVal?: any) => {
-    const rawDate: any = rawDateVal || exam?.startDate || new Date();
+    const rawDate: any = rawDateVal || new Date();
     let d: Date;
     if (rawDate && typeof rawDate.toDate === 'function') {
       d = rawDate.toDate();
@@ -42,7 +44,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
   };
 
   const getMonthYear = (rawDateVal?: any) => {
-    const rawDate: any = rawDateVal || exam?.startDate || new Date();
+    const rawDate: any = rawDateVal || new Date();
     let d: Date;
     if (rawDate && typeof rawDate.toDate === 'function') {
       d = rawDate.toDate();
@@ -65,21 +67,23 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
   const [tagline, setTagline] = useState('Offline & Online Spoken English Classes.');
   const [courseName, setCourseName] = useState('SPOKEN ENGLISH - FOUNDATION');
   const [batchTiming, setBatchTiming] = useState(batchName ? `${batchName.toUpperCase()} BATCH` : '6 TO 7 PM BATCH');
-  const [resultDate, setResultDate] = useState(getFormattedDate());
-  const [teacherName, setTeacherName] = useState('Mrs. NILAM');
-  const [mainResultTitle, setMainResultTitle] = useState(`${getMonthYear()} ONLINE EXAM RESULT`);
-  const [examDate, setExamDate] = useState(`EXAM DATE – ${getFormattedDate()}`);
+  const [resultDate, setResultDate] = useState(() => getFormattedDate(new Date()));
+  const [teacherName, setTeacherName] = useState(() => teacherNameProp ? teacherNameProp.toUpperCase() : 'Mrs. NILAM');
+  const [mainResultTitle, setMainResultTitle] = useState(() => `${getMonthYear(exam?.startDate || new Date())} ONLINE EXAM RESULT`);
+  const [examDate, setExamDate] = useState(() => `EXAM DATE – ${getFormattedDate(exam?.startDate || new Date())}`);
   const [contactInfo, setContactInfo] = useState('For Admission Contact – 9970964742, 8999080975.');
   const [address, setAddress] = useState(
     'Office – Omkar Aprtment, Near Canara Bank, NDA Road, Warje-Malwadi, Pune – 58.'
   );
   const [totalMarks, setTotalMarks] = useState<number>(Number(exam?.totalMarks) || 20);
 
-  // Filter & Sort Settings
+  // Filter, Layout & Sort Settings
   const [includeAbsent, setIncludeAbsent] = useState<boolean>(true);
   const [sortBy, setSortBy] = useState<'alphabetical' | 'score' | 'rank'>('alphabetical');
+  const [pageSize, setPageSize] = useState<'all' | '10' | '12' | '15' | '20'>('all');
+  const [showPartSuffix, setShowPartSuffix] = useState<boolean>(false);
 
-  // Multi-part Pagination State (10 students per part)
+  // Pagination State
   const [activePart, setActivePart] = useState<number>(1);
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -103,8 +107,9 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
         setCourseName(exam.title ? exam.title.toUpperCase() : 'SPOKEN ENGLISH - FOUNDATION');
       }
 
-      setMainResultTitle(`${getMonthYear(exam.startDate)} ONLINE EXAM RESULT`);
-      setExamDate(`EXAM DATE – ${getFormattedDate(exam.startDate)}`);
+      setMainResultTitle(`${getMonthYear(exam.startDate || new Date())} ONLINE EXAM RESULT`);
+      setExamDate(`EXAM DATE – ${getFormattedDate(exam.startDate || new Date())}`);
+      setResultDate(getFormattedDate(new Date()));
       setTotalMarks(Number(exam.totalMarks) || 20);
 
       if (batchName) {
@@ -112,6 +117,13 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
       }
     }
   }, [exam, batchName]);
+
+  // Sync teacher name when prop changes from assigned batch teacher
+  useEffect(() => {
+    if (teacherNameProp && teacherNameProp.trim()) {
+      setTeacherName(teacherNameProp.trim().toUpperCase());
+    }
+  }, [teacherNameProp]);
 
   // Process and sort students
   const processedStudents = useMemo(() => {
@@ -153,8 +165,17 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     return list;
   }, [attempts, includeAbsent, sortBy]);
 
-  // Calculate total parts (10 students per part, minimum 1)
-  const totalParts = Math.max(1, Math.ceil(processedStudents.length / 10));
+  // Calculate effective page size and total parts
+  const effectivePageSize = useMemo(() => {
+    if (pageSize === 'all') {
+      return Math.max(10, processedStudents.length);
+    }
+    return parseInt(pageSize, 10);
+  }, [pageSize, processedStudents.length]);
+
+  const totalParts = useMemo(() => {
+    return Math.max(1, Math.ceil(processedStudents.length / effectivePageSize));
+  }, [processedStudents.length, effectivePageSize]);
 
   // Reset active part if out of range
   useEffect(() => {
@@ -165,11 +186,11 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Build the 10 rows for a specific part (1-indexed)
+  // Build rows for a specific part (1-indexed)
   const getRowsForPart = (partNum: number) => {
-    const startIndex = (partNum - 1) * 10;
+    const startIndex = (partNum - 1) * effectivePageSize;
     const rows = [];
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < effectivePageSize; i++) {
       const globalIndex = startIndex + i;
       const srNo = String(globalIndex + 1).padStart(2, '0');
       const student = processedStudents[globalIndex];
@@ -223,6 +244,14 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     });
   };
 
+  // Helper: Resolve title pill text for current part
+  const getPillTitle = (partNum: number) => {
+    if (totalParts > 1 || showPartSuffix) {
+      return `${mainResultTitle} PART - ${partNum}`;
+    }
+    return mainResultTitle;
+  };
+
   // Render high-res exact graphic for a specific part on Canvas
   const drawPosterOnCanvas = async (partNum: number): Promise<HTMLCanvasElement | null> => {
     const canvas = canvasRef.current;
@@ -230,9 +259,20 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
+    const rows = getRowsForPart(partNum);
+    const rowH = 43;
+    const blueY = 104;
+    const blueH = 158;
+    const tableY = blueY + blueH;
+    const thH = 42;
+    const rowsStartY = tableY + thH;
+    const tableTotalH = rows.length * rowH;
+    const footerStartY = rowsStartY + tableTotalH + 12;
+    const admH = 44;
+    
     // High resolution canvas width and height
     const W = 800;
-    const H = 940;
+    const H = footerStartY + admH + 38;
 
     canvas.width = W;
     canvas.height = H;
@@ -244,10 +284,8 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     // 2. Header with Logo & Brand Title
     const logoImg = await loadLogoImage();
     if (logoImg) {
-      // Draw official Speak Hub Logo
       ctx.drawImage(logoImg, 25, 12, 85, 80);
     } else {
-      // Vector fallback logo swirl
       ctx.fillStyle = '#cc0000';
       ctx.beginPath();
       ctx.arc(65, 45, 24, 0, Math.PI * 2);
@@ -271,8 +309,6 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     ctx.fillText(tagline, W / 2 + 35, 82);
 
     // 3. Navy Blue Header Section
-    const blueY = 104;
-    const blueH = 158;
     ctx.fillStyle = '#002868';
     ctx.fillRect(0, blueY, W, blueH);
 
@@ -313,7 +349,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     // Right Teacher Name
     ctx.fillText(teacherName, 595, blueY + 58);
 
-    // Center Pill: Result Title with Part number
+    // Center Pill: Result Title
     const pillW = 690;
     const pillH = 38;
     const pillX = (W - pillW) / 2;
@@ -325,7 +361,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     ctx.fillStyle = '#c62828';
     ctx.font = '900 18px Arial, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`${mainResultTitle} PART - ${partNum}`, W / 2, pillY + 25);
+    ctx.fillText(getPillTitle(partNum), W / 2, pillY + 25);
 
     // Yellow Golden Exam Date
     ctx.fillStyle = '#ffc107';
@@ -334,9 +370,6 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     ctx.fillText(examDate, W / 2, blueY + 142);
 
     // 4. Results Table
-    const tableY = blueY + blueH;
-    const thH = 42;
-
     // Header Gold Amber Fill
     ctx.fillStyle = '#f5a623';
     ctx.fillRect(0, tableY, W, thH);
@@ -362,11 +395,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     ctx.fillText('STUDENT NAME', 385, tableY + 27);
     ctx.fillText('SCORE', 700, tableY + 27);
 
-    // 10 Rows (Always exactly 10 rows for uniform grid)
-    const rowH = 43;
-    const rowsStartY = tableY + thH;
-    const rows = getRowsForPart(partNum);
-
+    // Rows (Fits all 12 or selected count seamlessly)
     rows.forEach((row, i) => {
       const ry = rowsStartY + (i * rowH);
 
@@ -411,11 +440,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     });
 
     // 5. Footer Section
-    const footerStartY = rowsStartY + (10 * rowH) + 12;
-
-    // Admission Banner (Purple/Magenta Pill)
     const admW = 770;
-    const admH = 44;
     const admX = (W - admW) / 2;
 
     ctx.fillStyle = '#7d1867';
@@ -446,7 +471,8 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
       const link = document.createElement('a');
       link.href = url;
       const safeTitle = (exam?.title || 'Exam_Result').replace(/[^a-zA-Z0-9_-]/g, '_');
-      link.download = `${safeTitle}_Marksheet_Part_${partNum}.png`;
+      const suffix = totalParts > 1 ? `_Part_${partNum}` : '';
+      link.download = `${safeTitle}_Marksheet${suffix}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -472,7 +498,6 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-          // Small pause between multiple downloads
           await new Promise(r => setTimeout(r, 400));
         }
       }
@@ -531,7 +556,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               type="button" 
               className="action-btn copy-btn" 
               onClick={handleCopyToClipboard}
-              title="Copy current part image to clipboard (Ctrl+V in WhatsApp)"
+              title="Copy current marksheet image to clipboard (Ctrl+V in WhatsApp)"
             >
               {isCopied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
               {isCopied ? 'Copied Image!' : 'Copy Image'}
@@ -541,7 +566,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               type="button" 
               className="action-btn print-btn" 
               onClick={handlePrint}
-              title="Print all parts or Save as PDF"
+              title="Print marksheet or Save as PDF"
             >
               <Printer size={14} /> Print / PDF
             </button>
@@ -551,10 +576,10 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               className="action-btn download-btn" 
               onClick={() => handleDownloadPart(activePart)}
               disabled={isGenerating}
-              title="Download high-resolution image for current part"
+              title="Download high-resolution image"
             >
               <Download size={14} /> 
-              {isGenerating ? 'Rendering...' : `Download Part ${activePart} (PNG)`}
+              {isGenerating ? 'Rendering...' : totalParts > 1 ? `Download Part ${activePart} (PNG)` : 'Download PNG'}
             </button>
 
             {totalParts > 1 && (
@@ -633,12 +658,12 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                   type="text" 
                   value={resultDate} 
                   onChange={(e) => setResultDate(e.target.value)} 
-                  placeholder="27 SEPTEMBER 2026"
+                  placeholder="28 SEPTEMBER 2026"
                 />
               </div>
 
               <div className="form-group">
-                <label><User size={13} /> Teacher / Mentor</label>
+                <label><User size={13} /> Teacher / Mentor (Assigned to Batch)</label>
                 <input 
                   type="text" 
                   value={teacherName} 
@@ -649,7 +674,17 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
             </div>
 
             <div className="form-group">
-              <label>Pill Title (Part is added automatically)</label>
+              <div className="flex items-center justify-between">
+                <label>Main Result Badge Title</label>
+                <label className="text-[11px] font-bold text-gray-500 flex items-center gap-1 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={showPartSuffix} 
+                    onChange={(e) => setShowPartSuffix(e.target.checked)} 
+                  />
+                  <span>Show &quot;PART - {activePart}&quot;</span>
+                </label>
+              </div>
               <input 
                 type="text" 
                 value={mainResultTitle} 
@@ -700,12 +735,29 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               />
             </div>
 
-            {/* Filter & Sorting Controls */}
+            {/* Filter & Layout Controls */}
             <h3 className="sidebar-heading mt-3">
-              <Settings size={15} /> Student Roster &amp; Display
+              <Settings size={15} /> Page Layout &amp; Student List
             </h3>
 
             <div className="grid-2">
+              <div className="form-group">
+                <label>Page Layout</label>
+                <select 
+                  value={pageSize} 
+                  onChange={(e) => {
+                    setPageSize(e.target.value as any);
+                    setActivePart(1);
+                  }}
+                >
+                  <option value="all">All on 1 Page ({processedStudents.length} Students)</option>
+                  <option value="10">10 Students / Page</option>
+                  <option value="12">12 Students / Page</option>
+                  <option value="15">15 Students / Page</option>
+                  <option value="20">20 Students / Page</option>
+                </select>
+              </div>
+
               <div className="form-group">
                 <label>Sort Order</label>
                 <select 
@@ -717,21 +769,20 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                   <option value="rank">Exam Rank (#1, #2...)</option>
                 </select>
               </div>
-
-              <div className="form-group">
-                <label>Absent Students</label>
-                <label className="checkbox-toggle">
-                  <input 
-                    type="checkbox" 
-                    checked={includeAbsent} 
-                    onChange={(e) => setIncludeAbsent(e.target.checked)} 
-                  />
-                  <span>Show &quot;AB&quot; for absent</span>
-                </label>
-              </div>
             </div>
 
-            {/* Multi-part Selector */}
+            <div className="form-group mt-1">
+              <label className="checkbox-toggle">
+                <input 
+                  type="checkbox" 
+                  checked={includeAbsent} 
+                  onChange={(e) => setIncludeAbsent(e.target.checked)} 
+                />
+                <span>Include Absent Students (Shows &quot;AB&quot;)</span>
+              </label>
+            </div>
+
+            {/* Multi-part Selector (if split across multiple parts) */}
             {totalParts > 1 && (
               <div className="parts-selector-box">
                 <label className="text-xs font-bold text-gray-700">Jump to Part / Page:</label>
@@ -743,7 +794,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                       className={`part-pill-btn ${activePart === p ? 'active' : ''}`}
                       onClick={() => setActivePart(p)}
                     >
-                      Part {p} ({String((p - 1) * 10 + 1).padStart(2, '0')}-{String(Math.min(p * 10, processedStudents.length)).padStart(2, '0')})
+                      Part {p} ({String((p - 1) * effectivePageSize + 1).padStart(2, '0')}-{String(Math.min(p * effectivePageSize, processedStudents.length)).padStart(2, '0')})
                     </button>
                   ))}
                 </div>
@@ -751,7 +802,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
             )}
 
             <div className="sidebar-tip-box">
-              <strong>💡 Pro Tip:</strong> Each part holds exactly 10 students. You can copy the image directly to WhatsApp Web using <b>&quot;Copy Image&quot;</b> or click <b>&quot;Print / PDF&quot;</b> to generate a multi-page PDF identical to your shared format!
+              <strong>💡 Layout Notice:</strong> <b>&quot;All on 1 Page&quot;</b> is selected. All {processedStudents.length} students are rendered together on a single marksheet poster!
             </div>
           </div>
 
@@ -761,25 +812,33 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
             {/* Part switcher above the preview */}
             <div className="preview-top-toolbar no-print">
               <div className="flex items-center gap-2">
-                <button 
-                  type="button" 
-                  className="nav-page-btn" 
-                  disabled={activePart <= 1}
-                  onClick={() => setActivePart(p => Math.max(1, p - 1))}
-                >
-                  <ChevronLeft size={16} /> Prev Part
-                </button>
-                <span className="font-bold text-sm text-gray-700">
-                  Part {activePart} of {totalParts} ({processedStudents.length} Students Total)
-                </span>
-                <button 
-                  type="button" 
-                  className="nav-page-btn" 
-                  disabled={activePart >= totalParts}
-                  onClick={() => setActivePart(p => Math.min(totalParts, p + 1))}
-                >
-                  Next Part <ChevronRight size={16} />
-                </button>
+                {totalParts > 1 ? (
+                  <>
+                    <button 
+                      type="button" 
+                      className="nav-page-btn" 
+                      disabled={activePart <= 1}
+                      onClick={() => setActivePart(p => Math.max(1, p - 1))}
+                    >
+                      <ChevronLeft size={16} /> Prev Part
+                    </button>
+                    <span className="font-bold text-sm text-gray-700">
+                      Part {activePart} of {totalParts} ({processedStudents.length} Students Total)
+                    </span>
+                    <button 
+                      type="button" 
+                      className="nav-page-btn" 
+                      disabled={activePart >= totalParts}
+                      onClick={() => setActivePart(p => Math.min(totalParts, p + 1))}
+                    >
+                      Next Part <ChevronRight size={16} />
+                    </button>
+                  </>
+                ) : (
+                  <span className="font-bold text-sm text-gray-700">
+                    Single Page Marksheet ({processedStudents.length} Students)
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
@@ -788,12 +847,12 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                   className="btn-quick-download" 
                   onClick={() => handleDownloadPart(activePart)}
                 >
-                  <Download size={13} /> Save Part {activePart} PNG
+                  <Download size={13} /> Save Image (PNG)
                 </button>
               </div>
             </div>
 
-            {/* SCREEN VIEW: Shows the currently selected part */}
+            {/* SCREEN VIEW: Shows the marksheet */}
             <div className="speakhub-poster-card screen-view-only">
               
               {/* 1. Header with Logo & Brand */}
@@ -827,7 +886,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
 
                 {/* Light Rounded Pill */}
                 <div className="banner-result-pill">
-                  {mainResultTitle} PART - {activePart}
+                  {getPillTitle(activePart)}
                 </div>
 
                 {/* Yellow Exam Date */}
@@ -872,7 +931,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
 
             </div>
 
-            {/* PRINT VIEW ONLY: Renders ALL parts sequentially with page breaks */}
+            {/* PRINT VIEW ONLY: Renders all parts sequentially with page breaks */}
             <div className="print-view-only">
               {Array.from({ length: totalParts }, (_, pIdx) => {
                 const partNum = pIdx + 1;
@@ -909,7 +968,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                       </div>
 
                       <div className="banner-result-pill">
-                        {mainResultTitle} PART - {partNum}
+                        {getPillTitle(partNum)}
                       </div>
 
                       <div className="banner-exam-date">
