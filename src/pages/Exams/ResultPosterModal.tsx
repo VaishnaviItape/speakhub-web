@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   X, Download, Printer, Copy, Check, Sparkles, 
   Settings, Calendar, User, ChevronLeft, ChevronRight, Layers, Clock, BookOpen, Layers2,
-  ZoomIn, ZoomOut, Eye
+  ZoomIn, ZoomOut, Eye, FileText, FileDown
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import { db } from '../../config/firebase';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import type { Exam } from '../../types/models';
@@ -96,8 +97,13 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
   const [mainResultTitle, setMainResultTitle] = useState(() => `${getMonthYear(exam?.startDate || new Date())} ONLINE EXAM RESULT`);
   const [totalMarks, setTotalMarks] = useState<number>(Number(exam?.totalMarks) || 20);
 
+  // Template Mode & Export Format
+  const [exportFormat, setExportFormat] = useState<'a4' | 'compact'>('a4');
+  const [templateMode, setTemplateMode] = useState<'results' | 'blank'>('results');
+  const [blankRowCount, setBlankRowCount] = useState<number>(15);
+
   // Layout & Display Settings
-  const [pageSize, setPageSize] = useState<'auto' | 'all' | '10' | '12' | '15'>('auto');
+  const [pageSize, setPageSize] = useState<'auto' | 'all' | '10' | '12' | '15' | '18' | '20'>('auto');
   const [showPartSuffix, setShowPartSuffix] = useState<boolean>(false);
   const [includeAbsent, setIncludeAbsent] = useState<boolean>(true);
   const [sortBy, setSortBy] = useState<'alphabetical' | 'score' | 'rank'>('alphabetical');
@@ -107,7 +113,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
-  // Zoom / Scale level for preview (0.72 fits all students + footer cleanly on screen)
+  // Zoom / Scale level for preview (0.72 fits standard screen)
   const [zoomLevel, setZoomLevel] = useState<number>(0.72);
 
   // Canvas for export
@@ -148,12 +154,10 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
   }, [exam, batchName]);
 
   // Robust Trainer / Teacher Name Resolution:
-  // Checks teacherNameProp, exam.teacherName, or directly queries the assigned batch and user in Firestore
   useEffect(() => {
     if (teacherNameProp && teacherNameProp.trim()) {
       setTeacherName(formatTeacherName(teacherNameProp));
     } else {
-      // Find batch ID to lookup assigned trainer
       const bId = exam?.batchId && exam.batchId !== 'all' 
         ? exam.batchId 
         : (Array.isArray(exam?.batchIds) && exam.batchIds.length > 0 && exam.batchIds[0] !== 'all' ? exam.batchIds[0] : '');
@@ -188,6 +192,17 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
 
   // Process and sort students list
   const processedStudents = useMemo(() => {
+    if (templateMode === 'blank') {
+      return Array.from({ length: blankRowCount }, (_, i) => ({
+        id: `blank-${i}`,
+        name: '',
+        score: undefined,
+        isAbsent: false,
+        rank: i + 1,
+        attempt: null
+      }));
+    }
+
     let list = attempts.map((a) => {
       const att = a.attempt;
       const score = att && att.score !== undefined ? Number(att.score) : undefined;
@@ -223,23 +238,35 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
       return 0;
     });
 
+    // If no attempts exist yet, supply 15 blank lines so template preview is visible and usable!
+    if (list.length === 0) {
+      return Array.from({ length: 15 }, (_, i) => ({
+        id: `sample-${i}`,
+        name: '',
+        score: undefined,
+        isAbsent: false,
+        rank: i + 1,
+        attempt: null
+      }));
+    }
+
     return list;
-  }, [attempts, includeAbsent, sortBy]);
+  }, [attempts, includeAbsent, sortBy, templateMode, blankRowCount]);
 
   // Smart Page Sizing:
-  // If 'auto' and total students <= 15: Fit all on 1 page!
-  // If 'auto' and total students > 15: Split into 2 balanced pages!
+  // In A4 mode: up to 18 students fit on 1 A4 page gracefully.
   const effectivePageSize = useMemo(() => {
     const total = processedStudents.length;
     if (pageSize === 'auto') {
-      if (total <= 15) return total;
+      const maxSinglePage = exportFormat === 'a4' ? 18 : 15;
+      if (total <= maxSinglePage) return total;
       return Math.ceil(total / 2); // Split into 2 clean pages
     }
     if (pageSize === 'all') {
       return total;
     }
     return parseInt(pageSize, 10);
-  }, [pageSize, processedStudents.length]);
+  }, [pageSize, processedStudents.length, exportFormat]);
 
   const totalParts = useMemo(() => {
     if (effectivePageSize <= 0) return 1;
@@ -256,7 +283,6 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
   if (!isOpen) return null;
 
   // Build rows for a specific part (1-indexed)
-  // Renders EXACTLY the students in the part — NO giant empty space or unnecessary rows!
   const getRowsForPart = (partNum: number) => {
     const startIndex = (partNum - 1) * effectivePageSize;
     const partStudents = processedStudents.slice(startIndex, startIndex + effectivePageSize);
@@ -264,7 +290,12 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     return partStudents.map((student, i) => {
       const globalIndex = startIndex + i;
       const srNo = String(globalIndex + 1).padStart(2, '0');
-      let scoreText = student.isAbsent ? 'AB' : `${student.score} / ${totalMarks}`;
+      let scoreText = '';
+      if (templateMode === 'blank' || (attempts.length === 0 && !student.name)) {
+        scoreText = '';
+      } else {
+        scoreText = student.isAbsent ? 'AB' : `${student.score} / ${totalMarks}`;
+      }
       return {
         srNo,
         name: student.name,
@@ -317,36 +348,243 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     return mainResultTitle;
   };
 
-  // Render high-res exact graphic for a specific part on Canvas with NO wasted space
-  const drawPosterOnCanvas = async (partNum: number): Promise<HTMLCanvasElement | null> => {
+  // Render high-res exact graphic for a specific part on Canvas
+  const drawPosterOnCanvas = async (partNum: number, targetFormat: 'a4' | 'compact' = exportFormat): Promise<HTMLCanvasElement | null> => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
     const rows = getRowsForPart(partNum);
-    const rowH = 40; // Proportional clean row height
+
+    // ==========================================
+    // 1. STANDARD A4 FORMAT (1240 x 1754 px @ 150 DPI)
+    // ==========================================
+    if (targetFormat === 'a4') {
+      const W = 1240;
+      const H = 1754; // Exact standard A4 portrait (ratio 1 : 1.414)
+
+      canvas.width = W;
+      canvas.height = H;
+
+      // Clean White Background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+
+      // Header with Logo & Brand Title
+      const logoImg = await loadLogoImage();
+      if (logoImg) {
+        ctx.drawImage(logoImg, 45, 25, 120, 105);
+      } else {
+        ctx.fillStyle = '#cc0000';
+        ctx.beginPath();
+        ctx.arc(105, 75, 40, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 36px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('S', 105, 87);
+      }
+
+      // Institute Title (Bold Red Serif)
+      ctx.fillStyle = '#d32f2f';
+      ctx.font = '900 50px "Times New Roman", Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(INSTITUTE_TITLE, W / 2 + 50, 72);
+
+      // Tagline (Bold Black Sans-serif)
+      ctx.fillStyle = '#000000';
+      ctx.font = '700 25px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(TAGLINE, W / 2 + 50, 115);
+
+      // Navy Blue Header Section
+      const blueY = 155;
+      const blueH = 225;
+      ctx.fillStyle = '#002868';
+      ctx.fillRect(0, blueY, W, blueH);
+
+      // Left Column (Course & Batch)
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '800 21px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(courseName, 315, blueY + 38);
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(50, blueY + 52);
+      ctx.lineTo(580, blueY + 52);
+      ctx.stroke();
+
+      ctx.fillText(batchTiming, 315, blueY + 80);
+
+      // Middle Vertical Divider Line
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(620, blueY + 16);
+      ctx.lineTo(620, blueY + 96);
+      ctx.stroke();
+
+      // Right Column (Result Date & Teacher / Mentor)
+      ctx.fillText(formattedResultDate, 925, blueY + 38);
+
+      ctx.beginPath();
+      ctx.moveTo(660, blueY + 52);
+      ctx.lineTo(1190, blueY + 52);
+      ctx.stroke();
+
+      ctx.fillText(teacherName, 925, blueY + 80);
+
+      // Center Pill: Result Title
+      const pillW = 1060;
+      const pillH = 50;
+      const pillX = (W - pillW) / 2;
+      const pillY = blueY + 106;
+
+      ctx.fillStyle = '#fef4e8';
+      roundRect(ctx, pillX, pillY, pillW, pillH, 10, true, false);
+
+      ctx.fillStyle = '#c62828';
+      ctx.font = '900 25px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(getPillTitle(partNum), W / 2, pillY + 34);
+
+      // Yellow Golden Exam Date
+      ctx.fillStyle = '#ffc107';
+      ctx.font = '800 22px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(examDateDisplay, W / 2, blueY + 196);
+
+      // Table Header
+      const tableY = blueY + blueH; // 380
+      const thH = 55;
+      ctx.fillStyle = '#f5a623';
+      ctx.fillRect(0, tableY, W, thH);
+
+      // Vertical Dividers in Table Header
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(250, tableY);
+      ctx.lineTo(250, tableY + thH);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(920, tableY);
+      ctx.lineTo(920, tableY + thH);
+      ctx.stroke();
+
+      ctx.fillStyle = '#000000';
+      ctx.font = '900 24px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('SR. NO', 125, tableY + 36);
+      ctx.fillText('STUDENT NAME', 585, tableY + 36);
+      ctx.fillText('SCORE', 1080, tableY + 36);
+
+      // Table Rows
+      const rowsStartY = tableY + thH; // 435
+      const footerStartY = 1584; // Pins footer at bottom of A4
+      const availableTableH = footerStartY - rowsStartY - 10;
+      const rowsCount = Math.max(rows.length, 1);
+      const rowH = Math.min(58, Math.max(46, Math.floor(availableTableH / Math.max(rowsCount, 15))));
+
+      rows.forEach((row, i) => {
+        const ry = rowsStartY + (i * rowH);
+
+        // Alternating background
+        ctx.fillStyle = i % 2 === 0 ? '#fae8d4' : '#ffffff';
+        ctx.fillRect(0, ry, W, rowH);
+
+        // Vertical separators
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(250, ry);
+        ctx.lineTo(250, ry + rowH);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(920, ry);
+        ctx.lineTo(920, ry + rowH);
+        ctx.stroke();
+
+        // Cell Text
+        ctx.fillStyle = '#000000';
+        ctx.font = '900 22px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        const textBaselineY = ry + Math.floor(rowH / 2) + 7;
+
+        // Sr No
+        ctx.fillText(row.srNo, 125, textBaselineY);
+
+        // Student Name (or underline if blank)
+        if (row.name) {
+          ctx.fillText(row.name, 585, textBaselineY);
+        } else {
+          ctx.fillStyle = '#b0b8c4';
+          ctx.font = '400 20px Arial, sans-serif';
+          ctx.fillText('___________________________________', 585, textBaselineY - 3);
+          ctx.fillStyle = '#000000';
+          ctx.font = '900 22px Arial, sans-serif';
+        }
+
+        // Score (or placeholder if blank)
+        if (row.score) {
+          ctx.fillText(row.score, 1080, textBaselineY);
+        } else {
+          ctx.fillStyle = '#b0b8c4';
+          ctx.font = '400 20px Arial, sans-serif';
+          ctx.fillText(`____ / ${totalMarks}`, 1080, textBaselineY);
+          ctx.fillStyle = '#000000';
+          ctx.font = '900 22px Arial, sans-serif';
+        }
+      });
+
+      // Permanent Footer Section (Pinned at base of A4 page)
+      const admW = 1140;
+      const admH = 58;
+      const admX = (W - admW) / 2;
+
+      ctx.fillStyle = '#7d1867';
+      roundRect(ctx, admX, footerStartY, admW, admH, 10, true, false);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '800 24px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(CONTACT_INFO, W / 2, footerStartY + 38);
+
+      ctx.fillStyle = '#000000';
+      ctx.font = '800 18px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(ADDRESS, W / 2, footerStartY + admH + 34);
+
+      return canvas;
+    }
+
+    // ==========================================
+    // 2. COMPACT POSTER FORMAT (Snug Dynamic Height)
+    // ==========================================
+    const rowH = 40;
     const blueY = 104;
     const blueH = 158;
     const tableY = blueY + blueH;
     const thH = 40;
     const rowsStartY = tableY + thH;
     const tableTotalH = rows.length * rowH;
-    const footerStartY = rowsStartY + tableTotalH + 10; // Clean 10px snug spacing
+    const footerStartY = rowsStartY + tableTotalH + 10;
     const admH = 42;
     
-    // Exact dynamic canvas height matching student count
     const W = 800;
     const H = footerStartY + admH + 34;
 
     canvas.width = W;
     canvas.height = H;
 
-    // 1. Clean White Background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, W, H);
 
-    // 2. Header with Logo & Brand Title (Permanent)
     const logoImg = await loadLogoImage();
     if (logoImg) {
       ctx.drawImage(logoImg, 25, 12, 85, 80);
@@ -361,29 +599,24 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
       ctx.fillText('S', 65, 52);
     }
 
-    // Permanent Institute Title (Bold Red Serif)
     ctx.fillStyle = '#d32f2f';
     ctx.font = '900 36px "Times New Roman", Georgia, serif';
     ctx.textAlign = 'center';
     ctx.fillText(INSTITUTE_TITLE, W / 2 + 35, 50);
 
-    // Permanent Tagline (Bold Black Sans-serif)
     ctx.fillStyle = '#000000';
     ctx.font = '700 19px Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(TAGLINE, W / 2 + 35, 82);
 
-    // 3. Navy Blue Header Section
     ctx.fillStyle = '#002868';
     ctx.fillRect(0, blueY, W, blueH);
 
-    // Left Column (Course & Batch)
     ctx.fillStyle = '#ffffff';
     ctx.font = '800 15px Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(courseName, 205, blueY + 28);
 
-    // Left Horizontal Divider
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -391,10 +624,8 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     ctx.lineTo(375, blueY + 38);
     ctx.stroke();
 
-    // Left Batch Timing
     ctx.fillText(batchTiming, 205, blueY + 58);
 
-    // Middle Vertical Divider Line
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
@@ -402,19 +633,15 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     ctx.lineTo(400, blueY + 68);
     ctx.stroke();
 
-    // Right Column (Result Date & Teacher / Mentor)
     ctx.fillText(formattedResultDate, 595, blueY + 28);
 
-    // Right Horizontal Divider
     ctx.beginPath();
     ctx.moveTo(425, blueY + 38);
     ctx.lineTo(765, blueY + 38);
     ctx.stroke();
 
-    // Right Teacher / Mentor Name
     ctx.fillText(teacherName, 595, blueY + 58);
 
-    // Center Pill: Result Title
     const pillW = 690;
     const pillH = 38;
     const pillX = (W - pillW) / 2;
@@ -428,17 +655,14 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     ctx.textAlign = 'center';
     ctx.fillText(getPillTitle(partNum), W / 2, pillY + 25);
 
-    // Yellow Golden Exam Date (Automatically taken from exam)
     ctx.fillStyle = '#ffc107';
     ctx.font = '800 16px Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(examDateDisplay, W / 2, blueY + 142);
 
-    // 4. Results Table
     ctx.fillStyle = '#f5a623';
     ctx.fillRect(0, tableY, W, thH);
 
-    // Header Vertical Separators
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
@@ -451,7 +675,6 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     ctx.lineTo(600, tableY + thH);
     ctx.stroke();
 
-    // Table Header Labels
     ctx.fillStyle = '#000000';
     ctx.font = '900 17px Arial, sans-serif';
     ctx.textAlign = 'center';
@@ -459,15 +682,12 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     ctx.fillText('STUDENT NAME', 385, tableY + 26);
     ctx.fillText('SCORE', 700, tableY + 26);
 
-    // Rows (Fits exact student count with no trailing blank void)
     rows.forEach((row, i) => {
       const ry = rowsStartY + (i * rowH);
 
-      // Alternating Background: peach cream & white
       ctx.fillStyle = i % 2 === 0 ? '#fae8d4' : '#ffffff';
       ctx.fillRect(0, ry, W, rowH);
 
-      // Vertical Dividers
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
@@ -480,30 +700,14 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
       ctx.lineTo(600, ry + rowH);
       ctx.stroke();
 
-      // Row bottom border
-      ctx.strokeStyle = '#ffe0c0';
-      ctx.lineWidth = 0.8;
-      ctx.beginPath();
-      ctx.moveTo(0, ry + rowH);
-      ctx.lineTo(W, ry + rowH);
-      ctx.stroke();
-
-      // Row Text
       ctx.fillStyle = '#000000';
-      ctx.font = '800 17px Arial, sans-serif';
+      ctx.font = '900 15px Arial, sans-serif';
       ctx.textAlign = 'center';
-
-      // SR. NO
       ctx.fillText(row.srNo, 85, ry + 26);
-
-      // Student Name
-      ctx.fillText(row.name, 385, ry + 26);
-
-      // Score
-      ctx.fillText(row.score, 700, ry + 26);
+      ctx.fillText(row.name || '________________', 385, ry + 26);
+      ctx.fillText(row.score || `___ / ${totalMarks}`, 700, ry + 26);
     });
 
-    // 5. Permanent Footer Section
     const admW = 770;
     const admX = (W - admW) / 2;
 
@@ -515,7 +719,6 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     ctx.textAlign = 'center';
     ctx.fillText(CONTACT_INFO, W / 2, footerStartY + 27);
 
-    // Permanent Office Address
     ctx.fillStyle = '#000000';
     ctx.font = '800 13px Arial, sans-serif';
     ctx.textAlign = 'center';
@@ -524,11 +727,73 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     return canvas;
   };
 
-  // 1. Download Current Part as PNG
-  const handleDownloadPart = async (partNum: number) => {
+  // 1. Download as True A4 PDF
+  const handleDownloadA4Pdf = async (allPages = false) => {
     setIsGenerating(true);
     try {
-      const canvas = await drawPosterOnCanvas(partNum);
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      });
+
+      const pagesToRender = allPages ? Array.from({ length: totalParts }, (_, i) => i + 1) : [activePart];
+      const safeTitle = (exam?.title || 'Exam_Result').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+      for (let idx = 0; idx < pagesToRender.length; idx++) {
+        const p = pagesToRender[idx];
+        if (idx > 0) {
+          doc.addPage('a4', 'portrait');
+        }
+        const canvas = await drawPosterOnCanvas(p, 'a4');
+        if (canvas) {
+          const imgData = canvas.toDataURL('image/png', 1.0);
+          // Standard A4 dimensions in mm: 210 x 297
+          doc.addImage(imgData, 'PNG', 0, 0, 210, 297, undefined, 'FAST');
+        }
+      }
+
+      const suffix = allPages ? '_All_Pages_A4' : totalParts > 1 ? `_Part_${activePart}_A4` : '_A4';
+      doc.save(`${safeTitle}_Result_Template${suffix}.pdf`);
+    } catch (err: any) {
+      alert('Error generating A4 PDF: ' + err.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // 2. Download as A4 Image (PNG)
+  const handleDownloadA4Image = async (partNum: number) => {
+    setIsGenerating(true);
+    try {
+      const canvas = await drawPosterOnCanvas(partNum, 'a4');
+      if (!canvas) return;
+
+      const url = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = url;
+      const safeTitle = (exam?.title || 'Exam_Result').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const suffix = totalParts > 1 ? `_Part_${partNum}_A4` : '_A4';
+      link.download = `${safeTitle}_Result_Template${suffix}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      alert('Could not download A4 image: ' + err.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // 3. Download Current Part (format chosen in exportFormat)
+  const handleDownloadPart = async (partNum: number) => {
+    if (exportFormat === 'a4') {
+      return handleDownloadA4Image(partNum);
+    }
+    setIsGenerating(true);
+    try {
+      const canvas = await drawPosterOnCanvas(partNum, 'compact');
       if (!canvas) return;
 
       const url = canvas.toDataURL('image/png');
@@ -547,18 +812,19 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     }
   };
 
-  // 2. Download All Parts sequentially
+  // 4. Download All Parts sequentially as PNG
   const handleDownloadAllParts = async () => {
     setIsGenerating(true);
     try {
       for (let p = 1; p <= totalParts; p++) {
-        const canvas = await drawPosterOnCanvas(p);
+        const canvas = await drawPosterOnCanvas(p, exportFormat);
         if (canvas) {
           const url = canvas.toDataURL('image/png');
           const link = document.createElement('a');
           link.href = url;
           const safeTitle = (exam?.title || 'Exam_Result').replace(/[^a-zA-Z0-9_-]/g, '_');
-          link.download = `${safeTitle}_Marksheet_Part_${p}.png`;
+          const suffix = exportFormat === 'a4' ? `_Part_${p}_A4.png` : `_Part_${p}.png`;
+          link.download = `${safeTitle}_Result_Template${suffix}`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -572,10 +838,10 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     }
   };
 
-  // 3. Copy Current Part Image to Clipboard
+  // 5. Copy Current Part Image to Clipboard
   const handleCopyToClipboard = async () => {
     try {
-      const canvas = await drawPosterOnCanvas(activePart);
+      const canvas = await drawPosterOnCanvas(activePart, exportFormat);
       if (!canvas) return;
 
       canvas.toBlob(async (blob) => {
@@ -587,7 +853,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
           setIsCopied(true);
           setTimeout(() => setIsCopied(false), 2500);
         } catch {
-          alert('Direct image copy is not supported in this browser. Please click "Download PNG" instead.');
+          alert('Direct image copy is not supported in this browser. Please click "Download A4 PDF" or "Download A4 PNG" instead.');
         }
       });
     } catch (e: any) {
@@ -595,7 +861,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
     }
   };
 
-  // 4. Print / Save as PDF
+  // 6. Print / Save as PDF via browser
   const handlePrint = () => {
     window.print();
   };
@@ -608,14 +874,65 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
         <div className="speakhub-modal-header">
           <div className="flex items-center gap-2">
             <span className="modal-title-badge">
-              <Sparkles size={16} /> Official Result Marksheet Generator
+              <Sparkles size={16} /> Official Result Marksheet Generator (A4)
             </span>
-            <span className="text-xs text-gray-500 font-semibold hidden md:inline">
-              Speak Hub Academy Official Format
+            <span className="a4-tag-badge">
+              📄 Standard A4 Size (210 × 297 mm)
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Direct A4 PDF Download Button */}
+            <button 
+              type="button" 
+              className="action-btn a4-pdf-btn" 
+              onClick={() => handleDownloadA4Pdf(false)}
+              disabled={isGenerating}
+              title="Download official Result Template as standard A4 PDF document (210 × 297 mm)"
+            >
+              <FileDown size={15} />
+              {isGenerating ? 'Generating...' : totalParts > 1 ? `Download Part ${activePart} (A4 PDF)` : 'Download A4 PDF'}
+            </button>
+
+            {/* All Pages in 1 Combined A4 PDF */}
+            {totalParts > 1 && (
+              <button 
+                type="button" 
+                className="action-btn a4-all-pdf-btn" 
+                onClick={() => handleDownloadA4Pdf(true)}
+                disabled={isGenerating}
+                title="Download all parts as a single multi-page A4 PDF"
+              >
+                <Layers size={14} /> All Pages (A4 PDF)
+              </button>
+            )}
+
+            {/* Image PNG Download */}
+            <button 
+              type="button" 
+              className="action-btn download-btn" 
+              onClick={() => handleDownloadPart(activePart)}
+              disabled={isGenerating}
+              title="Download high-resolution image (PNG)"
+            >
+              <Download size={14} /> 
+              {exportFormat === 'a4' ? 'Download A4 (PNG)' : 'Download PNG'}
+            </button>
+
+            {/* All Parts Image PNG (if multi-page) */}
+            {totalParts > 1 && (
+              <button 
+                type="button" 
+                className="action-btn download-all-btn" 
+                onClick={handleDownloadAllParts}
+                disabled={isGenerating}
+                title="Download all parts as individual PNG images"
+              >
+                <Layers size={14} /> All Parts (PNG)
+              </button>
+            )}
+
+            {/* Copy Image Button */}
             <button 
               type="button" 
               className="action-btn copy-btn" 
@@ -623,42 +940,20 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               title="Copy current marksheet image to clipboard (Ctrl+V in WhatsApp)"
             >
               {isCopied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
-              {isCopied ? 'Copied Image!' : 'Copy Image'}
+              {isCopied ? 'Copied!' : 'Copy Image'}
             </button>
 
+            {/* Print / Save PDF Button */}
             <button 
               type="button" 
               className="action-btn print-btn" 
               onClick={handlePrint}
               title="Print marksheet or Save as PDF"
             >
-              <Printer size={14} /> Print / PDF
+              <Printer size={14} /> Print
             </button>
 
-            <button 
-              type="button" 
-              className="action-btn download-btn" 
-              onClick={() => handleDownloadPart(activePart)}
-              disabled={isGenerating}
-              title="Download high-resolution image"
-            >
-              <Download size={14} /> 
-              {isGenerating ? 'Rendering...' : totalParts > 1 ? `Download Part ${activePart} (PNG)` : 'Download PNG'}
-            </button>
-
-            {totalParts > 1 && (
-              <button 
-                type="button" 
-                className="action-btn download-all-btn" 
-                onClick={handleDownloadAllParts}
-                disabled={isGenerating}
-                title="Download all parts as individual PNGs"
-              >
-                <Layers size={14} /> All Parts ({totalParts})
-              </button>
-            )}
-
-            <button type="button" className="close-btn" onClick={onClose}>
+            <button type="button" className="close-btn" onClick={onClose} title="Close">
               <X size={18} />
             </button>
           </div>
@@ -667,15 +962,75 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
         {/* Modal Body: Editor Sidebar + Live Visual Marksheet Preview */}
         <div className="speakhub-modal-body">
           
-          {/* Controls Sidebar (Streamlined with only necessary admin controls) */}
+          {/* Controls Sidebar */}
           <div className="speakhub-sidebar">
             <h3 className="sidebar-heading">
-              <Settings size={15} /> Marksheet Controls
+              <Settings size={15} /> Template &amp; Sizing Controls
             </h3>
 
-            {/* 1. Result Date Selector (Only Date Admin Needs to Pick) */}
+            {/* Template Format Selector */}
             <div className="form-group highlight-control">
-              <label><Calendar size={14} className="text-blue-600" /> Result Publication Date (Pick Date):</label>
+              <label><FileText size={14} className="text-indigo-600" /> Page Size Format:</label>
+              <div className="grid-2-toggle">
+                <button
+                  type="button"
+                  className={`format-toggle-btn ${exportFormat === 'a4' ? 'active' : ''}`}
+                  onClick={() => setExportFormat('a4')}
+                >
+                  📄 A4 Size (210 × 297 mm)
+                </button>
+                <button
+                  type="button"
+                  className={`format-toggle-btn ${exportFormat === 'compact' ? 'active' : ''}`}
+                  onClick={() => setExportFormat('compact')}
+                >
+                  📱 Compact Poster
+                </button>
+              </div>
+              <span className="text-[10px] text-gray-500">
+                {exportFormat === 'a4' ? '✓ Standard international A4 sheet ready for printing & PDF export.' : 'Snug dynamic height for quick mobile social sharing.'}
+              </span>
+            </div>
+
+            {/* Template Mode: Filled vs Blank */}
+            <div className="form-group highlight-control">
+              <label><BookOpen size={14} className="text-emerald-600" /> Template Content Mode:</label>
+              <div className="grid-2-toggle">
+                <button
+                  type="button"
+                  className={`format-toggle-btn ${templateMode === 'results' ? 'active' : ''}`}
+                  onClick={() => setTemplateMode('results')}
+                >
+                  ✓ Filled Results ({attempts.length})
+                </button>
+                <button
+                  type="button"
+                  className={`format-toggle-btn ${templateMode === 'blank' ? 'active' : ''}`}
+                  onClick={() => setTemplateMode('blank')}
+                >
+                  📝 Blank Template
+                </button>
+              </div>
+              {templateMode === 'blank' && (
+                <div className="mt-1 flex items-center justify-between text-xs font-semibold text-gray-700">
+                  <span>Number of Blank Lines:</span>
+                  <select 
+                    value={blankRowCount} 
+                    onChange={(e) => setBlankRowCount(Number(e.target.value))}
+                    className="p-1 border rounded text-xs"
+                  >
+                    <option value={10}>10 Rows</option>
+                    <option value={15}>15 Rows (Standard A4)</option>
+                    <option value={18}>18 Rows</option>
+                    <option value={20}>20 Rows</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Result Publication Date Selector */}
+            <div className="form-group highlight-control">
+              <label><Calendar size={14} className="text-blue-600" /> Result Publication Date:</label>
               <input 
                 type="date" 
                 value={resultDateRaw} 
@@ -687,21 +1042,18 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               </span>
             </div>
 
-            {/* 2. Trainer / Teacher Name (Auto-linked to assigned batch trainer) */}
+            {/* Trainer / Teacher Name */}
             <div className="form-group highlight-control">
-              <label><User size={14} className="text-purple-600" /> Trainer / Teacher (Auto-linked from Batch):</label>
+              <label><User size={14} className="text-purple-600" /> Trainer / Teacher Name:</label>
               <input 
                 type="text" 
                 value={teacherName} 
                 onChange={(e) => setTeacherName(e.target.value)} 
                 placeholder="e.g. Mrs. VAISHNAVI"
               />
-              <span className="text-[10px] text-gray-500">
-                ✓ Automatically fetched from assigned batch trainer.
-              </span>
             </div>
 
-            {/* 3. Exam Schedule Date (Readonly indicator taken from exam) */}
+            {/* Exam Schedule Date */}
             <div className="exam-date-info-card">
               <div className="flex items-center gap-1.5 font-bold text-xs text-amber-900">
                 <Clock size={13} /> Exam Date (Taken on this day):
@@ -711,7 +1063,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               </div>
             </div>
 
-            {/* 4. Course & Batch Info */}
+            {/* Course & Batch Info */}
             <div className="grid-2">
               <div className="form-group">
                 <label><BookOpen size={12} /> Course / Subject</label>
@@ -734,7 +1086,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               </div>
             </div>
 
-            {/* 5. Title & Total Marks */}
+            {/* Title & Total Marks */}
             <div className="grid-2">
               <div className="form-group">
                 <label>Result Badge Title</label>
@@ -757,7 +1109,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               </div>
             </div>
 
-            {/* 6. Page Layout & Multi-Page Control */}
+            {/* Page Layout & Multi-Page Control */}
             <h3 className="sidebar-heading mt-2">
               <Layers2 size={15} /> Page Layout &amp; Multi-Page
             </h3>
@@ -772,11 +1124,12 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                     setActivePart(1);
                   }}
                 >
-                  <option value="auto">Auto (1 Page if ≤15, else 2 Pages)</option>
+                  <option value="auto">Auto (1 A4 Page if ≤18, else 2 Pages)</option>
                   <option value="all">Fit All on 1 Page ({processedStudents.length} Students)</option>
-                  <option value="10">10 Students / Page</option>
                   <option value="12">12 Students / Page</option>
-                  <option value="15">15 Students / Page</option>
+                  <option value="15">15 Students / Page (Standard A4)</option>
+                  <option value="18">18 Students / Page</option>
+                  <option value="20">20 Students / Page</option>
                 </select>
               </div>
 
@@ -813,7 +1166,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
               </label>
             </div>
 
-            {/* Multi-part Selector (only if split across multiple pages) */}
+            {/* Multi-part Selector */}
             {totalParts > 1 && (
               <div className="parts-selector-box">
                 <label className="text-xs font-bold text-gray-700">Switch Page / Part:</label>
@@ -825,7 +1178,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                       className={`part-pill-btn ${activePart === p ? 'active' : ''}`}
                       onClick={() => setActivePart(p)}
                     >
-                      Part {p} ({String((p - 1) * effectivePageSize + 1).padStart(2, '0')}-{String(Math.min(p * effectivePageSize, processedStudents.length)).padStart(2, '0')})
+                      Page {p} ({String((p - 1) * effectivePageSize + 1).padStart(2, '0')}-{String(Math.min(p * effectivePageSize, processedStudents.length)).padStart(2, '0')})
                     </button>
                   ))}
                 </div>
@@ -881,12 +1234,12 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                 ) : (
                   <span className="font-bold text-xs sm:text-sm text-gray-800 flex items-center gap-1.5">
                     <Check size={15} className="text-emerald-600" />
-                    Single Page Marksheet • Showing All {processedStudents.length} Students
+                    {exportFormat === 'a4' ? 'A4 Document Preview' : 'Single Page Marksheet'} • {processedStudents.length} Students
                   </span>
                 )}
               </div>
 
-              {/* View / Zoom scale toggles so user can see all students & footer at a glance */}
+              {/* View / Zoom scale toggles */}
               <div className="flex items-center gap-2">
                 <div className="zoom-toggle-group">
                   <button
@@ -895,7 +1248,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                     className={`zoom-btn ${zoomLevel === 0.72 ? 'active' : ''}`}
                     onClick={() => setZoomLevel(0.72)}
                   >
-                    <Eye size={13} /> Fit Full Result
+                    <Eye size={13} /> Fit Full A4
                   </button>
                   <button
                     type="button"
@@ -926,12 +1279,22 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                   </button>
                 </div>
 
+                {/* Quick Download Buttons */}
+                <button 
+                  type="button" 
+                  className="btn-quick-download-pdf" 
+                  onClick={() => handleDownloadA4Pdf(false)}
+                  title="Download A4 PDF document"
+                >
+                  <FileDown size={13} /> A4 PDF
+                </button>
                 <button 
                   type="button" 
                   className="btn-quick-download" 
                   onClick={() => handleDownloadPart(activePart)}
+                  title="Download A4 PNG Image"
                 >
-                  <Download size={13} /> Save Image (PNG)
+                  <Download size={13} /> A4 PNG
                 </button>
               </div>
             </div>
@@ -943,7 +1306,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                 zoom: zoomLevel,
               } as React.CSSProperties}
             >
-              <div className="speakhub-poster-card screen-view-only">
+              <div className={`speakhub-poster-card screen-view-only ${exportFormat === 'a4' ? 'a4-format' : 'compact-format'}`}>
                 
                 {/* 1. Header with Logo & Brand */}
                 <div className="card-top-header">
@@ -979,13 +1342,13 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                     {getPillTitle(activePart)}
                   </div>
 
-                  {/* Yellow Exam Date (Taken automatically from exam schedule) */}
+                  {/* Yellow Exam Date */}
                   <div className="banner-exam-date">
                     {examDateDisplay}
                   </div>
                 </div>
 
-                {/* 3. Results Table (Renders exact student count with no trailing gap) */}
+                {/* 3. Results Table */}
                 <div className="card-table">
                   <div className="table-header-row">
                     <div className="th-cell th-sr">SR. NO</div>
@@ -1000,9 +1363,19 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                         className={`table-body-row ${idx % 2 === 0 ? 'bg-peach' : 'bg-white'}`}
                       >
                         <div className="td-cell td-sr">{row.srNo}</div>
-                        <div className="td-cell td-name">{row.name}</div>
+                        <div className="td-cell td-name">
+                          {row.name ? (
+                            row.name
+                          ) : (
+                            <span className="text-gray-400 font-normal italic">___________________________</span>
+                          )}
+                        </div>
                         <div className={`td-cell td-score ${row.isAbsent ? 'text-absent' : ''}`}>
-                          {row.score}
+                          {row.score ? (
+                            row.score
+                          ) : (
+                            <span className="text-gray-400 font-normal italic">___ / {totalMarks}</span>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1028,7 +1401,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                 const partNum = pIdx + 1;
                 const partRows = getRowsForPart(partNum);
                 return (
-                  <div key={partNum} className="speakhub-poster-card print-page">
+                  <div key={partNum} className="speakhub-poster-card print-page a4-format">
                     {/* Header */}
                     <div className="card-top-header">
                       <div className="logo-box">
@@ -1082,9 +1455,19 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
                             className={`table-body-row ${idx % 2 === 0 ? 'bg-peach' : 'bg-white'}`}
                           >
                             <div className="td-cell td-sr">{row.srNo}</div>
-                            <div className="td-cell td-name">{row.name}</div>
+                            <div className="td-cell td-name">
+                              {row.name ? (
+                                row.name
+                              ) : (
+                                <span className="text-gray-400 font-normal italic">___________________________</span>
+                              )}
+                            </div>
                             <div className={`td-cell td-score ${row.isAbsent ? 'text-absent' : ''}`}>
-                              {row.score}
+                              {row.score ? (
+                                row.score
+                              ) : (
+                                <span className="text-gray-400 font-normal italic">___ / {totalMarks}</span>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -1111,7 +1494,7 @@ export const ResultPosterModal: React.FC<ResultPosterModalProps> = ({
 
       </div>
 
-      {/* Hidden high-res canvas used for generating the PNG image */}
+      {/* Hidden high-res canvas used for generating the A4 PDF / PNG */}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
     </div>
   );

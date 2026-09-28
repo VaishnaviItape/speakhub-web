@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus, ShieldAlert, Settings2, FileQuestion, BarChart2,
-  Copy, Sparkles, Layers, Edit, Trash2, Clock, Download
+  Copy, Sparkles, Layers, Edit, Trash2, Clock, Download, FileText
 } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
@@ -807,6 +807,20 @@ const Exams: React.FC = () => {
               title="View Results & Student Submissions"
             >
               <BarChart2 size={16} />
+            </Link>
+
+            {/* 3b. Download A4 Result Template Button */}
+            <Link
+              to={`/exams/${row.documentId}/results?openPoster=true`}
+              className="exam-action-btn result-template"
+              title="Download A4 Result Template (PDF & PNG)"
+              style={{
+                backgroundColor: '#fee2e2',
+                color: '#dc2626',
+                borderColor: '#fca5a5'
+              }}
+            >
+              <FileText size={15} />
             </Link>
 
             {/* 4. Edit Exam Button */}

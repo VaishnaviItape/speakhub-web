@@ -47,6 +47,19 @@
   font-size: 0.85rem;
 }
 
+.a4-tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  border-radius: 20px;
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+
 .action-btn {
   display: inline-flex;
   align-items: center;
@@ -57,6 +70,28 @@
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.a4-pdf-btn {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  border: 1px solid #991b1b;
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(220, 38, 38, 0.35);
+}
+.a4-pdf-btn:hover {
+  background: linear-gradient(135deg, #b91c1c, #991b1b);
+  transform: translateY(-1px);
+}
+
+.a4-all-pdf-btn {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  border: 1px solid #4338ca;
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(99, 102, 241, 0.25);
+}
+.a4-all-pdf-btn:hover {
+  background: linear-gradient(135deg, #4f46e5, #3730a3);
+  transform: translateY(-1px);
 }
 
 .copy-btn {
@@ -392,6 +427,55 @@
   cursor: not-allowed;
 }
 
+.grid-2-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.format-toggle-btn {
+  padding: 7px 8px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border-radius: 6px;
+  border: 1.5px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+.format-toggle-btn:hover {
+  background-color: #f1f5f9;
+  color: #1e293b;
+}
+.format-toggle-btn.active {
+  background-color: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15);
+}
+
+.btn-quick-download-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background-color: #dc2626;
+  color: #ffffff;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-quick-download-pdf:hover {
+  background-color: #b91c1c;
+  transform: translateY(-1px);
+}
+
 .btn-quick-download {
   display: inline-flex;
   align-items: center;
@@ -423,6 +507,26 @@
   overflow: hidden;
   font-family: Arial, "Segoe UI", Roboto, sans-serif;
   user-select: text;
+}
+
+/* Standard A4 Aspect Ratio and Proportions */
+.speakhub-poster-card.a4-format {
+  max-width: 600px;
+  min-height: 848px; /* 600 * 1.414 = 848.5px (Exact 210 x 297 mm A4 ratio) */
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.speakhub-poster-card.a4-format .card-table {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.speakhub-poster-card.a4-format .table-rows-container {
+  flex: 1;
 }
 
 /* 1. Header with Logo & Brand */

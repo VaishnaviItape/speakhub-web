@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eye, AlertTriangle, Users, Target, TrendingUp, CheckCircle, Award, RefreshCw, Download, Sparkles } from 'lucide-react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Eye, AlertTriangle, Users, Target, TrendingUp, CheckCircle, Award, RefreshCw, Download, FileDown } from 'lucide-react';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import Modal from '../../components/ui/Modal';
 import ResultPosterModal from './ResultPosterModal';
@@ -26,6 +26,7 @@ const cleanPhoneNumber = (phone: any): string => {
 
 const ExamResults: React.FC = () => {
   const { examId } = useParams<{ examId: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   
@@ -42,6 +43,12 @@ const ExamResults: React.FC = () => {
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isPosterModalOpen, setIsPosterModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('openPoster') === 'true') {
+      setIsPosterModalOpen(true);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (examId) fetchData();
@@ -654,18 +661,18 @@ const ExamResults: React.FC = () => {
             type="button"
             className="btn btn-primary flex items-center gap-2"
             style={{ 
-              background: 'linear-gradient(135deg, #e91e63, #c2185b)', 
-              borderColor: '#ad1457', 
+              background: 'linear-gradient(135deg, #dc2626, #b91c1c)', 
+              borderColor: '#991b1b', 
               color: '#fff',
               fontWeight: 700,
-              boxShadow: '0 4px 12px rgba(233, 30, 99, 0.35)'
+              boxShadow: '0 4px 12px rgba(220, 38, 38, 0.35)'
             }}
             onClick={() => setIsPosterModalOpen(true)}
-            disabled={isLoading || attempts.length === 0}
-            title="Generate WhatsApp / Social Media Result Poster for this Exam"
+            disabled={isLoading}
+            title="Download Official Speak Hub Result Template in A4 Size (PDF & Image)"
           >
-            <Sparkles size={16} />
-            Generate Result Marksheet
+            <FileDown size={16} />
+            Download Result Template (A4)
           </button>
           <button 
             className="btn btn-outline flex items-center gap-2"
