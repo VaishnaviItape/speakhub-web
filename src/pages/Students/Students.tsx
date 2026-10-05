@@ -180,16 +180,19 @@ const Students: React.FC = () => {
       return;
     }
 
-    if (dob) {
-      const dobDate = new Date(dob);
-      if (isNaN(dobDate.getTime())) {
-        alert("Please enter a valid Date of Birth.");
-        return;
-      }
-      if (dobDate > new Date()) {
-        alert("Date of Birth cannot be in the future.");
-        return;
-      }
+    if (!dob) {
+      alert("Date of Birth is mandatory. Please select the student's Date of Birth.");
+      return;
+    }
+
+    const dobDate = new Date(dob);
+    if (isNaN(dobDate.getTime())) {
+      alert("Please enter a valid Date of Birth.");
+      return;
+    }
+    if (dobDate > new Date()) {
+      alert("Date of Birth cannot be in the future.");
+      return;
     }
 
     setIsSubmitting(true);
@@ -449,6 +452,9 @@ const Students: React.FC = () => {
       } else if (!phone || phone.length !== 10) {
         isValid = false;
         validationError = '10-digit phone required';
+      } else if (!dobVal) {
+        isValid = false;
+        validationError = 'Date of Birth is required';
       }
 
       rows.push({
@@ -835,6 +841,7 @@ const Students: React.FC = () => {
               max={new Date().toISOString().split('T')[0]} 
               value={dob} 
               onChange={(e) => setDob(e.target.value)} 
+              required
             />
             <Input label="Date of Joining" type="date" value={joiningDate} onChange={(e) => setJoiningDate(e.target.value)} required />
           </div>
