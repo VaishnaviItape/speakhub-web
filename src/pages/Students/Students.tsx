@@ -7,7 +7,13 @@ import DataTable, { type Column } from '../../components/ui/DataTable';
 import type { Course, Batch } from '../../types/models';
 import { db } from '../../config/firebase';
 import { collection, query, where, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  updatePassword, 
+  updateEmail, 
+  signOut as secondarySignOut 
+} from 'firebase/auth';
 import { secondaryAuth } from '../../config/secondaryFirebase';
 import { checkMobileExists } from '../../utils/phoneValidation';
 import { validateName, validatePhoneNumber } from '../../utils/validation';
@@ -247,9 +253,81 @@ const Students: React.FC = () => {
         }
       } else {
         // Edit existing user
+        const existingStudent = students.find(s => s.documentId === editingId);
+        const newDefaultPassword = generateStudentPassword(firstName, dob);
+        let passwordUpdated = false;
+
+        // Check if name, dob, or phone changed
+        const oldNameFirst = (existingStudent?.name || '').trim().split(' ')[0];
+        const oldDobDate = existingStudent?.dob?.toDate 
+          ? existingStudent.dob.toDate().toISOString().split('T')[0] 
+          : (existingStudent?.dateOfBirth || '');
+        const nameChanged = firstName.trim().toLowerCase() !== oldNameFirst.toLowerCase();
+        const dobChanged = dob !== oldDobDate;
+        const phoneChanged = cleanPhone !== (existingStudent?.phone || existingStudent?.mobile || '').replace(/[^0-9]/g, '');
+
+        if (nameChanged || dobChanged || phoneChanged || !existingStudent?.plainPassword) {
+          const oldPhone = (existingStudent?.phone || existingStudent?.mobile || cleanPhone).replace(/[^0-9]/g, '');
+          const oldAuthEmail = `${oldPhone}@speakhub.com`;
+
+          const candidatePasswords = [
+            existingStudent?.plainPassword,
+            generateStudentPassword(existingStudent?.name || '', existingStudent?.dob || existingStudent?.dateOfBirth),
+            newDefaultPassword
+          ].filter(Boolean);
+
+          let signedInUser: any = null;
+          for (const candPwd of candidatePasswords) {
+            try {
+              const cred = await signInWithEmailAndPassword(secondaryAuth, oldAuthEmail, candPwd);
+              signedInUser = cred.user;
+              break;
+            } catch (e) {
+              // try next candidate password
+            }
+          }
+
+          if (signedInUser) {
+            try {
+              await updatePassword(signedInUser, newDefaultPassword);
+              if (authEmail !== oldAuthEmail) {
+                try {
+                  await updateEmail(signedInUser, authEmail);
+                } catch (emailErr) {
+                  console.warn("Could not update auth email:", emailErr);
+                }
+              }
+              passwordUpdated = true;
+            } catch (pErr) {
+              console.warn("Could not update auth password:", pErr);
+            } finally {
+              await secondarySignOut(secondaryAuth);
+            }
+          } else {
+            // Account may not exist in Firebase Auth yet, create it
+            try {
+              const cred = await createUserWithEmailAndPassword(secondaryAuth, authEmail, newDefaultPassword);
+              updates.uid = cred.user.uid;
+              await secondarySignOut(secondaryAuth);
+              passwordUpdated = true;
+            } catch (createErr) {
+              console.warn("Could not create auth user on edit:", createErr);
+            }
+          }
+
+          updates.plainPassword = newDefaultPassword;
+          updates.forcePasswordChange = true;
+        }
+
         const userRef = doc(db, 'users', editingId);
         await setDoc(userRef, updates, { merge: true });
         setStudents(students.map(s => s.documentId === editingId ? { ...s, ...updates } : s));
+
+        if (passwordUpdated) {
+          alert(`Student Details & Password Updated Successfully!\n\nNew Login Credentials:\nPhone: ${phone}\nPassword: ${newDefaultPassword}`);
+        } else {
+          alert('Student Details Updated Successfully!');
+        }
       }
 
       setIsModalOpen(false);
@@ -539,6 +617,11 @@ const Students: React.FC = () => {
             <div className="text-xs text-slate-400 font-medium flex items-center gap-1.5 flex-wrap">
               <span>Phone: {row.phone || row.mobile || '-'}</span>
               {dobStr && <span className="text-[11px] text-slate-500 font-semibold bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">DOB: {dobStr}</span>}
+              {row.plainPassword && (
+                <span className="text-[11px] font-mono text-indigo-700 dark:text-indigo-300 font-semibold bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded border border-indigo-100 dark:border-indigo-800">
+                  PWD: {row.plainPassword}
+                </span>
+              )}
             </div>
           </div>
         );
@@ -754,6 +837,11 @@ const Students: React.FC = () => {
               onChange={(e) => setDob(e.target.value)} 
             />
             <Input label="Date of Joining" type="date" value={joiningDate} onChange={(e) => setJoiningDate(e.target.value)} required />
+          </div>
+
+          <div style={{ fontSize: '0.8rem', color: '#475569', backgroundColor: '#f8fafc', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+            <span>🔑 <strong>Login Password:</strong> <code style={{ color: '#4f46e5', fontWeight: 700 }}>{generateStudentPassword(firstName || 'student', dob)}</code></span>
+            <span style={{ fontSize: '0.72rem', color: '#64748b' }}>(Auto-updates with First Name & Birth Year)</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
