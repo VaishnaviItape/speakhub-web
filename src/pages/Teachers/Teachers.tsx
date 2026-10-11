@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, BookOpen } from 'lucide-react';
+import { Plus, BookOpen, Search, Check, Info, UserPlus, X } from 'lucide-react';
 import Input from '../../components/forms/Input';
-import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import type { User, Batch } from '../../types/models';
@@ -22,6 +21,7 @@ import {
 import { checkMobileExists } from '../../utils/phoneValidation';
 import { validateName, validateEmail, validatePhoneNumber } from '../../utils/validation';
 import '../../components/ui/TableStyles.css';
+import './Teachers.css';
 
 const Teachers: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -35,6 +35,7 @@ const Teachers: React.FC = () => {
   const [mobile, setMobile] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
   const [selectedBatchIds, setSelectedBatchIds] = useState<string[]>([]);
+  const [batchSearch, setBatchSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Data
@@ -171,6 +172,7 @@ const Teachers: React.FC = () => {
     setStatus('active');
     setSelectedBatchIds([]);
     setEditingId(null);
+    setBatchSearch('');
   };
 
   const handleEdit = (teacher: User) => {
@@ -182,8 +184,30 @@ const Teachers: React.FC = () => {
     setStatus((teacher.status as 'active' | 'inactive') || 'active');
     setSelectedBatchIds(teacher.batchIds || []);
     setEditingId(teacher.documentId || null);
+    setBatchSearch('');
     setIsModalOpen(true);
   };
+
+  const toggleBatch = (batchId: string) => {
+    setSelectedBatchIds(prev =>
+      prev.includes(batchId)
+        ? prev.filter(id => id !== batchId)
+        : [...prev, batchId]
+    );
+  };
+
+  const handleSelectAllBatches = () => {
+    const idsToSelect = filteredBatches.map(b => b.documentId!).filter(Boolean);
+    setSelectedBatchIds(prev => Array.from(new Set([...prev, ...idsToSelect])));
+  };
+
+  const handleClearAllBatches = () => {
+    setSelectedBatchIds([]);
+  };
+
+  const filteredBatches = batches.filter(b =>
+    (b.batchName || '').toLowerCase().includes(batchSearch.toLowerCase().trim())
+  );
 
   const handleDelete = async (teacher: User) => {
     if (window.confirm(`Are you sure you want to delete teacher ${teacher.name}?`)) {
@@ -291,86 +315,221 @@ const Teachers: React.FC = () => {
         isOpen={isModalOpen} 
         onClose={() => { setIsModalOpen(false); resetForm(); }} 
         title={editingId ? "Edit Teacher" : "Add Teacher"}
+        size="lg"
       >
-        <form onSubmit={handleSubmit} className="modal-form">
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="teacher-form">
+          {/* Row 1: First Name & Last Name */}
+          <div className="form-grid-2col">
             <Input 
               label="First Name" 
-              placeholder="First name"
+              placeholder="e.g. John"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               required 
             />
             <Input 
               label="Last Name" 
-              placeholder="Last name"
+              placeholder="e.g. Doe"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               required 
             />
           </div>
-          <Input 
-            label="Email Address" 
-            type="email"
-            placeholder="teacher@speakhub.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={!!editingId}
-            required 
-          />
-          {!editingId && (
-            <p className="text-xs text-gray-500 mb-4 mt-1">
-              Default password will be <code>Teacher@123</code>. (Force change on first login).
-            </p>
-          )}
-          
-          <Input 
-            label="Mobile Number" 
-            placeholder="e.g. 9096170701"
-            value={mobile}
-            onChange={(e) => setMobile(e.target.value)}
-          />
 
-          {/* Batch Selector */}
-          <div className="form-group mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Assign Batches
-            </label>
-            <div className="border rounded p-2 max-h-36 overflow-y-auto space-y-1 bg-white">
+          {/* Row 2: Email & Mobile Number */}
+          <div className="form-grid-2col">
+            <Input 
+              label="Email Address" 
+              type="email"
+              placeholder="teacher@speakhub.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={!!editingId}
+              required 
+            />
+            <Input 
+              label="Mobile Number" 
+              placeholder="e.g. 9096170701"
+              value={mobile}
+              onChange={(e) => setMobile(e.target.value)}
+            />
+          </div>
+
+          {/* Default Credentials Notice */}
+          {!editingId && (
+            <div className="password-callout">
+              <Info size={18} className="password-callout-icon" />
+              <div>
+                <strong>Default Credentials:</strong> Temporary password is set to <code>Teacher@123</code>. The teacher will be prompted to change it upon first login.
+              </div>
+            </div>
+          )}
+
+          {/* Assign Batches Section */}
+          <div className="batch-assign-card">
+            <div className="batch-assign-header">
+              <div className="batch-assign-title">
+                <BookOpen size={16} />
+                <span>Assign Batches</span>
+                <span className={`batch-count-pill ${selectedBatchIds.length > 0 ? 'active' : ''}`}>
+                  {selectedBatchIds.length} of {batches.length} selected
+                </span>
+              </div>
+              {batches.length > 0 && (
+                <div className="batch-quick-actions">
+                  <button 
+                    type="button" 
+                    className="batch-quick-btn"
+                    onClick={handleSelectAllBatches}
+                  >
+                    Select All
+                  </button>
+                  <span style={{ color: '#cbd5e1' }}>•</span>
+                  <button 
+                    type="button" 
+                    className="batch-quick-btn"
+                    onClick={handleClearAllBatches}
+                  >
+                    Clear All
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Batch Search Box */}
+            {batches.length > 2 && (
+              <div className="batch-search-box">
+                <Search size={15} className="batch-search-icon" />
+                <input 
+                  type="text"
+                  placeholder="Filter batches by name..."
+                  className="batch-search-input"
+                  value={batchSearch}
+                  onChange={(e) => setBatchSearch(e.target.value)}
+                />
+                {batchSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setBatchSearch('')}
+                    style={{
+                      position: 'absolute',
+                      right: '0.6rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: '#94a3b8',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: 0
+                    }}
+                    title="Clear filter"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Batch Items List */}
+            <div className="batch-list-box">
               {batches.length === 0 ? (
-                <span className="text-xs text-gray-400">No batches available</span>
+                <div className="batch-empty-text">No batches available in system</div>
+              ) : filteredBatches.length === 0 ? (
+                <div className="batch-empty-text">
+                  No batches found matching "{batchSearch}".{' '}
+                  <button 
+                    type="button" 
+                    className="batch-quick-btn"
+                    onClick={() => setBatchSearch('')}
+                  >
+                    Clear search
+                  </button>
+                </div>
               ) : (
-                batches.map(b => (
-                  <label key={b.documentId} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedBatchIds.includes(b.documentId!)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedBatchIds([...selectedBatchIds, b.documentId!]);
-                        } else {
-                          setSelectedBatchIds(selectedBatchIds.filter(id => id !== b.documentId));
+                filteredBatches.map(b => {
+                  const isSelected = selectedBatchIds.includes(b.documentId!);
+                  return (
+                    <div 
+                      key={b.documentId} 
+                      className={`batch-item-row ${isSelected ? 'selected' : ''}`}
+                      onClick={() => toggleBatch(b.documentId!)}
+                      role="checkbox"
+                      aria-checked={isSelected}
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === ' ' || e.key === 'Enter') {
+                          e.preventDefault();
+                          toggleBatch(b.documentId!);
                         }
                       }}
-                    />
-                    <span>{b.batchName}</span>
-                  </label>
-                ))
+                    >
+                      <div className="batch-item-left">
+                        <div className="batch-checkbox-custom">
+                          {isSelected && <Check size={12} strokeWidth={3} />}
+                        </div>
+                        <span className="batch-name-text" title={b.batchName}>
+                          {b.batchName}
+                        </span>
+                      </div>
+                      <span className="batch-badge-tag">
+                        {isSelected ? 'Assigned' : 'Optional'}
+                      </span>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
 
-          <Select 
-            label="Status" 
-            options={[{label: 'Active', value: 'active'}, {label: 'Inactive', value: 'inactive'}]} 
-            value={status}
-            onChange={(e) => setStatus(e.target.value as 'active' | 'inactive')}
-          />
-          
-          <div className="modal-form-footer">
-            <button type="button" className="btn-modal-cancel" onClick={() => setIsModalOpen(false)}>Cancel</button>
-            <button type="submit" className="btn-modal-primary" disabled={isSaving}>
-              {isSaving ? "Saving..." : (editingId ? "Update Teacher" : "Create Teacher Account")}
+          {/* Account Status Control */}
+          <div className="status-toggle-group">
+            <label className="status-toggle-label">Account Status</label>
+            <div className="status-segmented-control">
+              <button
+                type="button"
+                className={`status-segment-btn ${status === 'active' ? 'active active-status' : ''}`}
+                onClick={() => setStatus('active')}
+              >
+                <span className="status-indicator-dot active" />
+                Active Account
+              </button>
+              <button
+                type="button"
+                className={`status-segment-btn ${status === 'inactive' ? 'active inactive-status' : ''}`}
+                onClick={() => setStatus('inactive')}
+              >
+                <span className="status-indicator-dot inactive" />
+                Inactive / Suspended
+              </button>
+            </div>
+          </div>
+
+          {/* Modal Form Footer */}
+          <div className="teacher-modal-footer">
+            <button 
+              type="button" 
+              className="teacher-cancel-btn" 
+              onClick={() => { setIsModalOpen(false); resetForm(); }}
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              className="teacher-submit-btn" 
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                "Saving..."
+              ) : editingId ? (
+                "Update Teacher"
+              ) : (
+                <>
+                  <UserPlus size={16} />
+                  <span>Create Teacher Account</span>
+                </>
+              )}
             </button>
           </div>
         </form>
