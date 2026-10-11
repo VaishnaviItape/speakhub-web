@@ -6,10 +6,11 @@ import ProtectedRoute from '../components/layout/ProtectedRoute';
 // Layouts
 import AdminLayout from '../layouts/AdminLayout/AdminLayout';
 
-// Auth Pages
+// Auth & Public Pages
 import Login from '../pages/Login/Login';
 import ChangePassword from '../pages/Login/ChangePassword';
 import AdminSignup from '../pages/Login/AdminSignup';
+import PrivacyPolicy from '../pages/Legal/PrivacyPolicy';
 
 // Main Pages
 import Dashboard from '../pages/Dashboard/Dashboard';
@@ -82,6 +83,11 @@ const AppRoutes: React.FC = () => {
         isAuthenticated ? <ChangePassword /> : <Navigate to="/login" replace />
       } />
       
+      {/* Public Legal & Google Play Compliance Routes */}
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="/account-deletion" element={<PrivacyPolicy />} />
+
       <Route path="/" element={
         <Navigate to="/dashboard" replace />
       } />

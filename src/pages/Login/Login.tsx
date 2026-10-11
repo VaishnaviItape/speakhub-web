@@ -137,6 +137,11 @@ const Login: React.FC = () => {
               Register Admin
             </Link>
           </p>
+          <p style={{ marginTop: '10px', fontSize: '0.75rem', color: '#94A3B8' }}>
+            <Link to="/privacy" style={{ color: '#64748B', textDecoration: 'underline' }}>
+              Privacy Policy & Terms
+            </Link>
+          </p>
         </div>
       </div>
     </div>
