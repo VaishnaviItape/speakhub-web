@@ -1,0 +1,310 @@
+/* ==========================================================================
+   RECEIPT MODAL & ACTION TOOLBAR STYLES
+   ========================================================================== */
+
+.receipt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background-color: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  animation: receiptModalFadeIn 0.2s ease-out;
+}
+
+@keyframes receiptModalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.receipt-modal-window {
+  background-color: #f1f5f9;
+  border-radius: 14px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 960px;
+  height: 94vh;
+  max-height: 920px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Modal Header */
+.receipt-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.receipt-header-icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background-color: #e0e7ff;
+}
+
+.receipt-header-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.receipt-header-sub {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+.receipt-modal-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.receipt-modal-close-btn:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+/* Action Toolbar */
+.receipt-action-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #cbd5e1;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.receipt-action-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.receipt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 15px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+/* WhatsApp Share Button */
+.receipt-btn-whatsapp {
+  background-color: #16a34a;
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(22, 163, 74, 0.2);
+}
+
+.receipt-btn-whatsapp:hover {
+  background-color: #15803d;
+  transform: translateY(-1px);
+}
+
+/* Print Button */
+.receipt-btn-print {
+  background-color: #1e293b;
+  color: #ffffff;
+}
+
+.receipt-btn-print:hover {
+  background-color: #0f172a;
+  transform: translateY(-1px);
+}
+
+/* Download Image Button */
+.receipt-btn-download-img {
+  background-color: #0284c7;
+  color: #ffffff;
+}
+
+.receipt-btn-download-img:hover:not(:disabled) {
+  background-color: #0369a1;
+  transform: translateY(-1px);
+}
+
+/* Download PDF Button */
+.receipt-btn-download-pdf {
+  background-color: #4f46e5;
+  color: #ffffff;
+}
+
+.receipt-btn-download-pdf:hover:not(:disabled) {
+  background-color: #4338ca;
+  transform: translateY(-1px);
+}
+
+.receipt-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Zoom Toolbar */
+.receipt-zoom-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #f8fafc;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.receipt-zoom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.receipt-zoom-btn:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.receipt-zoom-level {
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+  min-width: 38px;
+  text-align: center;
+}
+
+/* Scroll Area & Paper Preview Container */
+.receipt-modal-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding: 24px;
+  background-color: #cbd5e1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.receipt-scale-wrapper {
+  transition: transform 0.15s ease-out;
+  margin: 0 auto;
+}
+
+/* Toast Notification */
+.receipt-modal-toast {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100000;
+  background-color: #0f172a;
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 9999px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid #334155;
+}
+
+/* Phone Prompt Popup */
+.receipt-phone-prompt-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 100001;
+  background-color: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.receipt-phone-prompt-box {
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 360px;
+}
+
+.receipt-phone-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  font-family: monospace;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  box-sizing: border-box;
+}
+
+.receipt-phone-input:focus {
+  border-color: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+}
+
+/* Responsive adjust */
+@media (max-width: 640px) {
+  .receipt-modal-window {
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  .receipt-action-toolbar {
+    padding: 8px 12px;
+  }
+  .receipt-btn {
+    padding: 6px 10px;
+    font-size: 11.5px;
+  }
+  .receipt-modal-scroll-area {
+    padding: 10px;
+  }
+}

@@ -1,8 +1,359 @@
-/* Exact Fee Receipt Design 1:1 Matched to Official Speak Hub Format */
+/* ==========================================================================
+   OFFICIAL SPEAK HUB ACADEMY FEE RECEIPT STYLES
+   1:1 Pixel-Perfect Layout for Screen Preview, Image Export & A4 Printing
+   ========================================================================== */
+
+/* Root Wrapper Controls */
+.receipt-container-root {
+  box-sizing: border-box;
+}
+
+/* Default print-only mode if not in screen preview */
 .receipt-print-wrapper {
   display: none;
 }
 
+/* On-Screen Preview Card Mode */
+.receipt-screen-mode {
+  display: block;
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 8px;
+  background-color: transparent;
+}
+
+.receipt-screen-mode .receipt-box {
+  background-color: #ffffff;
+  border: 2px solid #000000;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Base Receipt Box Container */
+.receipt-box {
+  border: 2px solid #000000;
+  background-color: #ffffff;
+  padding: 0;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 auto;
+  font-family: 'Times New Roman', Times, serif, system-ui, -apple-system;
+  color: #000000;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+/* Top Header Row with Logo & Academy Title */
+.receipt-top-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 16px;
+  border-bottom: 2px solid #000000;
+  background-color: #ffffff;
+  gap: 20px;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.receipt-logo-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 90px;
+  min-width: 90px;
+}
+
+.receipt-logo-img {
+  max-height: 62px;
+  max-width: 90px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.receipt-brand-title-col {
+  flex: 1;
+  text-align: center;
+  padding-right: 40px; /* Balance logo offset */
+}
+
+.receipt-brand-name {
+  font-size: 33px;
+  font-weight: 900;
+  color: #c62828 !important;
+  margin: 0;
+  font-family: 'Times New Roman', Times, serif;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  line-height: 1.1;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+/* Gold / Ochre Tagline Banner */
+.receipt-banner-gold {
+  background-color: #8a4500 !important;
+  color: #ffffff !important;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+  padding: 5px 12px;
+  letter-spacing: 1.2px;
+  font-family: Arial, Helvetica, sans-serif;
+  border-bottom: 1.5px solid #000000;
+  text-transform: uppercase;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+/* Dark Navy Address & Contact Banner */
+.receipt-banner-navy-address {
+  background-color: #1a2b4c !important;
+  color: #ffffff !important;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: center;
+  padding: 5px 12px;
+  font-family: Arial, Helvetica, sans-serif;
+  border-bottom: 1.5px solid #000000;
+  line-height: 1.35;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.address-contact-sep {
+  opacity: 0.8;
+  margin: 0 4px;
+}
+
+.address-contact-highlight {
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+/* Dark Navy Payment Receipt Bar */
+.receipt-banner-navy-title {
+  background-color: #1a2b4c !important;
+  color: #ffffff !important;
+  font-size: 13.5px;
+  font-weight: bold;
+  text-align: center;
+  padding: 5px 12px;
+  letter-spacing: 2px;
+  font-family: Arial, Helvetica, sans-serif;
+  border-bottom: 2px solid #000000;
+  text-transform: uppercase;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+/* Main Table Structure */
+.receipt-main-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: Arial, Helvetica, sans-serif;
+  background-color: #ffffff;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.cell-th {
+  background-color: #c5d9f1 !important;
+  color: #0f172a !important;
+  font-size: 11px;
+  font-weight: bold;
+  text-align: left;
+  padding: 7px 9px;
+  border: 1px solid #000000;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.cell-td {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  font-size: 13px;
+  padding: 7px 9px;
+  border: 1px solid #000000;
+  vertical-align: middle;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.student-name-display {
+  color: #000000;
+}
+
+.student-phone-sub {
+  font-size: 11px;
+  font-weight: normal;
+  color: #475569;
+  font-family: Arial, sans-serif;
+}
+
+.font-serif {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 14.5px;
+}
+
+.font-bold {
+  font-weight: bold;
+}
+
+.font-mono {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13.5px;
+  letter-spacing: 0.5px;
+}
+
+/* Payment Method Checkbox Row */
+.payment-method-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.method-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.check-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid #1a2b4c;
+  background-color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+  color: #c62828;
+  line-height: 1;
+}
+
+.check-box.checked {
+  border-color: #1a2b4c;
+  color: #c62828;
+}
+
+/* Section Header Bars */
+.section-header-row th {
+  background-color: #c5d9f1 !important;
+  color: #0f172a !important;
+  font-size: 11.5px;
+  font-weight: bold;
+  text-align: center;
+  padding: 6px 10px;
+  border: 1px solid #000000;
+  letter-spacing: 0.8px;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.fin-headers-row th {
+  background-color: #c5d9f1 !important;
+  color: #0f172a !important;
+  font-size: 10.5px;
+  font-weight: bold;
+  text-align: center;
+  padding: 7px 6px;
+  border: 1px solid #000000;
+  letter-spacing: 0.3px;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.fin-data-row td {
+  text-align: center;
+  font-size: 13.5px;
+  padding: 9px 6px;
+  border: 1px solid #000000;
+}
+
+.currency-symbol {
+  font-weight: normal;
+  margin-right: 2px;
+}
+
+.text-due-red {
+  color: #c62828 !important;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.text-due-green {
+  color: #15803d !important;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+/* Signatures Content */
+.sign-content-row td {
+  height: 72px;
+  border: 1px solid #000000;
+  vertical-align: middle;
+  padding: 4px 12px;
+}
+
+.authorised-sign-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 25px;
+  padding-left: 10px;
+}
+
+.stamp-seal-img {
+  height: 62px;
+  width: 62px;
+  object-fit: contain;
+  display: block;
+}
+
+.signature-pen-img {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.parent-sign-placeholder {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 100%;
+  padding-bottom: 8px;
+}
+
+.sign-dots {
+  color: #64748b;
+  font-size: 12px;
+  letter-spacing: 2px;
+}
+
+/* Bottom Disclaimer */
+.receipt-bottom-disclaimer {
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: bold;
+  color: #000000;
+  padding: 6px 12px;
+  background-color: #ffffff;
+  font-family: Arial, Helvetica, sans-serif;
+  letter-spacing: 0.2px;
+}
+
+/* ==========================================================================
+   PRINT MEDIA RULES (Fidelity for Browser Print & Save PDF)
+   ========================================================================== */
 @media print {
   @page {
     size: A4 portrait;
@@ -14,273 +365,65 @@
     padding: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
+  /* Hide everything outside receipt */
   body * {
     visibility: hidden;
   }
 
-  .receipt-print-wrapper, .receipt-print-wrapper * {
+  .receipt-container-root,
+  .receipt-container-root * {
     visibility: visible;
   }
 
-  .receipt-print-wrapper {
+  .receipt-print-wrapper,
+  .receipt-screen-mode {
     display: block !important;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    padding: 10px 14px;
-    box-sizing: border-box;
-    font-family: 'Times New Roman', Times, serif, system-ui, -apple-system;
-    color: #000000;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
   }
 
   .receipt-box {
-    border: 2px solid #000000;
-    background-color: #ffffff;
-    padding: 0;
-    box-sizing: border-box;
-    width: 100%;
-    margin: 0 auto;
+    border: 2px solid #000000 !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    margin: 0 !important;
   }
 
-  /* Top Header Row */
-  .receipt-top-header {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    padding: 8px 16px;
-    border-bottom: 2px solid #000000;
-    gap: 20px;
-  }
-
-  .receipt-logo-block {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: 90px;
-  }
-
-  .receipt-logo-img {
-    height: 50px;
-    width: auto;
-    object-fit: contain;
-  }
-
-  .receipt-logo-label {
-    font-size: 11px;
-    font-weight: bold;
-    color: #000000;
-    margin-top: 2px;
-    font-family: Arial, sans-serif;
-  }
-
-  .receipt-brand-title-col {
-    flex: 1;
-    text-align: center;
-  }
-
-  .receipt-brand-name {
-    font-size: 34px;
-    font-weight: 900;
-    color: #c62828;
-    margin: 0;
-    font-family: 'Times New Roman', Times, serif;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
-
-  /* Gold / Ochre Banner */
+  /* Force background colors to print */
   .receipt-banner-gold {
-    background-color: #8a4500;
-    color: #ffffff;
-    font-size: 15px;
-    font-weight: bold;
-    text-align: center;
-    padding: 6px 12px;
-    letter-spacing: 1px;
-    font-family: Arial, sans-serif;
-    border-bottom: 1.5px solid #000000;
+    background-color: #8a4500 !important;
+    color: #ffffff !important;
   }
 
-  /* Dark Navy Address Banner */
-  .receipt-banner-navy-address {
-    background-color: #1a2b4c;
-    color: #ffffff;
-    font-size: 13px;
-    font-weight: 600;
-    text-align: center;
-    padding: 5px 12px;
-    font-family: Arial, sans-serif;
-    border-bottom: 1.5px solid #000000;
-  }
-
-  /* Dark Navy Payment Receipt Bar */
+  .receipt-banner-navy-address,
   .receipt-banner-navy-title {
-    background-color: #1a2b4c;
-    color: #ffffff;
-    font-size: 14px;
-    font-weight: bold;
-    text-align: center;
-    padding: 5px 12px;
-    letter-spacing: 1.5px;
-    font-family: Arial, sans-serif;
-    border-bottom: 2px solid #000000;
+    background-color: #1a2b4c !important;
+    color: #ffffff !important;
   }
 
-  /* Main Table Structure */
-  .receipt-main-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: Arial, Helvetica, sans-serif;
-  }
-
-  .cell-th {
-    background-color: #c5d9f1;
-    color: #0f172a;
-    font-size: 11px;
-    font-weight: bold;
-    text-align: left;
-    padding: 8px 10px;
-    border: 1px solid #000000;
-    text-transform: uppercase;
-  }
-
-  .cell-td {
-    background-color: #ffffff;
-    color: #000000;
-    font-size: 13px;
-    padding: 8px 10px;
-    border: 1px solid #000000;
-    vertical-align: middle;
-  }
-
-  .font-serif {
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 15px;
-  }
-
-  .font-bold {
-    font-weight: bold;
-  }
-
-  .font-mono {
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 14px;
-  }
-
-  /* Payment Method Checkbox Row */
-  .payment-method-row {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    font-size: 11px;
-    font-weight: bold;
-  }
-
-  .method-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .check-box {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    border: 1.5px solid #1a2b4c;
-    background-color: #ffffff;
-    font-size: 12px;
-    font-weight: 900;
-    color: #c62828;
-    line-height: 1;
-  }
-
-  .check-box.checked {
-    border-color: #1a2b4c;
-    color: #c62828;
-  }
-
-  /* Section Header Bars */
-  .section-header-row th {
-    background-color: #c5d9f1;
-    color: #0f172a;
-    font-size: 12px;
-    font-weight: bold;
-    text-align: center;
-    padding: 7px 10px;
-    border: 1px solid #000000;
-    letter-spacing: 0.5px;
-  }
-
+  .cell-th,
+  .section-header-row th,
   .fin-headers-row th {
-    background-color: #c5d9f1;
-    color: #0f172a;
-    font-size: 11px;
-    font-weight: bold;
-    text-align: center;
-    padding: 8px 6px;
-    border: 1px solid #000000;
+    background-color: #c5d9f1 !important;
+    color: #0f172a !important;
   }
 
-  .fin-data-row td {
-    text-align: center;
-    font-size: 14px;
-    padding: 10px 6px;
-    border: 1px solid #000000;
-  }
-
-  .currency-symbol {
-    font-weight: normal;
-    margin-right: 2px;
-  }
-
-  .text-due-red {
-    color: #c62828 !important;
-    font-weight: bold;
-    font-size: 13px;
-  }
-
-  /* Signatures Content */
-  .sign-content-row td {
-    height: 75px;
-    border: 1px solid #000000;
-    vertical-align: middle;
-    padding: 4px 12px;
-  }
-
-  .authorised-sign-wrap {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 30px;
-    padding-left: 10px;
-  }
-
-  .stamp-seal-img {
-    height: 64px;
-    width: 64px;
-    object-fit: contain;
-  }
-
-  .signature-pen-img {
-    height: 38px;
-    width: auto;
-    object-fit: contain;
-  }
-
-  /* Bottom Disclaimer */
-  .receipt-bottom-disclaimer {
-    text-align: center;
-    font-size: 12px;
-    font-weight: bold;
-    color: #000000;
-    padding: 6px 12px;
-    background-color: #ffffff;
-    font-family: Arial, sans-serif;
+  .no-print,
+  .receipt-modal-backdrop,
+  .receipt-modal-header,
+  .receipt-action-toolbar {
+    display: none !important;
+    visibility: hidden !important;
   }
 }

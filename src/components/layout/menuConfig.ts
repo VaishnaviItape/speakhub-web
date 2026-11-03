@@ -99,6 +99,7 @@ export const MENU_GROUPS: MenuGroup[] = [
         title: 'Enquiries & Leads',
         path: '/enquiries',
         icon: HelpCircle,
+        adminOnly: true,
         keywords: ['leads', 'enquiries', 'inquiries', 'prospects', 'follow-ups', 'crm'],
         description: 'Track incoming student leads and enquiries'
       },
@@ -112,12 +113,11 @@ export const MENU_GROUPS: MenuGroup[] = [
       },
       {
         id: 'fees',
-        title: 'Fees Collection',
+        title: 'Fees Collection & Dues',
         path: '/fees',
         icon: CreditCard,
-        adminOnly: true,
-        keywords: ['fees', 'payments', 'dues', 'collection', 'receipts', 'installments'],
-        description: 'Collect student fees and issue receipts'
+        keywords: ['fees', 'payments', 'dues', 'collection', 'receipts', 'installments', 'due dates'],
+        description: 'View student fee dues, due dates, collect fees and issue receipts'
       },
       {
         id: 'fee-reports',

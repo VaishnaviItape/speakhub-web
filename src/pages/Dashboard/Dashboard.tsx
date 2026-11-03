@@ -4,9 +4,13 @@ import { db } from '../../config/firebase';
 import { Users, GraduationCap, BookOpen, CalendarDays, Activity, UserPlus, Clock } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import './Dashboard.css';
 
 const Dashboard: React.FC = () => {
+  const { user } = useAuth();
+  const isTeacher = user?.role === 'teacher';
+
   const [stats, setStats] = useState({
     students: 0,
     teachers: 0,
@@ -24,44 +28,65 @@ const Dashboard: React.FC = () => {
       try {
         setIsLoading(true);
 
-        // Fetch Total Students
+        // Fetch Active Batches
+        const batchesQuery = query(collection(db, 'batches'), where('status', '==', 'active'));
+        const batchesSnapshot = await getDocs(batchesQuery);
+        let allBatches = batchesSnapshot.docs.map(doc => ({ id: doc.id, documentId: doc.id, ...doc.data() }));
+
+        let teacherBatchIds = new Set<string>();
+        if (isTeacher) {
+          allBatches = allBatches.filter((b: any) => 
+            b.teacherId === user?.id || 
+            b.teacherId === user?.email || 
+            (user as any)?.batchIds?.includes(b.documentId || b.id)
+          );
+          teacherBatchIds = new Set(allBatches.map((b: any) => (b.documentId || b.id) as string));
+        }
+
+        // Fetch Students
         const studentsQuery = query(collection(db, 'users'), where('role', '==', 'student'));
         const studentsSnapshot = await getDocs(studentsQuery);
-        const totalStudents = studentsSnapshot.size;
+        let studentDocs = studentsSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        if (isTeacher) {
+          studentDocs = studentDocs.filter((s: any) => {
+            const sBatches = s.batchIds || (s.batchId ? [s.batchId] : []);
+            return sBatches.some((bId: string) => teacherBatchIds.has(bId));
+          });
+        }
+        const totalStudents = studentDocs.length;
 
         // Fetch Total Teachers
-        const teachersQuery = query(collection(db, 'users'), where('role', '==', 'teacher'));
-        const teachersSnapshot = await getDocs(teachersQuery);
-        const totalTeachers = teachersSnapshot.size;
+        let totalTeachers = 1;
+        if (!isTeacher) {
+          const teachersQuery = query(collection(db, 'users'), where('role', '==', 'teacher'));
+          const teachersSnapshot = await getDocs(teachersQuery);
+          totalTeachers = teachersSnapshot.size;
+        }
 
         // Fetch Active Courses
         const coursesQuery = query(collection(db, 'courses'), where('status', '==', 'active'));
         const coursesSnapshot = await getDocs(coursesQuery);
         const activeCourses = coursesSnapshot.size;
 
-        // Fetch Active Batches
-        const batchesQuery = query(collection(db, 'batches'), where('status', '==', 'active'));
-        const batchesSnapshot = await getDocs(batchesQuery);
-        const activeBatches = batchesSnapshot.size;
+        // Fetch Recent Inquiries (Admin only)
+        if (!isTeacher) {
+          const inqQuery = query(collection(db, 'inquiries'), orderBy('createdAt', 'desc'), limit(5));
+          const inqSnapshot = await getDocs(inqQuery);
+          const inqList = inqSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setRecentInquiries(inqList);
+        } else {
+          setRecentInquiries([]);
+        }
 
-        // Fetch Recent Inquiries
-        const inqQuery = query(collection(db, 'inquiries'), orderBy('createdAt', 'desc'), limit(5));
-        const inqSnapshot = await getDocs(inqQuery);
-        const inqList = inqSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        // Fetch Recent Batches (Using start date or just limit if start date not easily sortable)
-        const rbQuery = query(collection(db, 'batches'), where('status', '==', 'active'), limit(4));
-        const rbSnapshot = await getDocs(rbQuery);
-        const rbList = rbSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        setRecentInquiries(inqList);
-        setRecentBatches(rbList);
+        // Recent Batches
+        setRecentBatches(allBatches.slice(0, 4));
 
         setStats({
           students: totalStudents,
           teachers: totalTeachers,
           courses: activeCourses,
-          batches: activeBatches,
+          batches: allBatches.length,
         });
       } catch (error) {
         console.error("Error fetching dashboard stats:", error);
@@ -71,7 +96,7 @@ const Dashboard: React.FC = () => {
     };
 
     fetchDashboardStats();
-  }, []);
+  }, [isTeacher, user]);
 
   const pieData = [
     { name: 'Students', value: stats.students, color: '#4f46e5' },
@@ -218,40 +243,76 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Right Column: Recent Activity */}
+            {/* Right Column: Recent Activity (Admin) or Teacher Quick Actions (Teacher) */}
             <div className="dashboard-side-col">
-              <div className="dashboard-card h-full">
-                <div className="card-header">
-                  <h3 className="card-title">
-                    <div className="card-title-icon"><UserPlus size={18} /></div>
-                    Recent Enquiries
-                  </h3>
-                  <Link to="/enquiries" className="card-action">View All</Link>
-                </div>
-                <div className="card-body p-0">
-                  <div className="feed-list">
-                    {recentInquiries.length > 0 ? recentInquiries.map(inq => (
-                      <div key={inq.id} className="feed-item">
-                        <div className="feed-item-icon bg-indigo-100 text-indigo-600">
-                          {inq.studentName.charAt(0).toUpperCase()}
+              {!isTeacher ? (
+                <div className="dashboard-card h-full">
+                  <div className="card-header">
+                    <h3 className="card-title">
+                      <div className="card-title-icon"><UserPlus size={18} /></div>
+                      Recent Enquiries
+                    </h3>
+                    <Link to="/enquiries" className="card-action">View All</Link>
+                  </div>
+                  <div className="card-body p-0">
+                    <div className="feed-list">
+                      {recentInquiries.length > 0 ? recentInquiries.map(inq => (
+                        <div key={inq.id} className="feed-item">
+                          <div className="feed-item-icon bg-indigo-100 text-indigo-600">
+                            {inq.studentName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="feed-item-content">
+                            <h4>{inq.studentName}</h4>
+                            <p>{inq.courseName}</p>
+                          </div>
+                          <div className="feed-item-right">
+                            <span className={`status-dot ${inq.status === 'New' ? 'dot-blue' : 'dot-green'}`}></span>
+                            <span className="text-xs text-gray-500">
+                              {inq.createdAt?.seconds ? new Date(inq.createdAt.seconds * 1000).toLocaleDateString() : 'Recent'}
+                            </span>
+                          </div>
                         </div>
-                        <div className="feed-item-content">
-                          <h4>{inq.studentName}</h4>
-                          <p>{inq.courseName}</p>
-                        </div>
-                        <div className="feed-item-right">
-                          <span className={`status-dot ${inq.status === 'New' ? 'dot-blue' : 'dot-green'}`}></span>
-                          <span className="text-xs text-gray-500">
-                            {inq.createdAt?.seconds ? new Date(inq.createdAt.seconds * 1000).toLocaleDateString() : 'Recent'}
-                          </span>
-                        </div>
-                      </div>
-                    )) : (
-                      <div className="p-4 text-center text-sm text-gray-500">No recent enquiries</div>
-                    )}
+                      )) : (
+                        <div className="p-4 text-center text-sm text-gray-500">No recent enquiries</div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="dashboard-card h-full">
+                  <div className="card-header">
+                    <h3 className="card-title">
+                      <div className="card-title-icon"><Activity size={18} /></div>
+                      Teacher Shortcuts
+                    </h3>
+                  </div>
+                  <div className="card-body p-4 flex flex-col gap-3">
+                    <Link to="/fees" className="p-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl border border-emerald-200 flex items-center justify-between transition-all">
+                      <div>
+                        <div className="font-bold text-sm">Student Fee Dues</div>
+                        <div className="text-xs text-emerald-600">View upcoming &amp; overdue fee dates for your batch</div>
+                      </div>
+                      <span className="text-xs font-bold px-2 py-1 bg-white rounded-md shadow-xs">View Dues →</span>
+                    </Link>
+
+                    <Link to="/attendance" className="p-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 rounded-xl border border-indigo-200 flex items-center justify-between transition-all">
+                      <div>
+                        <div className="font-bold text-sm">Mark Attendance</div>
+                        <div className="text-xs text-indigo-600">Record daily or bulk attendance for your batches</div>
+                      </div>
+                      <span className="text-xs font-bold px-2 py-1 bg-white rounded-md shadow-xs">Mark →</span>
+                    </Link>
+
+                    <Link to="/students" className="p-3 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl border border-amber-200 flex items-center justify-between transition-all">
+                      <div>
+                        <div className="font-bold text-sm">My Students Directory</div>
+                        <div className="text-xs text-amber-600">Profiles of students enrolled in your batches</div>
+                      </div>
+                      <span className="text-xs font-bold px-2 py-1 bg-white rounded-md shadow-xs">Open →</span>
+                    </Link>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

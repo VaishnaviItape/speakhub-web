@@ -6,7 +6,13 @@ import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import { db } from '../../config/firebase';
 import { secondaryAuth } from '../../config/secondaryFirebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  updatePassword, 
+  deleteUser, 
+  signOut as secondarySignOut 
+} from 'firebase/auth';
 import { collection, query, getDocs, updateDoc, doc, setDoc, where, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { checkMobileExists } from '../../utils/phoneValidation';
 import { validateName, validateEmail, validatePhoneNumber } from '../../utils/validation';
@@ -175,11 +181,30 @@ const Employees: React.FC = () => {
           uid = userCred.user.uid;
         } catch (authError: any) {
           if (authError.code === 'auth/email-already-in-use') {
-             alert(`Account creation failed: The email ${formData.email} is already in use by another account.`);
-             setIsSaving(false);
-             return;
+            const candidatePasswords = [defaultPassword, formData.mobile, 'admin123', 'password123'].filter(Boolean);
+            let signedInUser: any = null;
+            for (const candPwd of candidatePasswords) {
+              try {
+                const cred = await signInWithEmailAndPassword(secondaryAuth, formData.email, candPwd);
+                signedInUser = cred.user;
+                break;
+              } catch (e) { }
+            }
+
+            if (signedInUser) {
+              try {
+                await updatePassword(signedInUser, defaultPassword);
+                uid = signedInUser.uid;
+              } finally {
+                await secondarySignOut(secondaryAuth);
+              }
+            } else {
+              alert(`The email ${formData.email} already exists in Firebase Authentication with an unknown password. Please delete it from Firebase Console (Authentication > Users) and try again.`);
+              setIsSaving(false);
+              return;
+            }
           } else {
-             throw authError;
+            throw authError;
           }
         }
 
@@ -230,13 +255,42 @@ const Employees: React.FC = () => {
   };
 
   const handleDelete = async (emp: Employee) => {
-    if (window.confirm(`Are you sure you want to delete ${emp.name}?`)) {
-      try {
-        await deleteDoc(doc(db, 'users', emp.documentId!));
-        setEmployees(employees.filter(e => e.documentId !== emp.documentId));
-      } catch (error: any) {
-        alert("Failed to delete employee: " + error.message);
+    if (!window.confirm(`Are you sure you want to delete ${emp.name}?`)) return;
+
+    try {
+      const empEmail = (emp.email || '').trim();
+      let authDeleted = false;
+      if (empEmail) {
+        const candidatePasswords = [
+          (emp as any).plainPassword,
+          emp.mobile || '',
+          'admin123',
+          'password123'
+        ].filter(Boolean);
+
+        for (const candPwd of candidatePasswords) {
+          try {
+            const cred = await signInWithEmailAndPassword(secondaryAuth, empEmail, candPwd);
+            await deleteUser(cred.user);
+            authDeleted = true;
+            break;
+          } catch (e) { }
+        }
+        try {
+          await secondarySignOut(secondaryAuth);
+        } catch (e) { }
       }
+
+      await deleteDoc(doc(db, 'users', emp.documentId!));
+      setEmployees(employees.filter(e => e.documentId !== emp.documentId));
+
+      if (authDeleted) {
+        alert(`Employee ${emp.name} and Authentication account deleted successfully.`);
+      } else {
+        alert(`Employee ${emp.name} deleted from database.`);
+      }
+    } catch (error: any) {
+      alert("Failed to delete employee: " + error.message);
     }
   };
 

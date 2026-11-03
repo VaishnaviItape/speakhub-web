@@ -42,6 +42,8 @@ interface StudentAttendanceItem {
   userId: string;
   studentName: string;
   phone?: string;
+  feeDueDate?: any;
+  joiningDate?: any;
   status: 'present' | 'absent' | 'late' | 'leave' | 'holiday';
   remarks: string;
   existingDocId?: string;
@@ -126,16 +128,29 @@ const Attendance: React.FC = () => {
 
   const fetchBatches = async () => {
     try {
+      const isTeacher = user?.role === 'teacher';
       const bq = query(collection(db, 'batches'), where('status', '==', 'active'));
       const bSnapshot = await getDocs(bq);
-      const activeBatches: Batch[] = [];
+      let activeBatches: Batch[] = [];
       bSnapshot.forEach(d => activeBatches.push({ documentId: d.id, ...d.data() } as Batch));
+
+      if (isTeacher) {
+        activeBatches = activeBatches.filter(b => 
+          b.teacherId === user?.id || 
+          b.teacherId === user?.email ||
+          (user as any)?.batchIds?.includes(b.documentId)
+        );
+      }
+
       setBatches(activeBatches);
       if (activeBatches.length > 0 && activeBatches[0].documentId) {
         const firstBatchId = activeBatches[0].documentId;
         setSelectedBatchId(firstBatchId);
         setRangeBatchId(firstBatchId);
         loadRangeStudents(firstBatchId);
+      } else {
+        setSelectedBatchId('');
+        setRangeBatchId('');
       }
     } catch (error) {
       console.error("Error fetching batches:", error);
@@ -164,7 +179,9 @@ const Attendance: React.FC = () => {
           studentsMap[d.id] = {
             userId: d.id,
             name: data.name || data.studentName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'Student',
-            phone: data.phone || data.mobile || ''
+            phone: data.phone || data.mobile || '',
+            feeDueDate: data.feeDueDate || null,
+            joiningDate: data.joiningDate || data.createdAt || null
           };
         }
       };
@@ -187,7 +204,9 @@ const Attendance: React.FC = () => {
           studentsMap[uid] = {
             userId: uid,
             name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.name || 'Student',
-            phone: data.phone || data.mobile || ''
+            phone: data.phone || data.mobile || '',
+            feeDueDate: data.feeDueDate || null,
+            joiningDate: data.joiningDate || data.createdAt || null
           };
         }
       };
@@ -224,6 +243,8 @@ const Attendance: React.FC = () => {
           userId: s.userId,
           studentName: s.name,
           phone: s.phone || '',
+          feeDueDate: s.feeDueDate,
+          joiningDate: s.joiningDate,
           status: existing ? existing.status : defaultStatus,
           remarks: existing ? existing.remarks : (isHoliday ? currentDateHoliday?.name || 'Holiday' : ''),
           existingDocId: existing ? existing.docId : undefined
@@ -235,6 +256,41 @@ const Attendance: React.FC = () => {
       console.error("Error fetching attendance data:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const computeAttendanceDueInfo = (student: StudentAttendanceItem) => {
+    let dueDateObj: Date | null = null;
+    if (student.feeDueDate) {
+      const d = student.feeDueDate?.toDate ? student.feeDueDate.toDate() : new Date(student.feeDueDate);
+      if (!isNaN(d.getTime())) dueDateObj = d;
+    }
+    if (!dueDateObj && student.joiningDate) {
+      const d = student.joiningDate?.toDate ? student.joiningDate.toDate() : new Date(student.joiningDate);
+      if (!isNaN(d.getTime())) {
+        const today = new Date();
+        const jDay = Math.min(d.getDate(), 28);
+        dueDateObj = new Date(today.getFullYear(), today.getMonth(), jDay);
+      }
+    }
+    if (!dueDateObj) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueMidnight = new Date(dueDateObj);
+    dueMidnight.setHours(0, 0, 0, 0);
+
+    const diffDays = Math.round((dueMidnight.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const display = dueDateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+
+    if (diffDays < 0) {
+      return { display, label: `Overdue (${Math.abs(diffDays)}d)`, badgeClass: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800' };
+    } else if (diffDays === 0) {
+      return { display, label: 'Due Today', badgeClass: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800' };
+    } else if (diffDays <= 7) {
+      return { display, label: `Due ${diffDays}d`, badgeClass: 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200 dark:border-blue-800' };
+    } else {
+      return { display, label: 'Upcoming', badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' };
     }
   };
 
@@ -529,16 +585,21 @@ const Attendance: React.FC = () => {
       return;
     }
     const currentBatchName = batches.find(b => b.documentId === selectedBatchId)?.batchName || 'Batch';
-    const headers = ["Index", "Student Name", "Phone", "Status", "Date", "Batch", "Remarks"];
-    const rows = filteredStudents.map((s, idx) => [
-      idx + 1,
-      `"${s.studentName.replace(/"/g, '""')}"`,
-      `"${(s.phone || '').replace(/"/g, '""')}"`,
-      `"${s.status.toUpperCase()}"`,
-      `"${selectedDate}"`,
-      `"${currentBatchName.replace(/"/g, '""')}"`,
-      `"${(s.remarks || '').replace(/"/g, '""')}"`
-    ]);
+    const headers = ["Index", "Student Name", "Phone", "FeeDueDate", "FeeStatus", "Status", "Date", "Batch", "Remarks"];
+    const rows = filteredStudents.map((s, idx) => {
+      const due = computeAttendanceDueInfo(s);
+      return [
+        idx + 1,
+        `"${s.studentName.replace(/"/g, '""')}"`,
+        `"${(s.phone || '').replace(/"/g, '""')}"`,
+        `"${due ? due.display : '-'}"`,
+        `"${due ? due.label : '-'}"`,
+        `"${s.status.toUpperCase()}"`,
+        `"${selectedDate}"`,
+        `"${currentBatchName.replace(/"/g, '""')}"`,
+        `"${(s.remarks || '').replace(/"/g, '""')}"`
+      ];
+    });
 
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1246,6 +1307,7 @@ const Attendance: React.FC = () => {
                       <th>#</th>
                       <th>Student Name</th>
                       <th>Mobile</th>
+                      <th>Fee Due Date</th>
                       <th style={{ textAlign: 'center' }}>Attendance Status</th>
                       <th>Remarks / Note</th>
                     </tr>
@@ -1263,6 +1325,22 @@ const Attendance: React.FC = () => {
                           </div>
                         </td>
                         <td style={{ color: 'var(--text-muted)' }}>{student.phone || '-'}</td>
+                        <td>
+                          {(() => {
+                            const due = computeAttendanceDueInfo(student);
+                            if (!due) return <span className="text-slate-400 text-xs">-</span>;
+                            return (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                  📅 {due.display}
+                                </span>
+                                <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${due.badgeClass}`}>
+                                  {due.label}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </td>
                         <td>
                           <div className="status-toggle-group">
                             <button

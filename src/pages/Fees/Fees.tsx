@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, MessageCircle, Calendar, Clock, Printer, CreditCard, Sparkles, Edit2, Bell } from 'lucide-react';
+import { Plus, MessageCircle, Calendar, Clock, Printer, CreditCard, Sparkles, Edit2, Bell, CheckCircle2 } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import { db } from '../../config/firebase';
 import { collection, query, where, getDocs, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import type { FeeTransaction, User, Course } from '../../types/models';
+import type { FeeTransaction, User, Course, Batch } from '../../types/models';
 import { validatePositiveNumber } from '../../utils/validation';
 import '../../components/ui/TableStyles.css';
 import './Fees.css';
-import ReceiptTemplate from './ReceiptTemplate';
+import ReceiptModal from './ReceiptModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { sendFeeDueNotification } from '../../services/pushNotificationService';
 
@@ -20,6 +20,8 @@ interface StudentFeeRecord {
   studentName: string;
   courseId: string;
   courseName: string;
+  batchId?: string;
+  batchName?: string;
   monthlyFee: number;
   joiningDate?: string;
   joiningDateRaw?: string;
@@ -43,6 +45,8 @@ const Fees: React.FC = () => {
   // Data State
   const [students, setStudents] = useState<User[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [selectedBatchFilter, setSelectedBatchFilter] = useState<string>('all');
   const [feeRecords, setFeeRecords] = useState<StudentFeeRecord[]>([]);
 
   // Month names constant
@@ -68,6 +72,8 @@ const Fees: React.FC = () => {
 
   // Payment Form State
   const [paymentStudentId, setPaymentStudentId] = useState('');
+  const [feeDurationOption, setFeeDurationOption] = useState<string>('1');
+  const [isNoDues, setIsNoDues] = useState<boolean>(false);
   const [numberOfMonths, setNumberOfMonths] = useState<number>(1);
   const [amountPaid, setAmountPaid] = useState('');
   const [discount, setDiscount] = useState('0');
@@ -83,8 +89,10 @@ const Fees: React.FC = () => {
   const [isEditingCurrentDueDate, setIsEditingCurrentDueDate] = useState<boolean>(false);
   const [currentDueDateEditVal, setCurrentDueDateEditVal] = useState<string>('');
 
-  // Receipt State
-  const [printedTransaction, setPrintedTransaction] = useState<FeeTransaction | null>(null);
+  // Receipt Modal State
+  const [receiptModalTx, setReceiptModalTx] = useState<FeeTransaction | null>(null);
+  const [receiptModalStudent, setReceiptModalStudent] = useState<any>(null);
+  const [receiptModalCourse, setReceiptModalCourse] = useState<any>(null);
   
   useEffect(() => {
     fetchData();
@@ -93,6 +101,9 @@ const Fees: React.FC = () => {
   const formatJoiningDateDisplay = (joiningDateVal: any): { display: string; raw: string; day: number } => {
     if (!joiningDateVal) {
       return { display: '01 Jan 2026', raw: '2026-01-01', day: 1 };
+    }
+    if (typeof joiningDateVal === 'string' && (joiningDateVal.toUpperCase() === 'NO_DUES' || joiningDateVal.toLowerCase() === 'no dues')) {
+      return { display: 'No Dues', raw: 'NO_DUES', day: 0 };
     }
     let d: Date;
     if (joiningDateVal.seconds) {
@@ -182,8 +193,48 @@ const Fees: React.FC = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
+      const isTeacher = user?.role === 'teacher';
+
+      // 1. Fetch Batches (including inactive to identify inactive-batch students)
+      const bSnap = await getDocs(collection(db, 'batches'));
+      const allBatches = bSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as Batch));
+      const activeBatches = allBatches.filter(b => b.status === 'active' || !b.status);
+
+      let visibleBatches = activeBatches;
+      let teacherBatchIds = new Set<string>();
+
+      if (isTeacher) {
+        visibleBatches = activeBatches.filter(b => 
+          b.teacherId === user?.id || 
+          b.teacherId === user?.email ||
+          (user as any)?.batchIds?.includes(b.documentId)
+        );
+        teacherBatchIds = new Set(visibleBatches.map(b => b.documentId!).filter(Boolean));
+      }
+      setBatches(visibleBatches);
+
+      // 2. Fetch Active Students (Exclude students belonging to inactive/completed batches)
       const uSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('status', '==', 'active')));
-      const usersList = uSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as User));
+      let usersList = uSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as User));
+
+      usersList = usersList.filter(s => {
+        const rawBatchId = s.batchIds?.[0] || (s as any).batchId || '';
+        if (rawBatchId) {
+          const matchedBatch = allBatches.find(b => b.documentId === rawBatchId);
+          if (matchedBatch && matchedBatch.status && matchedBatch.status !== 'active') {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      // IF TEACHER: strictly display only students assigned to their batch(es)
+      if (isTeacher) {
+        usersList = usersList.filter(s => {
+          const sBatches = s.batchIds || ((s as any).batchId ? [(s as any).batchId] : []);
+          return sBatches.some((bId: string) => teacherBatchIds.has(bId));
+        });
+      }
       setStudents(usersList);
 
       const cSnap = await getDocs(collection(db, 'courses'));
@@ -197,6 +248,10 @@ const Fees: React.FC = () => {
         const courseId = student.courseIds?.[0] || '';
         const course = coursesList.find(c => c.documentId === courseId);
         
+        const rawBatchId = student.batchIds?.[0] || (student as any).batchId || '';
+        const matchedBatch = allBatches.find(b => b.documentId === rawBatchId);
+        const batchName = matchedBatch?.batchName || 'General';
+
         // Find latest transaction for this student
         const studentTx = transactions
           .filter(t => t.studentId === student.documentId)
@@ -231,6 +286,8 @@ const Fees: React.FC = () => {
           documentId: student.documentId,
           courseId: courseId,
           courseName: course?.courseName || 'Unassigned',
+          batchId: rawBatchId,
+          batchName: batchName,
           monthlyFee: course?.monthlyFee || 0,
           joiningDate: jInfo.display,
           joiningDateRaw: jInfo.raw,
@@ -258,13 +315,32 @@ const Fees: React.FC = () => {
   // Quick update/save of student's Current Due Date to Firestore & local state
   const handleSaveCurrentDueDate = async (studentId: string, newDateIso: string) => {
     if (!newDateIso) {
-      alert("Please select a valid date.");
+      alert("Please select a valid date or enter 'NO_DUES'.");
       return;
     }
+    const isSettingNoDues = newDateIso.toUpperCase().trim() === 'NO_DUES' || newDateIso.toLowerCase().trim() === 'no dues';
     try {
       await updateDoc(doc(db, 'users', studentId), {
-        feeDueDate: newDateIso
+        feeDueDate: isSettingNoDues ? 'NO_DUES' : newDateIso
       });
+
+      if (isSettingNoDues) {
+        setFeeRecords(prev => prev.map(r => {
+          if (r.studentId === studentId) {
+            return {
+              ...r,
+              currentDueDate: 'No Dues',
+              currentDueDateRaw: 'NO_DUES',
+              currentDueDay: 0,
+              nextDueDate: 'No Dues',
+              nextDueDateRaw: 'NO_DUES'
+            };
+          }
+          return r;
+        }));
+        setIsEditingCurrentDueDate(false);
+        return;
+      }
 
       const parts = newDateIso.split('-');
       if (parts.length === 3) {
@@ -298,28 +374,62 @@ const Fees: React.FC = () => {
     }
   };
 
+  const handleDurationOptionChange = (val: string) => {
+    setFeeDurationOption(val);
+    if (val === 'one_time') {
+      setIsNoDues(true);
+      setNumberOfMonths(0);
+      setAmountPaid('4000');
+    } else {
+      const mNum = Math.max(1, parseInt(val, 10) || 1);
+      setNumberOfMonths(mNum);
+      setIsNoDues(false);
+    }
+  };
+
   // Auto-calculate Fee Amount, Starting Billing Month, Coverage Text, and Next Due Date
   useEffect(() => {
     if (paymentStudentId) {
       const record = feeRecords.find(r => r.studentId === paymentStudentId);
       if (record) {
-        // Base course fee calculation
-        const totalCalculatedAmt = (record.monthlyFee || 0) * numberOfMonths;
-        setAmountPaid(totalCalculatedAmt.toString());
+        if (feeDurationOption === 'one_time') {
+          setNumberOfMonths(0);
+          setAmountPaid(prev => (!prev || prev === '0' || prev === String(record.monthlyFee) ? '4000' : prev));
+          const startMonth = billingPeriod || currentMonthDefault;
+          setPeriodCoverageText(`One-Time Fee (${startMonth})`);
 
-        // Coverage text
-        const startMonth = billingPeriod || currentMonthDefault;
-        const coverage = getPeriodCoverageLabel(startMonth, numberOfMonths);
-        setPeriodCoverageText(coverage);
+          if (isNoDues) {
+            setCalculatedDueDate('No Dues');
+            setCustomNextDueDate('NO_DUES');
+          } else {
+            const dueDay = record.currentDueDay || record.joiningDay || 1;
+            const due = calculateNextDueFromBillingPeriod(startMonth, 1, dueDay);
+            setCalculatedDueDate(due.display);
+            setCustomNextDueDate(due.iso);
+          }
+        } else {
+          const monthsNum = Math.max(1, parseInt(feeDurationOption, 10) || 1);
+          setNumberOfMonths(monthsNum);
+          const totalCalculatedAmt = (record.monthlyFee || 0) * monthsNum;
+          setAmountPaid(totalCalculatedAmt.toString());
 
-        // Calculate next due date using student's current due date day (or joining day)
-        const dueDay = record.currentDueDay || record.joiningDay || 1;
-        const due = calculateNextDueFromBillingPeriod(startMonth, numberOfMonths, dueDay);
-        setCalculatedDueDate(due.display);
-        setCustomNextDueDate(due.iso);
+          const startMonth = billingPeriod || currentMonthDefault;
+          const coverage = getPeriodCoverageLabel(startMonth, monthsNum);
+          setPeriodCoverageText(coverage);
+
+          if (isNoDues) {
+            setCalculatedDueDate('No Dues');
+            setCustomNextDueDate('NO_DUES');
+          } else {
+            const dueDay = record.currentDueDay || record.joiningDay || 1;
+            const due = calculateNextDueFromBillingPeriod(startMonth, monthsNum, dueDay);
+            setCalculatedDueDate(due.display);
+            setCustomNextDueDate(due.iso);
+          }
+        }
       }
     }
-  }, [paymentStudentId, numberOfMonths, billingPeriod, feeRecords]);
+  }, [paymentStudentId, feeDurationOption, isNoDues, billingPeriod, feeRecords]);
 
   // Handle user manual override of Next Due Date
   const handleCustomDueDateChange = (newIsoDate: string) => {
@@ -339,15 +449,19 @@ const Fees: React.FC = () => {
   // Open modal with pre-configured student info
   const handleOpenPaymentModal = (record: StudentFeeRecord) => {
     setPaymentStudentId(record.studentId);
+    setFeeDurationOption('1');
     setNumberOfMonths(1);
     setDiscount('0');
     setLateFee('0');
     setRemarks('');
     setIsEditingCurrentDueDate(false);
-    setCurrentDueDateEditVal(record.currentDueDateRaw || '');
+    setCurrentDueDateEditVal(record.currentDueDateRaw === 'NO_DUES' ? '' : (record.currentDueDateRaw || ''));
+
+    const alreadyNoDues = record.currentDueDateRaw === 'NO_DUES' || record.currentDueDate === 'No Dues';
+    setIsNoDues(alreadyNoDues);
 
     // Pre-select billing month according to currentDueDate
-    if (record.currentDueDateRaw) {
+    if (record.currentDueDateRaw && record.currentDueDateRaw !== 'NO_DUES') {
       const d = new Date(record.currentDueDateRaw);
       if (!isNaN(d.getTime())) {
         const mStr = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
@@ -387,17 +501,24 @@ const Fees: React.FC = () => {
       const lf = Math.max(0, Number(lateFee) || 0);
       const netPaid = Math.max(0, amt - disc + lf);
       
+      const isOneTimeFee = feeDurationOption === 'one_time';
       const dueDay = record.currentDueDay || record.joiningDay || 1;
-      const computedDue = calculateNextDueFromBillingPeriod(billingPeriod, numberOfMonths, dueDay).iso;
-      const finalNextDueDate = customNextDueDate || computedDue;
-      const coverage = periodCoverageText || `${billingPeriod} (${numberOfMonths} ${numberOfMonths === 1 ? 'Month' : 'Months'})`;
+      const computedDue = calculateNextDueFromBillingPeriod(billingPeriod, Math.max(1, numberOfMonths), dueDay).iso;
+      const finalNextDueDate = isNoDues ? 'NO_DUES' : (customNextDueDate || computedDue);
+      const coverage = isOneTimeFee
+        ? `One-Time Fee (Offline / Full Batch)`
+        : (periodCoverageText || `${billingPeriod} (${numberOfMonths} ${numberOfMonths === 1 ? 'Month' : 'Months'})`);
+
+      const defaultRemarks = isOneTimeFee
+        ? `One-Time Fee (Offline Batch) - ₹${netPaid}${isNoDues ? ' [Full Fee Paid - No Dues]' : ''}`
+        : `Fee for ${numberOfMonths} month(s) (${coverage})${isNoDues ? ' [Full Fee Paid - No Dues]' : ''}`;
 
       const newTransaction: Partial<FeeTransaction> = {
         studentId: record.studentId,
         courseId: record.courseId,
         academicYear,
         billingPeriod: coverage,
-        monthsCount: numberOfMonths,
+        monthsCount: isOneTimeFee ? 0 : numberOfMonths,
         joiningDate: record.joiningDate || '01 Jan 2026',
         nextDueDate: finalNextDueDate,
         paymentDate: serverTimestamp() as any,
@@ -406,7 +527,7 @@ const Fees: React.FC = () => {
         lateFee: lf,
         paymentMode,
         transactionNumber,
-        remarks: remarks || `Fee for ${numberOfMonths} month(s) (${coverage})`,
+        remarks: remarks || defaultRemarks,
         receivedBy: user?.name || 'Admin',
         receiptNumber: 'REC-' + new Date().getFullYear() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase(),
         status: 'PAID',
@@ -415,27 +536,36 @@ const Fees: React.FC = () => {
 
       await addDoc(collection(db, 'fee_transactions'), newTransaction);
 
+      // Synchronize student's feeDueDate in Firestore users collection
+      await updateDoc(doc(db, 'users', record.studentId), {
+        feeDueDate: finalNextDueDate
+      });
+
       setIsPaymentModalOpen(false);
       setAmountPaid('');
       setDiscount('0');
       setLateFee('0');
       setTransactionNumber('');
       setRemarks('');
+      setFeeDurationOption('1');
       setNumberOfMonths(1);
+      setIsNoDues(false);
       
-      // Auto trigger receipt printing with complete transaction metadata
-      setPrintedTransaction({ 
+      // Open interactive official fee receipt modal immediately with complete transaction metadata
+      const recordedTx: FeeTransaction = { 
         ...newTransaction, 
         paymentDate: new Date(),
         studentName: record.studentName,
         courseName: record.courseName,
-        perMonthFee: record.monthlyFee
-      } as any);
+        perMonthFee: isOneTimeFee ? netPaid : record.monthlyFee
+      } as any;
 
-      setTimeout(() => {
-        window.print();
-        setPrintedTransaction(null);
-      }, 500);
+      const studentObj = students.find(s => s.documentId === record.studentId) || { name: record.studentName };
+      const courseObj = courses.find(c => c.documentId === record.courseId) || { courseName: record.courseName };
+
+      setReceiptModalTx(recordedTx);
+      setReceiptModalStudent(studentObj);
+      setReceiptModalCourse(courseObj);
 
       await fetchData();
     } catch (err) {
@@ -446,21 +576,24 @@ const Fees: React.FC = () => {
     }
   };
 
-  const handlePrintReceiptForStudent = async (row: StudentFeeRecord) => {
+  const handleOpenReceiptForStudent = async (row: StudentFeeRecord) => {
     try {
+      const studentObj = students.find(s => s.documentId === row.studentId) || { name: row.studentName, phone: row.studentId };
+      const courseObj = courses.find(c => c.documentId === row.courseId) || { courseName: row.courseName };
+
       const tSnap = await getDocs(query(collection(db, 'fee_transactions'), where('studentId', '==', row.studentId)));
       if (!tSnap.empty) {
         const txs = tSnap.docs.map(d => d.data() as FeeTransaction);
         txs.sort((a, b) => ((b.paymentDate as any)?.seconds || 0) - ((a.paymentDate as any)?.seconds || 0));
-        setPrintedTransaction({
+        setReceiptModalTx({
           ...txs[0],
           studentName: row.studentName,
           courseName: row.courseName,
           perMonthFee: row.monthlyFee
         } as any);
       } else {
-        setPrintedTransaction({
-          receiptNumber: 'REC-' + new Date().getFullYear() + '-DRAFT',
+        setReceiptModalTx({
+          receiptNumber: 'REC-' + new Date().getFullYear() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase(),
           studentId: row.studentId,
           courseId: row.courseId,
           studentName: row.studentName,
@@ -472,17 +605,15 @@ const Fees: React.FC = () => {
           perMonthFee: row.monthlyFee,
           paymentMode: 'Cash',
           receivedBy: user?.name || 'Admin',
-          nextDueDate: row.currentDueDate || '01 Oct 2026',
+          nextDueDate: row.currentDueDate || 'No Dues',
           status: 'PAID'
         } as any);
       }
 
-      setTimeout(() => {
-        window.print();
-        setPrintedTransaction(null);
-      }, 400);
+      setReceiptModalStudent(studentObj);
+      setReceiptModalCourse(courseObj);
     } catch (e) {
-      console.error("Print receipt error:", e);
+      console.error("Open receipt error:", e);
     }
   };
 
@@ -508,6 +639,10 @@ const Fees: React.FC = () => {
   const netPayable = Math.max(0, totalBaseFee - numDiscount + numLateFee);
 
   const handleSendPushFeeReminder = async (row: StudentFeeRecord) => {
+    if (row.currentDueDate === 'No Dues' || row.currentDueDateRaw === 'NO_DUES') {
+      alert(`${row.studentName} has No Dues (Full Fee Paid). No reminder needed.`);
+      return;
+    }
     const res = await sendFeeDueNotification({
       studentId: row.studentId,
       studentName: row.studentName,
@@ -521,6 +656,9 @@ const Fees: React.FC = () => {
   const handleNotifyAllDueStudents = async () => {
     let sentCount = 0;
     for (const row of feeRecords) {
+      if (row.currentDueDate === 'No Dues' || row.currentDueDateRaw === 'NO_DUES') {
+        continue;
+      }
       const res = await sendFeeDueNotification({
         studentId: row.studentId,
         studentName: row.studentName,
@@ -535,7 +673,7 @@ const Fees: React.FC = () => {
     if (sentCount > 0) {
       alert(`Sent ${sentCount} Fee Due push notification(s) to students' mobile notification bar.`);
     } else {
-      alert("All eligible students have already received their fee notification for today.");
+      alert("All eligible students have already received their fee notification for today, or have No Dues.");
     }
   };
 
@@ -545,7 +683,14 @@ const Fees: React.FC = () => {
       header: 'Student Name',
       render: (row) => (
         <div className="flex flex-col py-1 gap-1">
-          <span className="font-bold text-slate-900 dark:text-white text-sm block leading-tight">{row.studentName}</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-slate-900 dark:text-white text-sm block leading-tight">{row.studentName}</span>
+            {row.batchName && (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                {row.batchName}
+              </span>
+            )}
+          </div>
           <span className="text-xs text-slate-500 font-medium block">Joined: {row.joiningDate || '01 Jan 2026'}</span>
         </div>
       )
@@ -579,27 +724,37 @@ const Fees: React.FC = () => {
     {
       key: 'currentDueDate',
       header: 'Current Due Date',
-      render: (row) => (
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-lg w-fit">
-            <Calendar size={13} />
-            {row.currentDueDate || row.joiningDate || '01 Mar 2026'}
+      render: (row) => {
+        const isStudentNoDues = row.currentDueDate === 'No Dues' || row.currentDueDateRaw === 'NO_DUES';
+        return (
+          <div className="flex items-center gap-1.5">
+            {isStudentNoDues ? (
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2.5 py-1 rounded-lg w-fit">
+                <CheckCircle2 size={13} className="text-emerald-600" />
+                No Dues (Full Paid)
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-lg w-fit">
+                <Calendar size={13} />
+                {row.currentDueDate || row.joiningDate || '01 Mar 2026'}
+              </div>
+            )}
+            <button
+              type="button"
+              className="fee-edit-due-date-btn"
+              title="Edit Current Due Date (or enter NO_DUES)"
+              onClick={() => {
+                const input = prompt(`Edit Current Due Date for ${row.studentName} (YYYY-MM-DD or enter 'NO_DUES'):`, row.currentDueDateRaw || '');
+                if (input && input.trim()) {
+                  handleSaveCurrentDueDate(row.studentId, input.trim());
+                }
+              }}
+            >
+              <Edit2 size={12} />
+            </button>
           </div>
-          <button
-            type="button"
-            className="fee-edit-due-date-btn"
-            title="Edit Current Due Date"
-            onClick={() => {
-              const input = prompt(`Edit Current Due Date for ${row.studentName} (YYYY-MM-DD):`, row.currentDueDateRaw || '');
-              if (input && input.trim()) {
-                handleSaveCurrentDueDate(row.studentId, input.trim());
-              }
-            }}
-          >
-            <Edit2 size={12} />
-          </button>
-        </div>
-      )
+        );
+      }
     },
     {
       key: 'actions',
@@ -619,9 +774,10 @@ const Fees: React.FC = () => {
             <button 
               className="btn bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold" 
               style={{padding: '5px 10px', fontSize: '12px', borderRadius: '8px', border: '1px solid #cbd5e1'}} 
-              onClick={() => handlePrintReceiptForStudent(row)}
+              onClick={() => handleOpenReceiptForStudent(row)}
+              title="View, Print & WhatsApp Share Fee Receipt"
             >
-              Receipt
+              <Printer size={13} className="mr-1 inline" /> Receipt
             </button>
             <button 
               className="btn btn-outline" 
@@ -673,9 +829,34 @@ const Fees: React.FC = () => {
         </div>
       </div>
 
+      {/* Batch Filter & Teacher Mode Badge */}
+      <div className="flex items-center justify-between gap-4 mb-4 flex-wrap bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Filter by Batch:</label>
+          <select
+            className="px-3 py-1.5 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500"
+            value={selectedBatchFilter}
+            onChange={(e) => setSelectedBatchFilter(e.target.value)}
+          >
+            <option value="all">All Batches ({feeRecords.length} Students)</option>
+            {batches.map(b => (
+              <option key={b.documentId} value={b.documentId}>
+                {b.batchName} ({feeRecords.filter(r => r.batchId === b.documentId).length} Students)
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {user?.role === 'teacher' && (
+          <div className="text-xs font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 px-3 py-1 rounded-full border border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5">
+            <span>👨‍🏫 Teacher Mode: Showing assigned students for your batch(es)</span>
+          </div>
+        )}
+      </div>
+
       <DataTable 
-        title="Student Fee Roster" 
-        data={feeRecords} 
+        title={user?.role === 'teacher' ? "My Batch Students - Fee Dues" : "Student Fee Roster"} 
+        data={feeRecords.filter(r => selectedBatchFilter === 'all' || r.batchId === selectedBatchFilter)} 
         columns={columns} 
         onRefresh={fetchData}
         searchPlaceholder="Search student name or course..."
@@ -711,14 +892,14 @@ const Fees: React.FC = () => {
                 <Clock size={15} color="#d97706" />
                 {!isEditingCurrentDueDate ? (
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <span>Current Due Date: <strong style={{ color: '#d97706' }}>{selectedRecord.currentDueDate}</strong></span>
+                    <span>Current Due Date: <strong style={{ color: selectedRecord.currentDueDateRaw === 'NO_DUES' || selectedRecord.currentDueDate === 'No Dues' ? '#16a34a' : '#d97706' }}>{selectedRecord.currentDueDate}</strong></span>
                     <button
                       type="button"
                       className="fee-edit-due-date-btn"
                       title="Edit Current Due Date"
                       onClick={() => {
                         setIsEditingCurrentDueDate(true);
-                        setCurrentDueDateEditVal(selectedRecord.currentDueDateRaw || '');
+                        setCurrentDueDateEditVal(selectedRecord.currentDueDateRaw === 'NO_DUES' ? '' : (selectedRecord.currentDueDateRaw || ''));
                       }}
                     >
                       <Edit2 size={13} />
@@ -740,6 +921,14 @@ const Fees: React.FC = () => {
                     </button>
                     <button
                       type="button"
+                      className="fee-inline-nodues-btn"
+                      title="Mark student as No Dues"
+                      onClick={() => handleSaveCurrentDueDate(selectedRecord.studentId, 'NO_DUES')}
+                    >
+                      ✓ No Dues
+                    </button>
+                    <button
+                      type="button"
                       className="fee-inline-due-cancel-btn"
                       onClick={() => setIsEditingCurrentDueDate(false)}
                     >
@@ -755,7 +944,6 @@ const Fees: React.FC = () => {
             </div>
           )}
 
-          {/* Months & Starting Period */}
           <div className="fee-modal-grid-2">
             <Select 
               label="Fee For How Many Months? *" 
@@ -766,10 +954,11 @@ const Fees: React.FC = () => {
                 { label: '4 Months', value: '4' },
                 { label: '5 Months', value: '5' },
                 { label: '6 Months (Half-Yearly)', value: '6' },
-                { label: '12 Months (Yearly Advance)', value: '12' }
+                { label: '12 Months (Yearly Advance)', value: '12' },
+                { label: 'One-Time Fee (Offline Batch / Full Course - e.g. ₹4000)', value: 'one_time' }
               ]} 
-              value={numberOfMonths.toString()}
-              onChange={(e) => setNumberOfMonths(Math.max(1, Number(e.target.value) || 1))}
+              value={feeDurationOption}
+              onChange={(e) => handleDurationOptionChange(e.target.value)}
               required
             />
 
@@ -782,6 +971,41 @@ const Fees: React.FC = () => {
             />
           </div>
 
+          {/* No Dues Option Checkbox */}
+          <div className="fee-nodues-box">
+            <label className="fee-nodues-checkbox-label">
+              <input 
+                type="checkbox" 
+                checked={isNoDues}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setIsNoDues(checked);
+                  if (checked) {
+                    setCalculatedDueDate('No Dues');
+                    setCustomNextDueDate('NO_DUES');
+                  } else {
+                    const startMonth = billingPeriod || currentMonthDefault;
+                    const dueDay = selectedRecord?.currentDueDay || selectedRecord?.joiningDay || 1;
+                    const mCount = feeDurationOption === 'one_time' ? 1 : numberOfMonths;
+                    const due = calculateNextDueFromBillingPeriod(startMonth, mCount, dueDay);
+                    setCalculatedDueDate(due.display);
+                    setCustomNextDueDate(due.iso);
+                  }
+                }}
+                className="fee-nodues-checkbox"
+              />
+              <div className="fee-nodues-text-wrap">
+                <span className="fee-nodues-title">
+                  <CheckCircle2 size={16} className={isNoDues ? "text-emerald-600 inline mr-1" : "text-gray-400 inline mr-1"} />
+                  No Dues (Full Fee Paid)
+                </span>
+                <span className="fee-nodues-desc">
+                  Check this option if the student has paid the full fee and has no further upcoming dues.
+                </span>
+              </div>
+            </label>
+          </div>
+
           {/* Coverage Summary Pill */}
           {periodCoverageText && (
             <div className="fee-coverage-pill">
@@ -792,35 +1016,41 @@ const Fees: React.FC = () => {
 
           {/* Dynamic Next Due Date Calculation & Custom Override */}
           {selectedRecord && (
-            <div className="fee-due-date-banner">
+            <div className={`fee-due-date-banner ${isNoDues ? 'is-no-dues' : ''}`}>
               <div className="fee-due-date-left">
                 <span className="fee-due-date-label">
                   <Clock size={16} /> 
-                  <span>Calculated Next Due Date (after {numberOfMonths} {numberOfMonths === 1 ? 'month' : 'months'}):</span>
+                  <span>
+                    {isNoDues 
+                      ? 'Payment Status / Next Due Date:' 
+                      : `Calculated Next Due Date (after ${numberOfMonths} ${numberOfMonths === 1 ? 'month' : 'months'}):`}
+                  </span>
                 </span>
-                <span className="fee-due-date-badge">
-                  {calculatedDueDate}
+                <span className={`fee-due-date-badge ${isNoDues ? 'no-dues' : ''}`}>
+                  {isNoDues ? '✓ No Dues (Full Fee Paid)' : calculatedDueDate}
                 </span>
               </div>
               
-              <div className="fee-due-date-right">
-                <label className="text-xs font-bold text-emerald-800 dark:text-emerald-300 block mb-1">
-                  Custom Next Due Date (Optional Override):
-                </label>
-                <input 
-                  type="date" 
-                  className="fee-custom-date-input"
-                  value={customNextDueDate}
-                  onChange={(e) => handleCustomDueDateChange(e.target.value)}
-                />
-              </div>
+              {!isNoDues && (
+                <div className="fee-due-date-right">
+                  <label className="text-xs font-bold text-emerald-800 dark:text-emerald-300 block mb-1">
+                    Custom Next Due Date (Optional Override):
+                  </label>
+                  <input 
+                    type="date" 
+                    className="fee-custom-date-input"
+                    value={customNextDueDate === 'NO_DUES' ? '' : customNextDueDate}
+                    onChange={(e) => handleCustomDueDateChange(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
           )}
 
           {/* Amounts Breakdown */}
           <div className="fee-modal-grid-3">
             <Input 
-              label={`Total Fee (₹) (${numberOfMonths} ${numberOfMonths === 1 ? 'month' : 'months'}) *`} 
+              label={`Total Fee (₹) (${feeDurationOption === 'one_time' ? 'One-Time Fee' : `${numberOfMonths} ${numberOfMonths === 1 ? 'month' : 'months'}`}) *`} 
               type="number" 
               min="0"
               value={amountPaid} 
@@ -914,14 +1144,14 @@ const Fees: React.FC = () => {
         </form>
       </Modal>
 
-      {printedTransaction && (
-        <ReceiptTemplate 
-          transaction={printedTransaction} 
-          student={students.find(s => s.documentId === printedTransaction.studentId)!}
-          plan={{ planName: `Monthly Fee (${printedTransaction.monthsCount || 1} Months)` }}
-          course={courses.find(c => c.documentId === printedTransaction.courseId)! || { courseName: 'Course' }}
-        />
-      )}
+      <ReceiptModal 
+        isOpen={Boolean(receiptModalTx)}
+        onClose={() => setReceiptModalTx(null)}
+        transaction={receiptModalTx} 
+        student={receiptModalStudent || (receiptModalTx ? students.find(s => s.documentId === receiptModalTx.studentId) : null)}
+        course={receiptModalCourse || (receiptModalTx ? courses.find(c => c.documentId === receiptModalTx.courseId) : null)}
+        plan={{ planName: (receiptModalTx?.monthsCount === 0 || receiptModalTx?.billingPeriod?.includes('One-Time')) ? 'One-Time Fee (Offline / Full Course)' : `Monthly Fee (${receiptModalTx?.monthsCount || 1} Months)` }}
+      />
     </div>
   );
 };

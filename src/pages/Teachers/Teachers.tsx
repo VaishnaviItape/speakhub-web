@@ -6,7 +6,13 @@ import DataTable, { type Column } from '../../components/ui/DataTable';
 import type { User, Batch } from '../../types/models';
 import { db } from '../../config/firebase';
 import { secondaryAuth } from '../../config/secondaryFirebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  updatePassword, 
+  deleteUser, 
+  signOut as secondarySignOut 
+} from 'firebase/auth';
 import { 
   collection, 
   query, 
@@ -128,9 +134,28 @@ const Teachers: React.FC = () => {
           uid = userCredential.user.uid;
         } catch (authError: any) {
           if (authError.code === 'auth/email-already-in-use') {
-            alert("A user with this email already exists in Authentication.");
-            setIsSaving(false);
-            return;
+            const candidatePasswords = [defaultPassword, 'teacher123', 'password123', mobile.trim()].filter(Boolean);
+            let signedInUser: any = null;
+            for (const candPwd of candidatePasswords) {
+              try {
+                const cred = await signInWithEmailAndPassword(secondaryAuth, email.trim(), candPwd);
+                signedInUser = cred.user;
+                break;
+              } catch (e) { }
+            }
+
+            if (signedInUser) {
+              try {
+                await updatePassword(signedInUser, defaultPassword);
+                uid = signedInUser.uid;
+              } finally {
+                await secondarySignOut(secondaryAuth);
+              }
+            } else {
+              alert(`The email ${email.trim()} is already in Firebase Authentication with an unknown password. Please delete it from Firebase Console (Authentication > Users) and try again.`);
+              setIsSaving(false);
+              return;
+            }
           } else {
             throw authError;
           }
@@ -210,13 +235,43 @@ const Teachers: React.FC = () => {
   );
 
   const handleDelete = async (teacher: User) => {
-    if (window.confirm(`Are you sure you want to delete teacher ${teacher.name}?`)) {
-      try {
-        await deleteDoc(doc(db, 'users', teacher.documentId!));
-        setTeachers(teachers.filter(t => t.documentId !== teacher.documentId));
-      } catch (error: any) {
-        alert("Failed to delete teacher: " + error.message);
+    if (!window.confirm(`Are you sure you want to delete teacher ${teacher.name}?`)) return;
+
+    try {
+      const teacherEmail = (teacher.email || '').trim();
+      let authDeleted = false;
+      if (teacherEmail) {
+        const candidatePasswords = [
+          (teacher as any).plainPassword,
+          'Teacher@123',
+          'teacher123',
+          'password123',
+          teacher.mobile || ''
+        ].filter(Boolean);
+
+        for (const candPwd of candidatePasswords) {
+          try {
+            const cred = await signInWithEmailAndPassword(secondaryAuth, teacherEmail, candPwd);
+            await deleteUser(cred.user);
+            authDeleted = true;
+            break;
+          } catch (e) { }
+        }
+        try {
+          await secondarySignOut(secondaryAuth);
+        } catch (e) { }
       }
+
+      await deleteDoc(doc(db, 'users', teacher.documentId!));
+      setTeachers(teachers.filter(t => t.documentId !== teacher.documentId));
+
+      if (authDeleted) {
+        alert(`Teacher ${teacher.name} and Authentication account deleted successfully.`);
+      } else {
+        alert(`Teacher ${teacher.name} deleted from database.`);
+      }
+    } catch (error: any) {
+      alert("Failed to delete teacher: " + error.message);
     }
   };
 

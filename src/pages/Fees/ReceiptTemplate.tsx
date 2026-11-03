@@ -1,15 +1,24 @@
 import React from 'react';
 import type { FeeTransaction, User, Course } from '../../types/models';
+import logoImg from '../../assets/logo.png';
+import stampImg from '../../assets/stamp.jpeg';
+import signImg from '../../assets/sign.jpeg';
 import './ReceiptTemplate.css';
 
-interface ReceiptTemplateProps {
+export interface ReceiptTemplateProps {
   transaction: FeeTransaction;
-  student: User;
-  course: Course;
+  student?: User | { name?: string; phone?: string; mobile?: string };
+  course?: Course | { courseName?: string };
   plan?: { planName?: string };
+  isScreenPreview?: boolean;
 }
 
-const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ transaction, student, course }) => {
+const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ 
+  transaction, 
+  student, 
+  course,
+  isScreenPreview = false 
+}) => {
   const formatDateDisplay = (dateVal?: any): string => {
     if (!dateVal) return 'N/A';
     let d: Date;
@@ -17,6 +26,8 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ transaction, student,
       d = dateVal;
     } else if (dateVal.seconds) {
       d = new Date(dateVal.seconds * 1000);
+    } else if (typeof dateVal?.toDate === 'function') {
+      d = dateVal.toDate();
     } else if (typeof dateVal === 'string') {
       d = new Date(dateVal);
     } else {
@@ -33,6 +44,8 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ transaction, student,
       d = dateVal;
     } else if (dateVal.seconds) {
       d = new Date(dateVal.seconds * 1000);
+    } else if (typeof dateVal?.toDate === 'function') {
+      d = dateVal.toDate();
     } else if (typeof dateVal === 'string') {
       d = new Date(dateVal);
     } else {
@@ -42,8 +55,20 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ transaction, student,
     return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   };
 
+  const isNoDues = Boolean(
+    transaction.nextDueDate && (
+      transaction.nextDueDate.toString().toUpperCase() === 'NO_DUES' || 
+      transaction.nextDueDate.toString().toLowerCase() === 'no dues'
+    )
+  );
+
+  const isOneTimeFee = Boolean(
+    (transaction as any).monthsCount === 0 || 
+    (transaction.billingPeriod && transaction.billingPeriod.toLowerCase().includes('one-time'))
+  );
+
   const paymentDateStr = formatDateDisplay(transaction.paymentDate);
-  const nextDueDateStr = transaction.nextDueDate ? formatLongDate(transaction.nextDueDate) : '-';
+  const nextDueDateStr = isNoDues ? 'No Dues' : (transaction.nextDueDate ? formatLongDate(transaction.nextDueDate) : '-');
   
   const paymentMode = (transaction.paymentMode || '').toUpperCase();
   const isCash = paymentMode.includes('CASH');
@@ -54,29 +79,43 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ transaction, student,
   const discount = transaction.discount || 0;
   const perMonthFee = (transaction as any).perMonthFee || (amountPaid + discount);
   const remaining = (transaction as any).remainingBalance || 0;
+  const studentName = student?.name || (transaction as any).studentName || 'Student';
+  const studentPhone = (student as any)?.phone || (student as any)?.mobile || (transaction as any)?.phone || '';
+  const courseName = course?.courseName || (transaction as any).courseName || 'Foundation-Spoken English';
 
   return (
-    <div className="receipt-print-wrapper">
-      <div className="receipt-box">
+    <div className={`receipt-container-root ${isScreenPreview ? 'receipt-screen-mode' : 'receipt-print-wrapper'}`}>
+      <div className="receipt-box" id="speak-hub-fee-receipt-box">
         {/* Top Header Row with Logo & Academy Title */}
         <div className="receipt-top-header">
           <div className="receipt-logo-block">
-            <img src="/logo.png" alt="Speak Hub" className="receipt-logo-img" />
-            <span className="receipt-logo-label">Speak Hub</span>
+            <img 
+              src={logoImg} 
+              alt="Speak Hub Academy" 
+              className="receipt-logo-img"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                if (target.src !== '/logo.png') {
+                  target.src = '/logo.png';
+                }
+              }} 
+            />
           </div>
           <div className="receipt-brand-title-col">
             <h1 className="receipt-brand-name">SPEAK HUB ACADEMY</h1>
           </div>
         </div>
 
-        {/* Brown/Gold Banner */}
+        {/* Brown/Gold Tagline Banner */}
         <div className="receipt-banner-gold">
           ONLINE &amp; OFFLINE SPOKEN ENGLISH CLASSES
         </div>
 
-        {/* Dark Navy Address Banner */}
+        {/* Dark Navy Address & Contact Banner */}
         <div className="receipt-banner-navy-address">
-          Address- Omkar Apartment, Shop No- 6 &amp; 7, Near Canara Bank, NDA Road, Warje-Malwadi, Pune -58.
+          <span>Address- Omkar Apartment, Shop No- 6 &amp; 7, Near Canara Bank, NDA Road, Warje-Malwadi, Pune -58.</span>
+          <span className="address-contact-sep"> | </span>
+          <span className="address-contact-highlight">Contact: 9970964742, 8999080975</span>
         </div>
 
         {/* Dark Navy Payment Receipt Bar */}
@@ -91,7 +130,10 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ transaction, student,
             <tr>
               <th className="cell-th" style={{ width: '18%' }}>STUDENT NAME</th>
               <td className="cell-td font-serif font-bold" style={{ width: '32%' }}>
-                {student?.name || (transaction as any).studentName || 'Student'}
+                <span className="student-name-display">{studentName}</span>
+                {studentPhone && (
+                  <span className="student-phone-sub"> (Mob: {studentPhone})</span>
+                )}
               </td>
               <th className="cell-th" style={{ width: '22%' }}>PAYMENT DATE</th>
               <td className="cell-td font-bold" style={{ width: '28%' }}>
@@ -103,7 +145,7 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ transaction, student,
             <tr>
               <th className="cell-th">COURSE NAME</th>
               <td className="cell-td font-serif font-bold">
-                {course?.courseName || (transaction as any).courseName || 'Foundation-Spoken English'}
+                {courseName}
               </td>
               <th className="cell-th">RECEIPT NO</th>
               <td className="cell-td font-bold font-mono">
@@ -141,7 +183,7 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ transaction, student,
 
             {/* Row 5: Financial Header */}
             <tr className="fin-headers-row">
-              <th style={{ width: '18%' }} className="cell-th">PER MONTH FEE</th>
+              <th style={{ width: '18%' }} className="cell-th">{isOneTimeFee ? 'COURSE FEE' : 'PER MONTH FEE'}</th>
               <th style={{ width: '14%' }} className="cell-th">DISCOUNT</th>
               <th style={{ width: '18%' }} className="cell-th">AMOUNT PAID</th>
               <th style={{ width: '18%' }} className="cell-th">REMANING</th>
@@ -162,7 +204,7 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ transaction, student,
               <td className="cell-td font-bold">
                 <span className="currency-symbol">₹</span> {remaining}
               </td>
-              <td className="cell-td font-bold text-due-red">
+              <td className={`cell-td font-bold ${isNoDues ? 'text-due-green' : 'text-due-red'}`}>
                 {nextDueDateStr}
               </td>
             </tr>
@@ -177,12 +219,30 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({ transaction, student,
             <tr className="sign-content-row">
               <td colSpan={3} className="cell-sign-authorised">
                 <div className="authorised-sign-wrap">
-                  <img src="/stamp.jpeg" alt="Stamp" className="stamp-seal-img" />
-                  <img src="/sign.jpeg" alt="ShwetaSN" className="signature-pen-img" />
+                  <img 
+                    src={stampImg} 
+                    alt="Official Stamp" 
+                    className="stamp-seal-img" 
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (target.src !== '/stamp.jpeg') target.src = '/stamp.jpeg';
+                    }}
+                  />
+                  <img 
+                    src={signImg} 
+                    alt="Authorized Signatory" 
+                    className="signature-pen-img" 
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (target.src !== '/sign.jpeg') target.src = '/sign.jpeg';
+                    }}
+                  />
                 </div>
               </td>
               <td colSpan={2} className="cell-sign-parent">
-                {/* Empty space for Student/Parent signature */}
+                <div className="parent-sign-placeholder">
+                  <span className="sign-dots">...................................................</span>
+                </div>
               </td>
             </tr>
           </tbody>

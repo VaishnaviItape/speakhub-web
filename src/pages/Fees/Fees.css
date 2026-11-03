@@ -400,3 +400,99 @@
   background: rgba(217, 119, 6, 0.2);
 }
 
+/* No Dues Toggle & Banner Styles */
+.fee-nodues-box {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1.5px solid #86efac;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+[data-theme='dark'] .fee-nodues-box {
+  background: linear-gradient(135deg, #064e3b 0%, #022c22 100%);
+  border-color: #059669;
+}
+
+.fee-nodues-checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.fee-nodues-checkbox {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: #16a34a;
+  cursor: pointer;
+  margin-top: 0.15rem;
+}
+
+.fee-nodues-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.fee-nodues-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #15803d;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+[data-theme='dark'] .fee-nodues-title {
+  color: #86efac;
+}
+
+.fee-nodues-desc {
+  font-size: 0.775rem;
+  color: #166534;
+  font-weight: 500;
+}
+
+[data-theme='dark'] .fee-nodues-desc {
+  color: #bbf7d0;
+}
+
+.fee-due-date-banner.is-no-dues {
+  background: linear-gradient(135deg, #ecfdf5 0%, #dcfce7 100%);
+  border-color: #4ade80;
+}
+
+[data-theme='dark'] .fee-due-date-banner.is-no-dues {
+  background: linear-gradient(135deg, #052e16 0%, #064e3b 100%);
+  border-color: #15803d;
+}
+
+.fee-due-date-badge.no-dues {
+  background-color: #16a34a;
+  color: #ffffff;
+  border-color: #15803d;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
+}
+
+.fee-inline-nodues-btn {
+  background-color: #ecfdf5;
+  color: #15803d;
+  border: 1px solid #86efac;
+  font-size: 0.725rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.2s ease;
+}
+
+.fee-inline-nodues-btn:hover {
+  background-color: #dcfce7;
+  border-color: #16a34a;
+}

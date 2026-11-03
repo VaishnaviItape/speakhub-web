@@ -105,6 +105,7 @@ const AppRoutes: React.FC = () => {
           
           <Route path="/students" element={<Students />} />
           <Route path="/attendance" element={<Attendance />} />
+          <Route path="/fees" element={<Fees />} />
           
           <Route path="/notes" element={<Notes />} />
           <Route path="/homework" element={<Homework />} />
@@ -112,18 +113,16 @@ const AppRoutes: React.FC = () => {
           <Route path="/exams" element={<Exams />} />
           <Route path="/exams/:examId/questions" element={<ExamQuestions />} />
           <Route path="/exams/:examId/results" element={<ExamResults />} />
-
-          <Route path="/enquiries" element={<Enquiries />} />
         </Route>
 
         {/* Routes accessible ONLY to Admin */}
         <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+          <Route path="/enquiries" element={<Enquiries />} />
           <Route path="/teachers" element={<Teachers />} />
           <Route path="/users" element={<Users />} />
           <Route path="/employees" element={<Employees />} />
           <Route path="/settings/roles" element={<Roles />} />
           <Route path="/fees/plans" element={<FeePlans />} />
-          <Route path="/fees" element={<Fees />} />
           <Route path="/fees/reports" element={<FeeReports />} />
           
           <Route path="/reports" element={<ReportsDashboard />} />

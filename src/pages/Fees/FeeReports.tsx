@@ -19,6 +19,7 @@ import {
 import { db } from '../../config/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import type { FeeTransaction, User, Course } from '../../types/models';
+import ReceiptModal from './ReceiptModal';
 import '../../components/ui/TableStyles.css';
 import '../Attendance/Attendance.css';
 
@@ -57,6 +58,13 @@ const FeeReports: React.FC = () => {
   // Lists
   const [defaulterList, setDefaulterList] = useState<DefaulterRecord[]>([]);
   const [transactionList, setTransactionList] = useState<ExpandedTransactionRecord[]>([]);
+  const [allStudents, setAllStudents] = useState<User[]>([]);
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
+
+  // Receipt Modal State
+  const [activeReceiptTx, setActiveReceiptTx] = useState<FeeTransaction | null>(null);
+  const [receiptStudent, setReceiptStudent] = useState<any>(null);
+  const [receiptCourse, setReceiptCourse] = useState<any>(null);
 
   useEffect(() => {
     fetchReportData();
@@ -65,6 +73,9 @@ const FeeReports: React.FC = () => {
   const formatJoiningDateDisplay = (joiningDateVal: any): { display: string; raw: string } => {
     if (!joiningDateVal) {
       return { display: '01 Jan 2026', raw: '2026-01-01' };
+    }
+    if (typeof joiningDateVal === 'string' && (joiningDateVal.toUpperCase() === 'NO_DUES' || joiningDateVal.toLowerCase() === 'no dues')) {
+      return { display: 'No Dues', raw: 'NO_DUES' };
     }
     let d: Date;
     if (joiningDateVal.seconds) {
@@ -110,16 +121,32 @@ const FeeReports: React.FC = () => {
   const fetchReportData = async () => {
     setIsLoading(true);
     try {
-      // 1. Fetch Students
-      const uSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('status', '==', 'active')));
-      const usersList = uSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as User));
+      // 1. Fetch Dependencies & Active Students (excluding inactive batch students)
+      const [uSnap, cSnap, bSnap, transSnap] = await Promise.all([
+        getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('status', '==', 'active'))),
+        getDocs(collection(db, 'courses')),
+        getDocs(collection(db, 'batches')),
+        getDocs(collection(db, 'fee_transactions'))
+      ]);
 
-      // 2. Fetch Courses
-      const cSnap = await getDocs(collection(db, 'courses'));
+      const allBatches = bSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as any));
+      let usersList = uSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as User));
+
+      // Exclude students whose assigned batch is inactive or completed
+      usersList = usersList.filter(s => {
+        const rawBatchId = s.batchIds?.[0] || (s as any).batchId || '';
+        if (rawBatchId) {
+          const matchedBatch = allBatches.find((b: any) => b.documentId === rawBatchId);
+          if (matchedBatch && matchedBatch.status && matchedBatch.status !== 'active') {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      setAllStudents(usersList);
       const coursesList = cSnap.docs.map(d => ({ documentId: d.id, ...d.data() } as Course));
-
-      // 3. Fetch Transactions
-      const transSnap = await getDocs(collection(db, 'fee_transactions'));
+      setAllCourses(coursesList);
       const transactions = transSnap.docs.map(d => d.data() as FeeTransaction);
 
       let total = 0;
@@ -184,35 +211,43 @@ const FeeReports: React.FC = () => {
         const lastTx = studentTx[0];
         const jInfo = formatJoiningDateDisplay(student.joiningDate || (student as any).createdAt);
 
-        let nextDueIso = lastTx?.nextDueDate || calculateNextDueDateString(jInfo.raw, 1).iso;
-        let nextDueDisplay = formatJoiningDateDisplay(nextDueIso).display;
+        let nextDueIso = (student as any).feeDueDate || lastTx?.nextDueDate || calculateNextDueDateString(jInfo.raw, 1).iso;
+        const isNoDues = typeof nextDueIso === 'string' && (nextDueIso.toUpperCase() === 'NO_DUES' || nextDueIso.toLowerCase() === 'no dues');
 
-        const dueDateObj = new Date(nextDueIso);
-        const isOverdue = nextDueIso < todayStr;
+        let nextDueDisplay = isNoDues ? 'No Dues' : formatJoiningDateDisplay(nextDueIso).display;
 
         let status: 'overdue' | 'due_soon' | 'up_to_date' = 'up_to_date';
         let pendingAmt = 0;
         let daysOverdue = 0;
 
-        if (isOverdue) {
-          status = 'overdue';
-          const diffTime = Math.abs(now.getTime() - dueDateObj.getTime());
-          daysOverdue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          
-          // Estimate months pending
-          const monthsOverdue = Math.max(1, (now.getFullYear() - dueDateObj.getFullYear()) * 12 + (now.getMonth() - dueDateObj.getMonth()) + 1);
-          pendingAmt = (monthlyFee > 0 ? monthlyFee : 500) * monthsOverdue;
-          
-          totalPending += pendingAmt;
-          defaulters++;
+        if (isNoDues) {
+          status = 'up_to_date';
+          pendingAmt = 0;
+          daysOverdue = 0;
         } else {
-          // Check if due within next 7 days
-          const diffTime = dueDateObj.getTime() - now.getTime();
-          const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          if (daysLeft <= 7) {
-            status = 'due_soon';
-            pendingAmt = monthlyFee;
+          const dueDateObj = new Date(nextDueIso);
+          const isOverdue = nextDueIso < todayStr;
+
+          if (isOverdue && !isNaN(dueDateObj.getTime())) {
+            status = 'overdue';
+            const diffTime = Math.abs(now.getTime() - dueDateObj.getTime());
+            daysOverdue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            // Estimate months pending
+            const monthsOverdue = Math.max(1, (now.getFullYear() - dueDateObj.getFullYear()) * 12 + (now.getMonth() - dueDateObj.getMonth()) + 1);
+            pendingAmt = (monthlyFee > 0 ? monthlyFee : 500) * monthsOverdue;
+            
             totalPending += pendingAmt;
+            defaulters++;
+          } else if (!isNaN(dueDateObj.getTime())) {
+            // Check if due within next 7 days
+            const diffTime = dueDateObj.getTime() - now.getTime();
+            const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (daysLeft <= 7) {
+              status = 'due_soon';
+              pendingAmt = monthlyFee;
+              totalPending += pendingAmt;
+            }
           }
         }
 
@@ -251,6 +286,10 @@ const FeeReports: React.FC = () => {
   };
 
   const openWhatsAppReminder = (phone: string | undefined, name: string, amount: number, dueDate: string) => {
+    if (dueDate === 'No Dues' || dueDate === 'NO_DUES') {
+      alert(`${name || 'Student'} has No Dues (Full fee paid).`);
+      return;
+    }
     if(!phone) { 
       alert("No phone number registered for this student."); 
       return; 
@@ -261,6 +300,14 @@ const FeeReports: React.FC = () => {
     const msg = `Dear Parents / Guardians, Students / Learners,\n\nThis is to inform you that the Spoken English / Abacus class FEE of ₹${amount || 800} for ${name || 'Student'} is due on ${dueDate || 'upcoming due date'}.\n\nFee to be paid to:\n\nGoogle Pay:\nSpeak Hub Academy\n9970964742\n\nOR\n\nPhonePe:\n9970964742\nSpeak Hub Academy\n\nOR\n\nBank details:\nBank Name: State Bank Of India\nA/c No: 41871708652\nIFSC Code: SBIN0011701\nName: Speak Hub Academy\n\nThank you,\nSpeak Hub Academy`;
 
     window.open(`https://wa.me/${phoneWithCode}?text=${encodeURIComponent(msg)}`, 'speakhub_whatsapp');
+  };
+
+  const handleOpenReceiptModal = (t: ExpandedTransactionRecord) => {
+    const student = allStudents.find(s => s.documentId === t.studentId) || { name: t.studentName, phone: (t as any).phone };
+    const course = allCourses.find(c => c.documentId === t.courseId) || { courseName: t.courseName };
+    setActiveReceiptTx(t as any);
+    setReceiptStudent(student);
+    setReceiptCourse(course);
   };
 
   const handleExportCSV = () => {
@@ -631,10 +678,17 @@ const FeeReports: React.FC = () => {
                             )}
                           </td>
                           <td>
-                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
-                              <Calendar size={14} className="text-slate-400" />
-                              {item.nextDueDate}
-                            </div>
+                            {item.nextDueDate === 'No Dues' ? (
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                                <CheckCircle2 size={14} className="text-emerald-500" />
+                                No Dues (Full Paid)
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
+                                <Calendar size={14} className="text-slate-400" />
+                                {item.nextDueDate}
+                              </div>
+                            )}
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             {item.status === 'overdue' ? (
@@ -647,7 +701,7 @@ const FeeReports: React.FC = () => {
                               </span>
                             ) : (
                               <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-sm inline-flex items-center gap-1">
-                                🟢 Up To Date
+                                🟢 Up To Date {item.nextDueDate === 'No Dues' ? '(No Dues)' : ''}
                               </span>
                             )}
                           </td>
@@ -724,6 +778,7 @@ const FeeReports: React.FC = () => {
                         <th className="cursor-pointer select-none hover:text-indigo-600 transition-colors" onClick={() => toggleAuditSort('amount')}>
                           <div className="flex items-center gap-1">Amount Paid {auditSort.key === 'amount' ? (auditSort.direction === 'asc' ? <ArrowUp size={12} className="text-indigo-600" /> : <ArrowDown size={12} className="text-indigo-600" />) : <ArrowUpDown size={12} className="opacity-40" />}</div>
                         </th>
+                        <th className="text-center" style={{ width: '150px' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -754,6 +809,26 @@ const FeeReports: React.FC = () => {
                             <td style={{ fontWeight: '800', color: '#16a34a' }}>
                               ₹{t.amountPaid.toLocaleString()}
                             </td>
+                            <td className="text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenReceiptModal(t)}
+                                  className="btn bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 font-bold px-2 py-1 rounded border border-indigo-200 dark:border-indigo-800 flex items-center gap-1 text-xs transition-all cursor-pointer"
+                                  title="View, Print & Download Receipt"
+                                >
+                                  <Printer size={11} /> Receipt
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenReceiptModal(t)}
+                                  className="btn bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 font-bold px-2 py-1 rounded border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 text-xs transition-all cursor-pointer"
+                                  title="Share Receipt to Student's WhatsApp"
+                                >
+                                  <MessageCircle size={11} /> WhatsApp
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))}
                     </tbody>
@@ -764,6 +839,16 @@ const FeeReports: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Official Fee Receipt Modal for Payment History & Audit */}
+      <ReceiptModal 
+        isOpen={Boolean(activeReceiptTx)}
+        onClose={() => setActiveReceiptTx(null)}
+        transaction={activeReceiptTx}
+        student={receiptStudent}
+        course={receiptCourse}
+        plan={{ planName: activeReceiptTx?.billingPeriod || 'Monthly Fee' }}
+      />
     </div>
   );
 };

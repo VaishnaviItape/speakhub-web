@@ -224,3 +224,137 @@
   border-bottom: 1px solid #f1f5f9;
   color: #475569;
 }
+
+/* Student View Tabs: Active vs Inactive Directory */
+.student-tab-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--card-bg, #ffffff);
+  padding: 0.35rem;
+  border-radius: 14px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  margin-bottom: 1.25rem;
+  width: fit-content;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme='dark'] .student-tab-nav {
+  background-color: #1e293b;
+  border-color: #334155;
+}
+
+.student-nav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.15rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.student-nav-tab:hover {
+  color: #1e293b;
+  background-color: #f8fafc;
+}
+
+[data-theme='dark'] .student-nav-tab:hover {
+  color: #f1f5f9;
+  background-color: #334155;
+}
+
+.student-nav-tab.active {
+  background: linear-gradient(135deg, var(--primary, #e11d48) 0%, #be123c 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(225, 29, 72, 0.25);
+}
+
+.student-nav-tab.inactive.active {
+  background: linear-gradient(135deg, #475569 0%, #334155 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(71, 85, 105, 0.25);
+}
+
+.tab-counter-badge {
+  font-size: 0.725rem;
+  font-weight: 800;
+  padding: 0.15rem 0.55rem;
+  border-radius: 20px;
+}
+
+.student-nav-tab.active .tab-counter-badge {
+  background-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.student-nav-tab:not(.active) .tab-counter-badge.active-badge {
+  background-color: #ecfdf5;
+  color: #065f46;
+}
+
+[data-theme='dark'] .student-nav-tab:not(.active) .tab-counter-badge.active-badge {
+  background-color: #064e3b;
+  color: #6ee7b7;
+}
+
+.student-nav-tab:not(.active) .tab-counter-badge.inactive-badge {
+  background-color: #fff1f2;
+  color: #be123c;
+}
+
+[data-theme='dark'] .student-nav-tab:not(.active) .tab-counter-badge.inactive-badge {
+  background-color: #881337;
+  color: #fda4af;
+}
+
+/* Inactive Notice Banner */
+.inactive-notice-banner {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #64748b;
+  border-radius: 12px;
+  padding: 0.85rem 1.15rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+[data-theme='dark'] .inactive-notice-banner {
+  background: #1e293b;
+  border-color: #334155;
+  border-left-color: #94a3b8;
+}
+
+.inactive-notice-content {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.inactive-notice-title {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #1e293b;
+}
+
+[data-theme='dark'] .inactive-notice-title {
+  color: #f1f5f9;
+}
+
+.inactive-notice-desc {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+[data-theme='dark'] .inactive-notice-desc {
+  color: #94a3b8;
+}

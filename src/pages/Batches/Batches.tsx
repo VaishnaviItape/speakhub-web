@@ -10,8 +10,11 @@ import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, where, a
 import { validateBatchName } from '../../utils/validation';
 import { formatIndianDate } from '../../utils/dateTime';
 import { sendNotificationToBatch } from '../../services/pushNotificationService';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Batches: React.FC = () => {
+  const { user } = useAuth();
+  const isTeacher = user?.role === 'teacher';
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -58,10 +61,19 @@ const Batches: React.FC = () => {
       setIsLoading(true);
       const q = query(collection(db, 'batches'));
       const snapshot = await getDocs(q);
-      const fetchedBatches: Batch[] = [];
+      let fetchedBatches: Batch[] = [];
       snapshot.forEach(doc => {
         fetchedBatches.push({ documentId: doc.id, ...doc.data() } as Batch);
       });
+
+      if (isTeacher) {
+        fetchedBatches = fetchedBatches.filter(b => 
+          b.teacherId === user?.id || 
+          b.teacherId === user?.email ||
+          (user as any)?.batchIds?.includes(b.documentId)
+        );
+      }
+
       setBatches(fetchedBatches);
     } catch (error) {
       console.error("Error fetching batches:", error);
