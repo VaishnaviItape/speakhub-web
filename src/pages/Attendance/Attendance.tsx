@@ -281,6 +281,18 @@ const Attendance: React.FC = () => {
   };
 
   const computeAttendanceDueInfo = (student: StudentAttendanceItem) => {
+    if (student.feeDueDate) {
+      const isNoDues = typeof student.feeDueDate === 'string' && 
+        (student.feeDueDate.toUpperCase() === 'NO_DUES' || student.feeDueDate.toLowerCase() === 'no dues');
+      if (isNoDues) {
+        return {
+          display: 'No Dues',
+          label: 'No Dues',
+          isNoDues: true,
+          badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800'
+        };
+      }
+    }
     let dueDateObj: Date | null = null;
     if (student.feeDueDate) {
       const d = student.feeDueDate?.toDate ? student.feeDueDate.toDate() : new Date(student.feeDueDate);
@@ -1350,6 +1362,14 @@ const Attendance: React.FC = () => {
                           {(() => {
                             const due = computeAttendanceDueInfo(student);
                             if (!due) return <span className="text-slate-400 text-xs">-</span>;
+                            if ((due as any).isNoDues || due.label === 'No Dues') {
+                              return (
+                                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
+                                  <CheckCircle2 size={12} className="text-emerald-600" />
+                                  <span>No Dues</span>
+                                </span>
+                              );
+                            }
                             return (
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">

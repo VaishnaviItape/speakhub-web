@@ -9,10 +9,13 @@ import {
   Phone,
   ZoomIn,
   ZoomOut,
-  RotateCcw
+  RotateCcw,
+  Loader2
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../../config/firebase';
 import ReceiptTemplate from './ReceiptTemplate';
 import type { FeeTransaction, User, Course } from '../../types/models';
 import './ReceiptModal.css';
@@ -36,8 +39,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 }) => {
   const [isExportingImage, setIsExportingImage] = useState<boolean>(false);
   const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
+  const [isSharingWhatsApp, setIsSharingWhatsApp] = useState<boolean>(false);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [phonePromptOpen, setPhonePromptOpen] = useState<boolean>(false);
+  const [desktopShareModalOpen, setDesktopShareModalOpen] = useState<boolean>(false);
+  const [sharedFileName, setSharedFileName] = useState<string>('');
+  const [targetSharedPhone, setTargetSharedPhone] = useState<string>('');
   const [customPhone, setCustomPhone] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -49,88 +56,55 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
-    }, 4000);
+    }, 4500);
   };
 
   const studentName = student?.name || (transaction as any).studentName || 'Student';
   const registeredPhone = (student as any)?.phone || (student as any)?.mobile || (transaction as any)?.phone || '';
   const receiptNumber = transaction.receiptNumber || '08/26-004';
-  const courseName = course?.courseName || (transaction as any).courseName || 'Foundation-Spoken English';
-
-  const formatDateDisplay = (dateVal?: any): string => {
-    if (!dateVal) return 'N/A';
-    let d: Date;
-    if (dateVal instanceof Date) {
-      d = dateVal;
-    } else if (dateVal.seconds) {
-      d = new Date(dateVal.seconds * 1000);
-    } else if (typeof dateVal?.toDate === 'function') {
-      d = dateVal.toDate();
-    } else if (typeof dateVal === 'string') {
-      d = new Date(dateVal);
-    } else {
-      d = new Date();
-    }
-    if (isNaN(d.getTime())) return 'N/A';
-    return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
-  };
-
-  const isNoDues = Boolean(
-    transaction.nextDueDate && (
-      transaction.nextDueDate.toString().toUpperCase() === 'NO_DUES' || 
-      transaction.nextDueDate.toString().toLowerCase() === 'no dues'
-    )
-  );
-
   const amountPaid = transaction.amountPaid || 0;
-  const discount = transaction.discount || 0;
-  const perMonthFee = (transaction as any).perMonthFee || (amountPaid + discount);
-  const remaining = (transaction as any).remainingBalance || 0;
-  const paymentDateStr = formatDateDisplay(transaction.paymentDate);
-  const nextDueDateStr = isNoDues ? 'No Dues (Full Paid)' : (transaction.nextDueDate ? formatDateDisplay(transaction.nextDueDate) : '-');
 
-  // Build the complete WhatsApp Receipt message text
-  const generateWhatsAppMessage = () => {
-    return (
-`🎓 *SPEAK HUB ACADEMY*
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-        🧾 *OFFICIAL FEE PAYMENT RECEIPT*
-━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // Build the A4 PDF Document from the HTML element
+  const buildReceiptPdf = async () => {
+    const el = document.getElementById('speak-hub-fee-receipt-box');
+    if (!el) {
+      alert("Receipt element not found for rendering.");
+      return null;
+    }
 
-Dear *${studentName}*,
-We have successfully received your fee payment. Thank you!
+    const canvas = await html2canvas(el, {
+      scale: 2.5, // 2.5x sharp retina resolution
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false
+    });
 
-📋 *RECEIPT SUMMARY:*
-──────────────────────────
-• *Receipt No:* ${receiptNumber}
-• *Payment Date:* ${paymentDateStr}
-• *Student Name:* ${studentName}
-• *Course:* ${courseName}
-• *Payment Method:* ${transaction.paymentMode || 'UPI Transfer'}
-${transaction.billingPeriod ? `• *Period:* ${transaction.billingPeriod}\n` : ''}
-💵 *FINANCIAL DETAILS:*
-──────────────────────────
-• *Course / Monthly Fee:* ₹${perMonthFee || amountPaid}
-• *Discount:* ₹${discount}
-• *Amount Paid:* ₹${amountPaid}
-• *Remaining Balance:* ₹${remaining}
-• *Next Due Date:* ${nextDueDateStr}
-${(transaction as any).remarks ? `• *Remarks:* ${(transaction as any).remarks}\n` : ''}
-📍 *ACADEMY ADDRESS:*
-Omkar Apartment, Shop No. 6 & 7,
-Near Canara Bank, NDA Road,
-Warje-Malwadi, Pune - 411058.
+    const imgData = canvas.toDataURL('image/png', 1.0);
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
 
-📞 *CONTACT US:*
-Phone: 9970964742 / 8999080975
+    // A4 page width = 210mm, margins = 10mm each side -> printable = 190mm
+    const pageWidth = 210;
+    const margin = 10;
+    const printWidth = pageWidth - (margin * 2);
+    const printHeight = (canvas.height * printWidth) / canvas.width;
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━
-_Note: Fees once paid are not returnable / refundable or transferable._
-_Thank you for choosing Speak Hub Academy!_`
-    );
+    pdf.addImage(imgData, 'PNG', margin, margin, printWidth, printHeight);
+
+    const safeNumber = receiptNumber.replace(/[/\\?%*:|"<>]/g, '_');
+    const fileName = `SpeakHub_Receipt_${safeNumber}.pdf`;
+    const blob = pdf.output('blob');
+    const file = new File([blob], fileName, { type: 'application/pdf' });
+
+    return { pdf, blob, file, fileName, canvas };
   };
 
-  const handleShareToWhatsApp = (targetPhone?: string) => {
+  // 1. Share Receipt PDF directly to WhatsApp
+  const handleShareToWhatsApp = async (targetPhone?: string) => {
     const rawPhone = targetPhone || customPhone || registeredPhone;
     const cleanPhone = (rawPhone || '').replace(/[^0-9]/g, '');
 
@@ -140,32 +114,113 @@ _Thank you for choosing Speak Hub Academy!_`
       return;
     }
 
-    const phoneWithCountry = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-    const msg = generateWhatsAppMessage();
-    const url = `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(msg)}`;
+    setIsSharingWhatsApp(true);
+    try {
+      const res = await buildReceiptPdf();
+      if (!res) {
+        setIsSharingWhatsApp(false);
+        return;
+      }
 
-    window.open(url, '_blank');
-    setPhonePromptOpen(false);
-    showToast("WhatsApp opened! You can also download the receipt image to attach in chat.");
+      const { pdf, blob, file, fileName, canvas } = res;
+      const phoneWithCountry = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+      setTargetSharedPhone(cleanPhone);
+      setSharedFileName(fileName);
+
+      // Method A: Native Web Share API Level 2 (shares the actual PDF document file directly to WhatsApp on mobile or supported OS)
+      const canShareFile = typeof navigator !== 'undefined' && 
+        !!navigator.canShare && 
+        navigator.canShare({ files: [file] });
+
+      if (canShareFile) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: fileName
+          });
+          setPhonePromptOpen(false);
+          showToast("Receipt PDF shared directly to WhatsApp!");
+          setIsSharingWhatsApp(false);
+          return;
+        } catch (shareErr: any) {
+          if (shareErr.name === 'AbortError') {
+            setIsSharingWhatsApp(false);
+            return;
+          }
+          console.warn("navigator.share failed, using web WhatsApp fallback:", shareErr);
+        }
+      }
+
+      // Method B: Desktop / Web WhatsApp (Direct PDF Download + Cloud Direct PDF URL)
+      // 1. Immediately save the physical PDF to Downloads
+      pdf.save(fileName);
+
+      // 2. Copy the receipt image to clipboard for instant Ctrl+V into WhatsApp Web
+      try {
+        canvas.toBlob(async (pngBlob) => {
+          if (pngBlob && navigator.clipboard && (window as any).ClipboardItem) {
+            try {
+              await navigator.clipboard.write([
+                new (window as any).ClipboardItem({ 'image/png': pngBlob })
+              ]);
+            } catch (e) { }
+          }
+        });
+      } catch (e) { }
+
+      // 3. Upload PDF to Firebase Storage for direct access link
+      let pdfDownloadUrl = '';
+      try {
+        const storageRef = ref(storage, `receipt_pdfs/${Date.now()}_${fileName}`);
+        const uploadPromise = uploadBytes(storageRef, blob, { contentType: 'application/pdf' })
+          .then(snap => getDownloadURL(snap.ref));
+        const timeoutPromise = new Promise<string>((_, reject) => 
+          setTimeout(() => reject(new Error('timeout')), 5000)
+        );
+        pdfDownloadUrl = await Promise.race([uploadPromise, timeoutPromise]);
+      } catch (sErr) {
+        console.warn("Storage upload skipped or timed out:", sErr);
+      }
+
+      // 4. Open WhatsApp directly with direct PDF link (no formatted message table)
+      let msg = '';
+      if (pdfDownloadUrl) {
+        msg = `📄 *Official Fee Receipt (PDF)* - ${studentName}\nReceipt No: *${receiptNumber}*\nAmount Paid: *₹${amountPaid}*\n\n📥 *Download Official PDF Receipt:*\n${pdfDownloadUrl}`;
+      } else {
+        msg = `📄 *Official Fee Receipt (PDF)* - ${studentName}\nReceipt No: *${receiptNumber}*\nAmount Paid: *₹${amountPaid}*`;
+      }
+
+      const whatsappUrl = `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(msg)}`;
+      window.open(whatsappUrl, '_blank');
+
+      setPhonePromptOpen(false);
+      setDesktopShareModalOpen(true);
+      showToast("PDF downloaded & WhatsApp opened!");
+    } catch (err: any) {
+      console.error("Error sharing PDF to WhatsApp:", err);
+      alert("Failed to share PDF: " + (err.message || 'Unknown error'));
+    } finally {
+      setIsSharingWhatsApp(false);
+    }
   };
 
-  // 1. Native Print Handler
+  // 2. Native Print Handler
   const handlePrint = () => {
     window.print();
   };
 
-  // 2. Download high-resolution PNG using html2canvas
+  // 3. Download high-resolution PNG using html2canvas
   const handleDownloadImage = async () => {
     const el = document.getElementById('speak-hub-fee-receipt-box');
     if (!el) {
       alert("Receipt element not found for rendering.");
-      return;
+      return null;
     }
 
     setIsExportingImage(true);
     try {
       const canvas = await html2canvas(el, {
-        scale: 2.5, // 2.5x sharp retina resolution
+        scale: 2.5,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
@@ -189,40 +244,13 @@ _Thank you for choosing Speak Hub Academy!_`
     }
   };
 
-  // 3. Download True A4 PDF using jsPDF + html2canvas
+  // 4. Download True A4 PDF using jsPDF + html2canvas
   const handleDownloadPdf = async () => {
-    const el = document.getElementById('speak-hub-fee-receipt-box');
-    if (!el) {
-      alert("Receipt element not found for rendering.");
-      return;
-    }
-
     setIsExportingPdf(true);
     try {
-      const canvas = await html2canvas(el, {
-        scale: 2.5,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false
-      });
-
-      const imgData = canvas.toDataURL('image/png', 1.0);
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      // A4 page width = 210mm, margins = 10mm each side -> printable = 190mm
-      const pageWidth = 210;
-      const margin = 10;
-      const printWidth = pageWidth - (margin * 2);
-      const printHeight = (canvas.height * printWidth) / canvas.width;
-
-      pdf.addImage(imgData, 'PNG', margin, margin, printWidth, printHeight);
-      pdf.save(`SpeakHub_Receipt_${receiptNumber.replace(/[/\\?%*:|"<>]/g, '_')}.pdf`);
-
+      const res = await buildReceiptPdf();
+      if (!res) return;
+      res.pdf.save(res.fileName);
       showToast("PDF downloaded successfully!");
     } catch (err) {
       console.error("PDF generation error:", err);
@@ -277,10 +305,20 @@ _Thank you for choosing Speak Hub Academy!_`
               type="button"
               className="receipt-btn receipt-btn-whatsapp"
               onClick={() => handleShareToWhatsApp()}
-              title="Share Receipt directly to Student's WhatsApp"
+              disabled={isSharingWhatsApp}
+              title="Share Receipt PDF directly to WhatsApp"
             >
-              <MessageCircle size={16} />
-              <span>Share to WhatsApp</span>
+              {isSharingWhatsApp ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Preparing PDF...</span>
+                </>
+              ) : (
+                <>
+                  <MessageCircle size={16} />
+                  <span>Share PDF to WhatsApp</span>
+                </>
+              )}
             </button>
 
             {/* Print Receipt / Save as PDF */}
@@ -358,7 +396,7 @@ _Thank you for choosing Speak Hub Academy!_`
                 <h4 className="font-bold text-slate-800 text-sm">Enter WhatsApp Number</h4>
               </div>
               <p className="text-xs text-slate-600 mb-3">
-                Please enter the 10-digit mobile number for <strong>{studentName}</strong> to send the receipt:
+                Please enter the 10-digit mobile number for <strong>{studentName}</strong> to send the PDF receipt:
               </p>
               <input
                 type="tel"
@@ -381,11 +419,77 @@ _Thank you for choosing Speak Hub Academy!_`
                   type="button"
                   className="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-md flex items-center gap-1.5"
                   onClick={() => handleShareToWhatsApp(customPhone)}
+                  disabled={isSharingWhatsApp}
                 >
-                  <MessageCircle size={14} />
-                  <span>Send on WhatsApp</span>
+                  {isSharingWhatsApp ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Preparing PDF...</span>
+                    </>
+                  ) : (
+                    <>
+                      <MessageCircle size={14} />
+                      <span>Send PDF on WhatsApp</span>
+                    </>
+                  )}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Desktop WhatsApp PDF Share Helper Modal */}
+        {desktopShareModalOpen && (
+          <div className="receipt-desktop-share-backdrop no-print" onClick={() => setDesktopShareModalOpen(false)}>
+            <div className="receipt-desktop-share-box" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="receipt-desktop-share-icon">
+                  <FileText size={24} />
+                </div>
+                <button 
+                  type="button" 
+                  className="text-slate-400 hover:text-slate-600"
+                  onClick={() => setDesktopShareModalOpen(false)}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <h3 className="font-bold text-slate-900 text-base mb-1">
+                Receipt PDF Ready for WhatsApp
+              </h3>
+              <p className="text-xs text-slate-600 mb-3">
+                WhatsApp chat has opened for <strong>+91 {targetSharedPhone}</strong>.
+              </p>
+
+              <div className="receipt-desktop-share-steps">
+                <div className="step-item">
+                  <span className="step-num">1</span>
+                  <div>
+                    <strong>PDF Document Downloaded:</strong> <code>{sharedFileName}</code> is saved to your computer downloads.
+                  </div>
+                </div>
+                <div className="step-item">
+                  <span className="step-num">2</span>
+                  <div>
+                    <strong>Direct PDF Link in Chat:</strong> A direct download link for the student to view the PDF has been placed in WhatsApp.
+                  </div>
+                </div>
+                <div className="step-item">
+                  <span className="step-num">3</span>
+                  <div>
+                    <strong>Attach or Paste:</strong> You can drag the downloaded PDF into WhatsApp chat, or press <kbd>Ctrl</kbd>+<kbd>V</kbd> to paste the receipt!
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                type="button" 
+                className="receipt-btn-done" 
+                onClick={() => setDesktopShareModalOpen(false)}
+              >
+                Done
+              </button>
             </div>
           </div>
         )}

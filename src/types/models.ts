@@ -54,9 +54,19 @@ export interface Course {
   courseName: string;
   description: string;
   duration: string;
+  mode?: 'online' | 'offline';
   monthlyFee?: number;
+  offlineOneTimeFee?: number;
+  hasInstallments?: boolean;
+  offlineInstallmentFee?: number;
+  installmentsCount?: number;
+  installmentAmount?: number;
   image?: string;
+  modeBadge?: string;
+  demoVideoUrl?: string;
   status: 'active' | 'inactive';
+  createdAt?: Timestamp | Date;
+  updatedAt?: Timestamp | Date;
 }
 
 export interface Subject {

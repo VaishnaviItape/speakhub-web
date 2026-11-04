@@ -197,7 +197,8 @@ const FeeReports: React.FC = () => {
       usersList.forEach(student => {
         const courseId = student.courseIds?.[0] || '';
         const course = coursesList.find(c => c.documentId === courseId);
-        const monthlyFee = course?.monthlyFee || 0;
+        const isOffline = course?.mode === 'offline' || course?.modeBadge?.toLowerCase().includes('offline');
+        const monthlyFee = isOffline ? (course?.offlineOneTimeFee || 4000) : (course?.monthlyFee || 0);
 
         // Student's transaction history
         const studentTx = transactions
@@ -211,9 +212,15 @@ const FeeReports: React.FC = () => {
         const lastTx = studentTx[0];
         const jInfo = formatJoiningDateDisplay(student.joiningDate || (student as any).createdAt);
 
-        let nextDueIso = (student as any).feeDueDate || lastTx?.nextDueDate || calculateNextDueDateString(jInfo.raw, 1).iso;
-        const isNoDues = typeof nextDueIso === 'string' && (nextDueIso.toUpperCase() === 'NO_DUES' || nextDueIso.toLowerCase() === 'no dues');
+        const isTxNoDues = lastTx?.nextDueDate && typeof lastTx.nextDueDate === 'string' && (lastTx.nextDueDate.toUpperCase() === 'NO_DUES' || lastTx.nextDueDate.toLowerCase() === 'no dues');
+        const isStudentExplicitNoDues = (student as any).feeDueDate && typeof (student as any).feeDueDate === 'string' && ((student as any).feeDueDate.toUpperCase() === 'NO_DUES' || (student as any).feeDueDate.toLowerCase() === 'no dues');
+        
+        const offlineTarget = course?.offlineOneTimeFee || 4000;
+        const totalPaidByStudent = studentTx.reduce((sum, t) => sum + (Number(t.amountPaid) || 0), 0);
+        const hasPaidFullOffline = isOffline && totalPaidByStudent >= offlineTarget && offlineTarget > 0;
 
+        const isNoDues = isTxNoDues || isStudentExplicitNoDues || hasPaidFullOffline;
+        let nextDueIso = isNoDues ? 'NO_DUES' : ((student as any).feeDueDate || lastTx?.nextDueDate || calculateNextDueDateString(jInfo.raw, 1).iso);
         let nextDueDisplay = isNoDues ? 'No Dues' : formatJoiningDateDisplay(nextDueIso).display;
 
         let status: 'overdue' | 'due_soon' | 'up_to_date' = 'up_to_date';
@@ -662,7 +669,7 @@ const FeeReports: React.FC = () => {
                           </td>
                           <td>
                             <span className="font-semibold text-blue-800 dark:text-blue-400 block">{item.courseName}</span>
-                            <span className="text-xs text-slate-500">₹{item.monthlyFee} / mo</span>
+                            <span className="text-xs text-slate-500">{item.monthlyFee >= 1000 ? `₹${item.monthlyFee.toLocaleString('en-IN')} (Offline)` : `₹${item.monthlyFee} / mo`}</span>
                           </td>
                           <td style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
                             {item.joiningDate || '01 Jan 2026'}
@@ -709,13 +716,20 @@ const FeeReports: React.FC = () => {
                             ₹{item.pendingAmount.toLocaleString()}
                           </td>
                           <td style={{ textAlign: 'center' }}>
-                            <button
-                              type="button"
-                              onClick={() => openWhatsAppReminder(item.phone, item.studentName, item.pendingAmount || item.monthlyFee, item.nextDueDate)}
-                              className="btn bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 font-bold px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 mx-auto text-xs transition-all cursor-pointer"
-                            >
-                              <MessageCircle size={14} /> Send WhatsApp Reminder
-                            </button>
+                            {item.nextDueDate === 'No Dues' ? (
+                              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 px-3 py-1.5 rounded-lg inline-flex items-center gap-1 mx-auto">
+                                <CheckCircle2 size={13} className="text-emerald-600" />
+                                All Dues Paid
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => openWhatsAppReminder(item.phone, item.studentName, item.pendingAmount || item.monthlyFee, item.nextDueDate)}
+                                className="btn bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 font-bold px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 mx-auto text-xs transition-all cursor-pointer"
+                              >
+                                <MessageCircle size={14} /> Send WhatsApp Reminder
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}

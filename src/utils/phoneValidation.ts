@@ -15,7 +15,8 @@ export interface MobileCheckResult {
  */
 export async function checkMobileExists(
   mobileInput: string,
-  excludeUid?: string | null
+  excludeUid?: string | null,
+  excludeEmail?: string | null
 ): Promise<MobileCheckResult> {
   if (!mobileInput) return { exists: false };
 
@@ -25,6 +26,8 @@ export async function checkMobileExists(
   if (!cleanPhone || cleanPhone.length < 5) {
     return { exists: false };
   }
+
+  const normalizedExcludeEmail = excludeEmail ? excludeEmail.trim().toLowerCase() : null;
 
   try {
     const usersRef = collection(db, 'users');
@@ -43,8 +46,19 @@ export async function checkMobileExists(
     for (const q of queries) {
       const snapshot = await getDocs(q);
       for (const docSnap of snapshot.docs) {
-        if (!excludeUid || docSnap.id !== excludeUid) {
-          const userData = docSnap.data();
+        const userData = docSnap.data();
+
+        // Check if doc matches the excluded user by doc ID, uid, userId, or email
+        const isSelfDoc = excludeUid && (
+          docSnap.id === excludeUid ||
+          userData.uid === excludeUid ||
+          userData.userId === excludeUid
+        );
+        const isSelfEmail = normalizedExcludeEmail && userData.email && (
+          userData.email.trim().toLowerCase() === normalizedExcludeEmail
+        );
+
+        if (!isSelfDoc && !isSelfEmail) {
           return {
             exists: true,
             existingUser: { id: docSnap.id, ...userData },
@@ -67,7 +81,16 @@ export async function checkMobileExists(
       const sSnapshot = await getDocs(sq);
       for (const sDoc of sSnapshot.docs) {
         const sData = sDoc.data();
-        if (!excludeUid || (sData.userId !== excludeUid && sDoc.id !== excludeUid)) {
+        const isSelfDoc = excludeUid && (
+          sDoc.id === excludeUid ||
+          sData.userId === excludeUid ||
+          sData.uid === excludeUid
+        );
+        const isSelfEmail = normalizedExcludeEmail && sData.email && (
+          sData.email.trim().toLowerCase() === normalizedExcludeEmail
+        );
+
+        if (!isSelfDoc && !isSelfEmail) {
           return {
             exists: true,
             existingUser: { id: sDoc.id, ...sData },

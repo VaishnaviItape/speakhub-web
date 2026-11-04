@@ -45,6 +45,8 @@ const Teachers: React.FC = () => {
   const [selectedBatchIds, setSelectedBatchIds] = useState<string[]>([]);
   const [batchSearch, setBatchSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTeacherUid, setEditingTeacherUid] = useState<string | null>(null);
+  const [initialMobile, setInitialMobile] = useState('');
 
   // Data
   const [teachers, setTeachers] = useState<User[]>([]);
@@ -106,10 +108,25 @@ const Teachers: React.FC = () => {
 
     try {
       if (mobile.trim()) {
-        const mobileCheck = await checkMobileExists(mobile.trim(), editingId);
-        if (mobileCheck.exists) {
-          alert(mobileCheck.message || "This mobile number is already registered to another user.");
-          return;
+        const isMobileChanged = !editingId || mobile.trim() !== initialMobile.trim();
+        if (isMobileChanged) {
+          const mobileCheck = await checkMobileExists(mobile.trim(), editingId, email.trim());
+          const isSelf = mobileCheck.existingUser && (
+            mobileCheck.existingUser.id === editingId ||
+            mobileCheck.existingUser.uid === editingId ||
+            mobileCheck.existingUser.userId === editingId ||
+            (editingTeacherUid && (
+              mobileCheck.existingUser.id === editingTeacherUid ||
+              mobileCheck.existingUser.uid === editingTeacherUid ||
+              mobileCheck.existingUser.userId === editingTeacherUid
+            )) ||
+            (email.trim() && mobileCheck.existingUser.email?.trim().toLowerCase() === email.trim().toLowerCase())
+          );
+
+          if (mobileCheck.exists && !isSelf) {
+            alert(mobileCheck.message || "This mobile number is already registered to another user.");
+            return;
+          }
         }
       }
 
@@ -164,6 +181,7 @@ const Teachers: React.FC = () => {
           }
         }
 
+        targetTeacherId = uid;
         // Save profile to users collection
         await setDoc(doc(db, 'users', uid), {
           uid,
@@ -187,11 +205,17 @@ const Teachers: React.FC = () => {
       // 1. Assign this teacher to all selected batches
       for (const bId of selectedBatchIds) {
         try {
-          await updateDoc(doc(db, 'batches', bId), {
-            teacherId: targetTeacherId,
-            teacherIds: arrayUnion(targetTeacherId),
+          const idsToSync = Array.from(new Set([targetTeacherId, editingTeacherUid].filter(Boolean))) as string[];
+          const batchUpdate: any = {
             updatedAt: serverTimestamp()
-          });
+          };
+          if (targetTeacherId) {
+            batchUpdate.teacherId = targetTeacherId;
+          }
+          if (idsToSync.length > 0) {
+            batchUpdate.teacherIds = arrayUnion(...idsToSync);
+          }
+          await updateDoc(doc(db, 'batches', bId), batchUpdate);
         } catch (bErr) {
           console.warn("Could not sync batch " + bId, bErr);
         }
@@ -203,18 +227,27 @@ const Teachers: React.FC = () => {
           b.documentId && 
           !selectedBatchIds.includes(b.documentId) && (
             b.teacherId === editingId || 
+            (editingTeacherUid && b.teacherId === editingTeacherUid) ||
             b.teacherId === email.trim() ||
-            ((b as any).teacherIds && Array.isArray((b as any).teacherIds) && (b as any).teacherIds.includes(editingId))
+            ((b as any).teacherIds && Array.isArray((b as any).teacherIds) && (
+              (editingId && (b as any).teacherIds.includes(editingId)) ||
+              (editingTeacherUid && (b as any).teacherIds.includes(editingTeacherUid)) ||
+              (email.trim() && (b as any).teacherIds.includes(email.trim()))
+            ))
           )
         );
 
         for (const unb of unassignedBatches) {
           try {
-            await updateDoc(doc(db, 'batches', unb.documentId!), {
+            const removes = Array.from(new Set([editingId, editingTeacherUid, email.trim()].filter(Boolean))) as string[];
+            const batchUpdate: any = {
               teacherId: '',
-              teacherIds: arrayRemove(editingId),
               updatedAt: serverTimestamp()
-            });
+            };
+            if (removes.length > 0) {
+              batchUpdate.teacherIds = arrayRemove(...removes);
+            }
+            await updateDoc(doc(db, 'batches', unb.documentId!), batchUpdate);
           } catch (unErr) {
             console.warn("Could not unassign batch " + unb.documentId, unErr);
           }
@@ -240,6 +273,8 @@ const Teachers: React.FC = () => {
     setStatus('active');
     setSelectedBatchIds([]);
     setEditingId(null);
+    setEditingTeacherUid(null);
+    setInitialMobile('');
     setBatchSearch('');
   };
 
@@ -275,6 +310,8 @@ const Teachers: React.FC = () => {
 
     setSelectedBatchIds(Array.from(initialBatchIds));
     setEditingId(teacher.documentId || null);
+    setEditingTeacherUid(teacher.uid || null);
+    setInitialMobile(teacher.mobile || teacher.phone || '');
     setBatchSearch('');
     setIsModalOpen(true);
   };

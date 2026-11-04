@@ -59,6 +59,7 @@ const Students: React.FC = () => {
 
   // Single Student Form State
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [initialPhone, setInitialPhone] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
@@ -297,6 +298,43 @@ const Students: React.FC = () => {
   }, [students, allBatches]);
 
   const getStudentDueDateInfo = (student: any) => {
+    // 1. Check if student doc explicitly has NO_DUES
+    const rawFeeDue = student.feeDueDate;
+    const isExplicitNoDues = typeof rawFeeDue === 'string' && 
+      (rawFeeDue.toUpperCase() === 'NO_DUES' || rawFeeDue.toLowerCase() === 'no dues');
+
+    // 2. Check student's transactions
+    const sTxs = feeTransactions
+      .filter((t: any) => t.studentId === student.documentId || t.studentId === student.uid)
+      .sort((a: any, b: any) => {
+        const tA = (a.paymentDate?.seconds || 0) || (a.createdAt?.seconds || 0) || new Date(a.paymentDate || 0).getTime();
+        const tB = (b.paymentDate?.seconds || 0) || (b.createdAt?.seconds || 0) || new Date(b.paymentDate || 0).getTime();
+        return tB - tA;
+      });
+
+    const lastTx = sTxs[0];
+    const isTxNoDues = lastTx?.nextDueDate && typeof lastTx.nextDueDate === 'string' && 
+      (lastTx.nextDueDate.toUpperCase() === 'NO_DUES' || lastTx.nextDueDate.toLowerCase() === 'no dues');
+
+    // 3. Check if offline course fee is fully paid
+    const courseId = student.courseIds?.[0] || student.courseId;
+    const course = courses.find((c: any) => c.documentId === courseId);
+    const isOffline = course?.mode === 'offline' || (course as any)?.modeBadge?.toLowerCase().includes('offline');
+    const offlineTarget = course?.offlineOneTimeFee || 4000;
+    const totalPaid = sTxs.reduce((sum: number, t: any) => sum + (Number(t.amountPaid) || 0), 0);
+    const hasPaidFullOffline = isOffline && totalPaid >= offlineTarget && offlineTarget > 0;
+
+    if (isExplicitNoDues || isTxNoDues || hasPaidFullOffline) {
+      return {
+        date: null,
+        display: 'No Dues',
+        status: 'NO_DUES',
+        diffDays: 9999,
+        label: 'No Dues (Full Paid)',
+        badgeClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800'
+      };
+    }
+
     let dueDateObj: Date | null = null;
 
     if (student.feeDueDate) {
@@ -304,19 +342,9 @@ const Students: React.FC = () => {
       if (!isNaN(d.getTime())) dueDateObj = d;
     }
 
-    if (!dueDateObj) {
-      const sTxs = feeTransactions
-        .filter((t: any) => t.studentId === student.documentId || t.studentId === student.uid)
-        .sort((a: any, b: any) => {
-          const tA = (a.paymentDate?.seconds || 0) || (a.createdAt?.seconds || 0) || new Date(a.paymentDate || 0).getTime();
-          const tB = (b.paymentDate?.seconds || 0) || (b.createdAt?.seconds || 0) || new Date(b.paymentDate || 0).getTime();
-          return tB - tA;
-        });
-      const lastTx = sTxs[0];
-      if (lastTx?.nextDueDate) {
-        const d = lastTx.nextDueDate?.toDate ? lastTx.nextDueDate.toDate() : new Date(lastTx.nextDueDate);
-        if (!isNaN(d.getTime())) dueDateObj = d;
-      }
+    if (!dueDateObj && lastTx?.nextDueDate) {
+      const d = lastTx.nextDueDate?.toDate ? lastTx.nextDueDate.toDate() : new Date(lastTx.nextDueDate);
+      if (!isNaN(d.getTime())) dueDateObj = d;
     }
 
     if (!dueDateObj && student.joiningDate) {
@@ -368,6 +396,7 @@ const Students: React.FC = () => {
 
   const resetForm = () => {
     setEditingId(null);
+    setInitialPhone('');
     setFirstName('');
     setLastName('');
     setPhone('');
@@ -433,11 +462,16 @@ const Students: React.FC = () => {
     setIsSubmitting(true);
     try {
       if (phone) {
-        const mobileCheck = await checkMobileExists(phone, editingId);
-        if (mobileCheck.exists) {
-          alert(mobileCheck.message || "This mobile number is already registered to another user.");
-          setIsSubmitting(false);
-          return;
+        const isPhoneChanged = !editingId || phone.trim() !== initialPhone.trim();
+        if (isPhoneChanged) {
+          const cleanPhone = phone.replace(/[^0-9]/g, '');
+          const authEmail = `${cleanPhone}@speakhub.com`;
+          const mobileCheck = await checkMobileExists(phone, editingId, authEmail);
+          if (mobileCheck.exists) {
+            alert(mobileCheck.message || "This mobile number is already registered to another user.");
+            setIsSubmitting(false);
+            return;
+          }
         }
       }
 
@@ -616,6 +650,7 @@ const Students: React.FC = () => {
 
   const handleEdit = (student: any) => {
     setEditingId(student.documentId);
+    setInitialPhone(student.phone || student.mobile || '');
     const nameParts = (student.name || '').split(' ');
     setFirstName(nameParts[0] || '');
     setLastName(nameParts.slice(1).join(' ') || '');
@@ -1050,6 +1085,14 @@ const Students: React.FC = () => {
       render: (row) => {
         const dueInfo = getStudentDueDateInfo(row);
         if (!dueInfo) return <span className="text-slate-400 text-xs font-medium">Not set</span>;
+        if (dueInfo.status === 'NO_DUES') {
+          return (
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 px-2.5 py-1 rounded-lg">
+              <CheckCircle2 size={13} className="text-emerald-600" />
+              <span>No Dues (Paid)</span>
+            </div>
+          );
+        }
         return (
           <div className="flex flex-col gap-1 items-start">
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">

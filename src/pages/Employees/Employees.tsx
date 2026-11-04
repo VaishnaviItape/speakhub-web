@@ -47,6 +47,7 @@ const Employees: React.FC = () => {
   
   // Form state
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [initialMobile, setInitialMobile] = useState('');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -150,10 +151,13 @@ const Employees: React.FC = () => {
 
     try {
       if (formData.mobile.trim()) {
-        const mobileCheck = await checkMobileExists(formData.mobile.trim(), editingId);
-        if (mobileCheck.exists) {
-          alert(mobileCheck.message || "This mobile number is already registered to another user.");
-          return;
+        const isMobileChanged = !editingId || formData.mobile.trim() !== initialMobile.trim();
+        if (isMobileChanged) {
+          const mobileCheck = await checkMobileExists(formData.mobile.trim(), editingId, formData.email.trim());
+          if (mobileCheck.exists) {
+            alert(mobileCheck.message || "This mobile number is already registered to another user.");
+            return;
+          }
         }
       }
 
@@ -237,6 +241,7 @@ const Employees: React.FC = () => {
 
   const resetForm = () => {
     setEditingId(null);
+    setInitialMobile('');
     setFormData({ firstName: '', lastName: '', email: '', mobile: '', role: 'admin', status: 'active' });
   };
 
@@ -251,6 +256,7 @@ const Employees: React.FC = () => {
       status: emp.status || 'active'
     });
     setEditingId(emp.documentId || null);
+    setInitialMobile(emp.mobile || '');
     setIsModalOpen(true);
   };
 
