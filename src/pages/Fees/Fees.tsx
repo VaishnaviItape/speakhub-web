@@ -23,6 +23,12 @@ interface StudentFeeRecord {
   batchId?: string;
   batchName?: string;
   monthlyFee: number;
+  isOffline?: boolean;
+  offlineOneTimeFee?: number;
+  totalPaid?: number;
+  remainingBalance?: number;
+  installmentsCount?: number;
+  installmentsPaidCount?: number;
   joiningDate?: string;
   joiningDateRaw?: string;
   joiningDay?: number;
@@ -295,9 +301,11 @@ const Fees: React.FC = () => {
           ((student as any).feeDueDate.toUpperCase() === 'NO_DUES' || (student as any).feeDueDate.toLowerCase() === 'no dues');
 
         const isOffline = course?.mode === 'offline' || course?.modeBadge?.toLowerCase().includes('offline');
-        const offlineTarget = course?.offlineOneTimeFee || 4000;
+        const offlineTarget = isOffline ? (course?.offlineOneTimeFee || 4000) : 0;
         const totalPaidByStudent = studentTx.reduce((sum, t) => sum + (Number(t.amountPaid) || 0), 0);
         const hasPaidFullOffline = isOffline && totalPaidByStudent >= offlineTarget && offlineTarget > 0;
+        const remainingOffline = isOffline ? Math.max(0, offlineTarget - totalPaidByStudent) : 0;
+        const paidInstCount = studentTx.length;
 
         if (isStudentExplicitNoDues || isTxNoDues || hasPaidFullOffline) {
           curDueDisplay = 'No Dues';
@@ -324,6 +332,12 @@ const Fees: React.FC = () => {
           batchId: rawBatchId,
           batchName: batchName,
           monthlyFee: course?.monthlyFee || 0,
+          isOffline: isOffline,
+          offlineOneTimeFee: offlineTarget,
+          totalPaid: totalPaidByStudent,
+          remainingBalance: remainingOffline,
+          installmentsCount: course?.installmentsCount || 2,
+          installmentsPaidCount: paidInstCount,
           joiningDate: jInfo.display,
           joiningDateRaw: jInfo.raw,
           joiningDay: jInfo.day,
@@ -414,29 +428,53 @@ const Fees: React.FC = () => {
     const isOffline = course?.mode === 'offline' || course?.modeBadge?.toLowerCase().includes('offline');
 
     if (isOffline) {
-      const fullFee = course?.offlineOneTimeFee || 4000;
-      const count = course?.installmentsCount || 2;
-      const instAmt = course?.installmentAmount || Math.round(fullFee / count);
+      const fullFee = course?.offlineOneTimeFee || record?.offlineOneTimeFee || 4000;
+      const count = course?.installmentsCount || record?.installmentsCount || 2;
+      const totalPaid = record?.totalPaid || 0;
+      const remaining = record?.remainingBalance !== undefined ? record.remainingBalance : Math.max(0, fullFee - totalPaid);
+      const paidCount = record?.installmentsPaidCount || 0;
+      const nextInstNum = Math.min(count, paidCount + 1);
 
-      const opts: { label: string; value: string }[] = [
-        { label: `Full Course Fee (One-Time) — ₹${fullFee.toLocaleString('en-IN')}`, value: 'one_time' }
-      ];
+      const opts: { label: string; value: string }[] = [];
 
+      // If student has a remaining balance from a previous installment
+      if (totalPaid > 0 && remaining > 0) {
+        opts.push({
+          label: `Installment ${nextInstNum} of ${count} (Remaining Balance) — ₹${remaining.toLocaleString('en-IN')}`,
+          value: `inst_${nextInstNum}`
+        });
+        opts.push({
+          label: `Pay Remaining Course Balance — ₹${remaining.toLocaleString('en-IN')}`,
+          value: 'remaining_balance'
+        });
+      }
+
+      // Standard installment options
       if (course?.hasInstallments !== false) {
         for (let i = 1; i <= count; i++) {
-          opts.push({
-            label: `Installment ${i} of ${count} — ₹${instAmt.toLocaleString('en-IN')}`,
-            value: `inst_${i}`
-          });
+          let instAmt = course?.installmentAmount || Math.round(fullFee / count);
+          if (i === nextInstNum && totalPaid > 0) {
+            instAmt = remaining;
+          }
+          if (!opts.some(o => o.value === `inst_${i}`)) {
+            opts.push({
+              label: `Installment ${i} of ${count} — ₹${instAmt.toLocaleString('en-IN')}`,
+              value: `inst_${i}`
+            });
+          }
         }
       }
 
-      opts.push(
-        { label: '1 Month (Custom/Partial)', value: '1' },
-        { label: '2 Months (Bi-Monthly)', value: '2' },
-        { label: '3 Months (Quarterly)', value: '3' },
-        { label: '6 Months (Half-Yearly)', value: '6' }
-      );
+      opts.push({
+        label: `Full Course Fee (One-Time) — ₹${fullFee.toLocaleString('en-IN')}`,
+        value: 'one_time'
+      });
+
+      opts.push({
+        label: 'Custom Installment Amount (Flexible ₹)',
+        value: 'custom_amount'
+      });
+
       return opts;
     }
 
@@ -456,18 +494,44 @@ const Fees: React.FC = () => {
     setFeeDurationOption(val);
     const record = feeRecords.find(r => r.studentId === paymentStudentId);
     const course = courses.find(c => c.documentId === record?.courseId);
+    const isOffline = course?.mode === 'offline' || course?.modeBadge?.toLowerCase().includes('offline');
+
+    if (isOffline) {
+      const fullFee = course?.offlineOneTimeFee || record?.offlineOneTimeFee || 4000;
+      const count = course?.installmentsCount || record?.installmentsCount || 2;
+      const totalPaid = record?.totalPaid || 0;
+      const remaining = Math.max(0, fullFee - totalPaid);
+      const paidCount = record?.installmentsPaidCount || 0;
+      const nextInstNum = Math.min(count, paidCount + 1);
+
+      setNumberOfMonths(0);
+
+      if (val === 'one_time') {
+        setAmountPaid(fullFee.toString());
+        setIsNoDues(true);
+      } else if (val === 'remaining_balance') {
+        setAmountPaid(remaining.toString());
+        setIsNoDues(true);
+      } else if (val.startsWith('inst_')) {
+        const instIdx = parseInt(val.replace('inst_', ''), 10) || 1;
+        let suggestedAmt = course?.installmentAmount || Math.round(fullFee / count);
+        if (instIdx > 1 || (totalPaid > 0 && instIdx === nextInstNum)) {
+          suggestedAmt = remaining;
+        }
+        setAmountPaid(suggestedAmt.toString());
+        setIsNoDues((totalPaid + suggestedAmt) >= fullFee);
+      } else if (val === 'custom_amount') {
+        if (!amountPaid || amountPaid === '0') {
+          setAmountPaid(remaining > 0 ? remaining.toString() : '');
+        }
+      }
+      return;
+    }
 
     if (val === 'one_time') {
       setIsNoDues(true);
       setNumberOfMonths(0);
       setAmountPaid((course?.offlineOneTimeFee || 4000).toString());
-    } else if (val.startsWith('inst_')) {
-      const count = course?.installmentsCount || 2;
-      const instIdx = parseInt(val.replace('inst_', ''), 10) || 1;
-      const instAmt = course?.installmentAmount || Math.round((course?.offlineOneTimeFee || 4000) / count);
-      setNumberOfMonths(0);
-      setIsNoDues(instIdx === count);
-      setAmountPaid(instAmt.toString());
     } else {
       const mNum = Math.max(1, parseInt(val, 10) || 1);
       setNumberOfMonths(mNum);
@@ -484,31 +548,36 @@ const Fees: React.FC = () => {
       if (record) {
         const course = courses.find(c => c.documentId === record.courseId);
         const startMonth = billingPeriod || currentMonthDefault;
+        const isOffline = course?.mode === 'offline' || course?.modeBadge?.toLowerCase().includes('offline');
 
-        if (feeDurationOption === 'one_time') {
-          const fullFee = course?.offlineOneTimeFee || 4000;
+        if (isOffline) {
+          const fullFee = course?.offlineOneTimeFee || record.offlineOneTimeFee || 4000;
+          const count = course?.installmentsCount || record.installmentsCount || 2;
+          const totalPaid = record.totalPaid || 0;
+          const currentNet = Math.max(0, (Number(amountPaid) || 0) - (Number(discount) || 0) + (Number(lateFee) || 0));
+          const totalAfter = totalPaid + currentNet;
+          const remainingAfter = Math.max(0, fullFee - totalAfter);
+
           setNumberOfMonths(0);
-          setAmountPaid(prev => (!prev || prev === '0' || prev === String(record.monthlyFee) ? fullFee.toString() : prev));
-          setPeriodCoverageText(course?.mode === 'offline' ? `Offline Full Course Fee (₹${fullFee})` : `One-Time Fee (${startMonth})`);
 
-          if (isNoDues) {
-            setCalculatedDueDate('No Dues');
-            setCustomNextDueDate('NO_DUES');
+          if (feeDurationOption === 'one_time') {
+            setPeriodCoverageText(`Offline Full Course Fee (₹${fullFee.toLocaleString('en-IN')})`);
+          } else if (feeDurationOption.startsWith('inst_')) {
+            const instIdx = parseInt(feeDurationOption.replace('inst_', ''), 10) || 1;
+            if (remainingAfter === 0) {
+              setPeriodCoverageText(`Offline Installment ${instIdx} of ${count} (Final - No Dues)`);
+            } else {
+              setPeriodCoverageText(`Offline Installment ${instIdx} of ${count}`);
+            }
+          } else if (feeDurationOption === 'remaining_balance') {
+            setPeriodCoverageText(`Offline Final Balance Payment`);
+          } else if (feeDurationOption === 'custom_amount') {
+            setPeriodCoverageText(`Offline Custom Installment`);
           } else {
-            const dueDay = record.currentDueDay || record.joiningDay || 1;
-            const due = calculateNextDueFromBillingPeriod(startMonth, 1, dueDay);
-            setCalculatedDueDate(due.display);
-            setCustomNextDueDate(due.iso);
+            setPeriodCoverageText(`Offline Course Payment (${startMonth})`);
           }
-        } else if (feeDurationOption.startsWith('inst_')) {
-          const instIdx = parseInt(feeDurationOption.replace('inst_', ''), 10) || 1;
-          const totalCount = course?.installmentsCount || 2;
-          const instAmt = course?.installmentAmount || Math.round((course?.offlineOneTimeFee || 4000) / totalCount);
-          setNumberOfMonths(0);
-          setAmountPaid(instAmt.toString());
-          setPeriodCoverageText(`Offline Installment ${instIdx} of ${totalCount}`);
 
-          if (isNoDues) {
+          if (isNoDues || remainingAfter === 0) {
             setCalculatedDueDate('No Dues');
             setCustomNextDueDate('NO_DUES');
           } else {
@@ -518,28 +587,39 @@ const Fees: React.FC = () => {
             setCustomNextDueDate(due.iso);
           }
         } else {
-          const monthsNum = Math.max(1, parseInt(feeDurationOption, 10) || 1);
-          setNumberOfMonths(monthsNum);
-          const mFee = (record.monthlyFee && record.monthlyFee > 0) ? record.monthlyFee : (course?.monthlyFee || 800);
-          const totalCalculatedAmt = mFee * monthsNum;
-          setAmountPaid(totalCalculatedAmt.toString());
+          if (feeDurationOption === 'one_time') {
+            setNumberOfMonths(0);
+            setPeriodCoverageText(`One-Time Fee (${startMonth})`);
 
-          const coverage = getPeriodCoverageLabel(startMonth, monthsNum);
-          setPeriodCoverageText(coverage);
-
-          if (isNoDues) {
-            setCalculatedDueDate('No Dues');
-            setCustomNextDueDate('NO_DUES');
+            if (isNoDues) {
+              setCalculatedDueDate('No Dues');
+              setCustomNextDueDate('NO_DUES');
+            } else {
+              const dueDay = record.currentDueDay || record.joiningDay || 1;
+              const due = calculateNextDueFromBillingPeriod(startMonth, 1, dueDay);
+              setCalculatedDueDate(due.display);
+              setCustomNextDueDate(due.iso);
+            }
           } else {
-            const dueDay = record.currentDueDay || record.joiningDay || 1;
-            const due = calculateNextDueFromBillingPeriod(startMonth, monthsNum, dueDay);
-            setCalculatedDueDate(due.display);
-            setCustomNextDueDate(due.iso);
+            const monthsNum = Math.max(1, parseInt(feeDurationOption, 10) || 1);
+            setNumberOfMonths(monthsNum);
+            const coverage = getPeriodCoverageLabel(startMonth, monthsNum);
+            setPeriodCoverageText(coverage);
+
+            if (isNoDues) {
+              setCalculatedDueDate('No Dues');
+              setCustomNextDueDate('NO_DUES');
+            } else {
+              const dueDay = record.currentDueDay || record.joiningDay || 1;
+              const due = calculateNextDueFromBillingPeriod(startMonth, monthsNum, dueDay);
+              setCalculatedDueDate(due.display);
+              setCustomNextDueDate(due.iso);
+            }
           }
         }
       }
     }
-  }, [paymentStudentId, feeDurationOption, isNoDues, billingPeriod, feeRecords, courses]);
+  }, [paymentStudentId, feeDurationOption, isNoDues, billingPeriod, feeRecords, courses, amountPaid, discount, lateFee]);
 
   // Handle user manual override of Next Due Date
   const handleCustomDueDateChange = (newIsoDate: string) => {
@@ -559,16 +639,49 @@ const Fees: React.FC = () => {
   // Open modal with pre-configured student info
   const handleOpenPaymentModal = (record: StudentFeeRecord) => {
     setPaymentStudentId(record.studentId);
-    setFeeDurationOption('1');
-    setNumberOfMonths(1);
     setDiscount('0');
     setLateFee('0');
     setRemarks('');
     setIsEditingCurrentDueDate(false);
     setCurrentDueDateEditVal(record.currentDueDateRaw === 'NO_DUES' ? '' : (record.currentDueDateRaw || ''));
 
-    const alreadyNoDues = record.currentDueDateRaw === 'NO_DUES' || record.currentDueDate === 'No Dues';
-    setIsNoDues(alreadyNoDues);
+    const course = courses.find(c => c.documentId === record.courseId);
+    const isOffline = course?.mode === 'offline' || course?.modeBadge?.toLowerCase().includes('offline');
+
+    if (isOffline) {
+      const fullFee = course?.offlineOneTimeFee || record.offlineOneTimeFee || 4000;
+      const count = course?.installmentsCount || record.installmentsCount || 2;
+      const totalPaid = record.totalPaid || 0;
+      const remaining = Math.max(0, fullFee - totalPaid);
+      const paidCount = record.installmentsPaidCount || 0;
+
+      setNumberOfMonths(0);
+
+      if (remaining === 0 && totalPaid > 0) {
+        setFeeDurationOption('remaining_balance');
+        setAmountPaid('0');
+        setIsNoDues(true);
+      } else if (paidCount >= 1 && remaining > 0) {
+        // Student already paid 1st installment (e.g. 1500)! Now pre-fill installment 2 with remaining balance (2500)!
+        const nextInst = Math.min(count, paidCount + 1);
+        setFeeDurationOption(`inst_${nextInst}`);
+        setAmountPaid(remaining.toString());
+        setIsNoDues(true); // Paying remaining 2500 completes full course fee!
+      } else {
+        // 1st installment
+        setFeeDurationOption('inst_1');
+        const defaultInstAmt = course?.installmentAmount || Math.round(fullFee / count);
+        setAmountPaid(defaultInstAmt.toString());
+        setIsNoDues(false);
+      }
+    } else {
+      setFeeDurationOption('1');
+      setNumberOfMonths(1);
+      const mFee = (record.monthlyFee && record.monthlyFee > 0) ? record.monthlyFee : (course?.monthlyFee || 800);
+      setAmountPaid(mFee.toString());
+      const alreadyNoDues = record.currentDueDateRaw === 'NO_DUES' || record.currentDueDate === 'No Dues';
+      setIsNoDues(alreadyNoDues);
+    }
 
     // Pre-select billing month according to currentDueDate
     if (record.currentDueDateRaw && record.currentDueDateRaw !== 'NO_DUES') {
@@ -611,29 +724,51 @@ const Fees: React.FC = () => {
       const lf = Math.max(0, Number(lateFee) || 0);
       const netPaid = Math.max(0, amt - disc + lf);
       
+      const course = courses.find(c => c.documentId === record.courseId);
+      const isOfflineCourse = course?.mode === 'offline' || course?.modeBadge?.toLowerCase().includes('offline');
       const isOneTimeFee = feeDurationOption === 'one_time';
-      const isInstallment = feeDurationOption.startsWith('inst_');
+      const isInstallment = feeDurationOption.startsWith('inst_') || feeDurationOption === 'remaining_balance' || feeDurationOption === 'custom_amount';
+      
+      const fullCourseFee = isOfflineCourse ? (course?.offlineOneTimeFee || record.offlineOneTimeFee || 4000) : 0;
+      const totalPaidSoFar = (record.totalPaid || 0) + netPaid;
+      const remainingAfter = isOfflineCourse ? Math.max(0, fullCourseFee - totalPaidSoFar) : 0;
+      const instNumber = feeDurationOption.startsWith('inst_')
+        ? parseInt(feeDurationOption.replace('inst_', ''), 10)
+        : (record.installmentsPaidCount || 0) + 1;
+      const totalInstCount = course?.installmentsCount || record.installmentsCount || 2;
+
       const dueDay = record.currentDueDay || record.joiningDay || 1;
       const computedDue = calculateNextDueFromBillingPeriod(billingPeriod, Math.max(1, numberOfMonths), dueDay).iso;
-      const finalNextDueDate = isNoDues ? 'NO_DUES' : (customNextDueDate || computedDue);
+      const willBeNoDues = isNoDues || (isOfflineCourse && remainingAfter === 0);
+      const finalNextDueDate = willBeNoDues ? 'NO_DUES' : (customNextDueDate || computedDue);
       
       let coverage = periodCoverageText;
-      if (isOneTimeFee) {
-        coverage = `One-Time Fee (Offline / Full Course)`;
-      } else if (isInstallment) {
-        coverage = periodCoverageText || `Offline Installment (${billingPeriod})`;
+      if (isOfflineCourse) {
+        if (isOneTimeFee) {
+          coverage = `Offline Full Course Fee (₹${fullCourseFee.toLocaleString('en-IN')})`;
+        } else if (remainingAfter === 0 && (record.totalPaid || 0) > 0) {
+          coverage = `Offline Installment ${instNumber} of ${totalInstCount} (Final - No Dues)`;
+        } else {
+          coverage = `Offline Installment ${instNumber} of ${totalInstCount}`;
+        }
+      } else if (isOneTimeFee) {
+        coverage = `One-Time Fee (Full Course)`;
       } else if (!coverage) {
         coverage = `${billingPeriod} (${numberOfMonths} ${numberOfMonths === 1 ? 'Month' : 'Months'})`;
       }
 
       let defaultRemarks = remarks;
       if (!defaultRemarks) {
-        if (isOneTimeFee) {
-          defaultRemarks = `Offline Full Course Fee - ₹${netPaid}${isNoDues ? ' [No Dues]' : ''}`;
-        } else if (isInstallment) {
-          defaultRemarks = `${periodCoverageText} - ₹${netPaid}${isNoDues ? ' [Final Installment - No Dues]' : ''}`;
+        if (isOfflineCourse) {
+          if (remainingAfter === 0) {
+            defaultRemarks = `Offline Course Fee - ₹${netPaid} [Full Fee Paid - No Dues]`;
+          } else {
+            defaultRemarks = `Offline Installment ${instNumber} of ${totalInstCount} - ₹${netPaid} (Remaining Balance: ₹${remainingAfter})`;
+          }
+        } else if (isOneTimeFee) {
+          defaultRemarks = `Full Course Fee - ₹${netPaid}${willBeNoDues ? ' [No Dues]' : ''}`;
         } else {
-          defaultRemarks = `Fee for ${numberOfMonths} month(s) (${coverage})${isNoDues ? ' [Full Fee Paid - No Dues]' : ''}`;
+          defaultRemarks = `Fee for ${numberOfMonths} month(s) (${coverage})${willBeNoDues ? ' [Full Fee Paid - No Dues]' : ''}`;
         }
       }
 
@@ -642,7 +777,7 @@ const Fees: React.FC = () => {
         courseId: record.courseId,
         academicYear,
         billingPeriod: coverage,
-        monthsCount: (isOneTimeFee || isInstallment) ? 0 : numberOfMonths,
+        monthsCount: (isOneTimeFee || isOfflineCourse || isInstallment) ? 0 : numberOfMonths,
         joiningDate: record.joiningDate || '01 Jan 2026',
         nextDueDate: finalNextDueDate,
         paymentDate: serverTimestamp() as any,
@@ -655,6 +790,13 @@ const Fees: React.FC = () => {
         receivedBy: user?.name || 'Admin',
         receiptNumber: 'REC-' + new Date().getFullYear() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase(),
         status: 'PAID',
+        totalCourseFee: isOfflineCourse ? fullCourseFee : undefined,
+        remainingBalance: isOfflineCourse ? remainingAfter : 0,
+        installmentNumber: isOfflineCourse ? instNumber : undefined,
+        totalInstallments: isOfflineCourse ? totalInstCount : undefined,
+        totalPaidSoFar: isOfflineCourse ? totalPaidSoFar : undefined,
+        isOffline: isOfflineCourse,
+        perMonthFee: isOfflineCourse ? fullCourseFee : (isOneTimeFee ? netPaid : record.monthlyFee),
         createdAt: serverTimestamp() as any
       };
 
@@ -681,7 +823,10 @@ const Fees: React.FC = () => {
         paymentDate: new Date(),
         studentName: record.studentName,
         courseName: record.courseName,
-        perMonthFee: isOneTimeFee ? netPaid : record.monthlyFee
+        totalCourseFee: isOfflineCourse ? fullCourseFee : undefined,
+        remainingBalance: isOfflineCourse ? remainingAfter : 0,
+        perMonthFee: isOfflineCourse ? fullCourseFee : (isOneTimeFee ? netPaid : record.monthlyFee),
+        isOffline: isOfflineCourse
       } as any;
 
       const studentObj = students.find(s => s.documentId === record.studentId) || { name: record.studentName };
@@ -706,14 +851,24 @@ const Fees: React.FC = () => {
       const courseObj = courses.find(c => c.documentId === row.courseId) || { courseName: row.courseName };
 
       const tSnap = await getDocs(query(collection(db, 'fee_transactions'), where('studentId', '==', row.studentId)));
+      const isOff = row.isOffline || (courseObj as any).mode === 'offline' || (courseObj as any).modeBadge?.toLowerCase().includes('offline');
+      const offFee = isOff ? ((courseObj as any).offlineOneTimeFee || row.offlineOneTimeFee || 4000) : 0;
+
       if (!tSnap.empty) {
         const txs = tSnap.docs.map(d => d.data() as FeeTransaction);
         txs.sort((a, b) => ((b.paymentDate as any)?.seconds || 0) - ((a.paymentDate as any)?.seconds || 0));
+        const lastTx = txs[0];
+        const totalPaid = txs.reduce((sum, t) => sum + (Number(t.amountPaid) || 0), 0);
+        const rem = isOff ? (lastTx.remainingBalance !== undefined ? lastTx.remainingBalance : Math.max(0, offFee - totalPaid)) : 0;
+
         setReceiptModalTx({
-          ...txs[0],
+          ...lastTx,
           studentName: row.studentName,
           courseName: row.courseName,
-          perMonthFee: row.monthlyFee
+          totalCourseFee: isOff ? offFee : undefined,
+          remainingBalance: rem,
+          perMonthFee: isOff ? offFee : (lastTx.perMonthFee || row.monthlyFee),
+          isOffline: isOff
         } as any);
       } else {
         setReceiptModalTx({
@@ -723,10 +878,13 @@ const Fees: React.FC = () => {
           studentName: row.studentName,
           courseName: row.courseName,
           academicYear: '2026-27',
-          billingPeriod: row.lastPaidMonth || 'Monthly Fee',
+          billingPeriod: row.lastPaidMonth || (isOff ? 'Offline Course Fee' : 'Monthly Fee'),
           paymentDate: new Date(),
-          amountPaid: row.monthlyFee,
-          perMonthFee: row.monthlyFee,
+          amountPaid: isOff ? offFee : row.monthlyFee,
+          totalCourseFee: isOff ? offFee : undefined,
+          remainingBalance: 0,
+          perMonthFee: isOff ? offFee : row.monthlyFee,
+          isOffline: isOff,
           paymentMode: 'Cash',
           receivedBy: user?.name || 'Admin',
           nextDueDate: row.currentDueDate || 'No Dues',
@@ -835,12 +993,26 @@ const Fees: React.FC = () => {
             {isOff ? (
               <div>
                 <span className="text-xs font-bold text-amber-700 dark:text-amber-400 block">
-                  ₹{(c?.offlineOneTimeFee || 4000).toLocaleString('en-IN')} (Offline)
+                  ₹{(c?.offlineOneTimeFee || row.offlineOneTimeFee || 4000).toLocaleString('en-IN')} (Offline)
                 </span>
-                {c?.hasInstallments !== false && (
-                  <span className="text-[11px] text-slate-500 block">
-                    {c?.installmentsCount || 2} inst × ₹{(c?.installmentAmount || 2000).toLocaleString('en-IN')}
-                  </span>
+                {row.totalPaid !== undefined && row.totalPaid > 0 ? (
+                  <div className="mt-0.5">
+                    {row.remainingBalance === 0 ? (
+                      <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                        ✓ Paid in Full (₹{row.totalPaid})
+                      </span>
+                    ) : (
+                      <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300">
+                        Paid: ₹{row.totalPaid} | Due: ₹{row.remainingBalance}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  c?.hasInstallments !== false && (
+                    <span className="text-[11px] text-slate-500 block">
+                      {c?.installmentsCount || 2} inst × ₹{(c?.installmentAmount || 2000).toLocaleString('en-IN')}
+                    </span>
+                  )
                 )}
               </div>
             ) : (
@@ -1148,6 +1320,55 @@ const Fees: React.FC = () => {
                   })()}
                 </span>
               </div>
+
+              {/* Real-time Offline Course Installment Tracker */}
+              {(() => {
+                const c = courses.find(item => item.documentId === selectedRecord.courseId);
+                const isOff = c?.mode === 'offline' || c?.modeBadge?.toLowerCase().includes('offline');
+                if (!isOff) return null;
+
+                const fullFee = c?.offlineOneTimeFee || selectedRecord.offlineOneTimeFee || 4000;
+                const totalAlreadyPaid = selectedRecord.totalPaid || 0;
+                const currentPaying = Math.max(0, (Number(amountPaid) || 0) - (Number(discount) || 0) + (Number(lateFee) || 0));
+                const totalAfter = totalAlreadyPaid + currentPaying;
+                const remainingBal = Math.max(0, fullFee - totalAfter);
+
+                return (
+                  <div style={{
+                    marginTop: '10px',
+                    padding: '10px 12px',
+                    backgroundColor: '#fffbeb',
+                    border: '1px solid #fde68a',
+                    borderRadius: '8px',
+                    fontSize: '12px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <span style={{ fontWeight: 700, color: '#92400e' }}>Offline Course Installment Tracker:</span>
+                      <span style={{ fontWeight: 800, color: remainingBal === 0 ? '#16a34a' : '#b45309' }}>
+                        {remainingBal === 0 ? '✓ Full Fee Completed (No Dues)' : `₹${remainingBal.toLocaleString('en-IN')} Remaining Due`}
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px', textAlign: 'center' }}>
+                      <div style={{ background: '#ffffff', padding: '6px 4px', borderRadius: '6px', border: '1px solid #fef3c7' }}>
+                        <div style={{ color: '#78350f', fontSize: '10px' }}>Total Course Fee</div>
+                        <div style={{ fontWeight: 800, color: '#1e293b' }}>₹{fullFee.toLocaleString('en-IN')}</div>
+                      </div>
+                      <div style={{ background: '#ffffff', padding: '6px 4px', borderRadius: '6px', border: '1px solid #fef3c7' }}>
+                        <div style={{ color: '#78350f', fontSize: '10px' }}>Paid So Far</div>
+                        <div style={{ fontWeight: 800, color: '#059669' }}>₹{totalAlreadyPaid.toLocaleString('en-IN')}</div>
+                      </div>
+                      <div style={{ background: '#ffffff', padding: '6px 4px', borderRadius: '6px', border: '1px solid #fef3c7' }}>
+                        <div style={{ color: '#78350f', fontSize: '10px' }}>Paying Now</div>
+                        <div style={{ fontWeight: 800, color: '#2563eb' }}>₹{currentPaying.toLocaleString('en-IN')}</div>
+                      </div>
+                      <div style={{ background: remainingBal === 0 ? '#ecfdf5' : '#ffffff', padding: '6px 4px', borderRadius: '6px', border: remainingBal === 0 ? '1px solid #a7f3d0' : '1px solid #fef3c7' }}>
+                        <div style={{ color: remainingBal === 0 ? '#065f46' : '#78350f', fontSize: '10px' }}>Balance After</div>
+                        <div style={{ fontWeight: 800, color: remainingBal === 0 ? '#059669' : '#dc2626' }}>₹{remainingBal.toLocaleString('en-IN')}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 

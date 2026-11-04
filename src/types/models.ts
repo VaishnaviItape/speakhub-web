@@ -275,6 +275,15 @@ export interface FeeTransaction {
   remarks?: string;
   receiptNumber: string;
   status?: 'PAID';
+  totalCourseFee?: number;
+  remainingBalance?: number;
+  installmentNumber?: number;
+  totalInstallments?: number;
+  totalPaidSoFar?: number;
+  isOffline?: boolean;
+  perMonthFee?: number;
+  studentName?: string;
+  courseName?: string;
   createdAt?: Timestamp | Date;
 }
 

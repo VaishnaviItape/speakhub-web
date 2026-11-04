@@ -62,23 +62,42 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
     )
   );
 
+  const isOffline = Boolean(
+    (transaction as any).isOffline ||
+    (transaction as any).totalCourseFee ||
+    (transaction as any).installmentNumber !== undefined ||
+    (course as any)?.mode === 'offline' ||
+    (course as any)?.modeBadge?.toLowerCase().includes('offline') ||
+    (transaction.billingPeriod && (
+      transaction.billingPeriod.toLowerCase().includes('offline') ||
+      transaction.billingPeriod.toLowerCase().includes('installment')
+    ))
+  );
+
   const isOneTimeFee = Boolean(
+    isOffline ||
     (transaction as any).monthsCount === 0 || 
     (transaction.billingPeriod && transaction.billingPeriod.toLowerCase().includes('one-time'))
   );
 
+  const amountPaid = transaction.amountPaid || 0;
+  const discount = transaction.discount || 0;
+  const totalCourseFee = (transaction as any).totalCourseFee || (course as any)?.offlineOneTimeFee || (isOffline ? 4000 : undefined);
+  const perMonthFee = isOffline 
+    ? (totalCourseFee || 4000) 
+    : (isOneTimeFee ? ((transaction as any).perMonthFee || amountPaid) : ((transaction as any).perMonthFee || (amountPaid + discount)));
+  const remaining = (transaction as any).remainingBalance !== undefined 
+    ? (transaction as any).remainingBalance 
+    : (isOffline && totalCourseFee ? Math.max(0, totalCourseFee - amountPaid) : 0);
+
   const paymentDateStr = formatDateDisplay(transaction.paymentDate);
-  const nextDueDateStr = isNoDues ? 'No Dues' : (transaction.nextDueDate ? formatLongDate(transaction.nextDueDate) : '-');
+  const nextDueDateStr = (isNoDues || (isOffline && remaining === 0)) ? 'No Dues' : (transaction.nextDueDate ? formatLongDate(transaction.nextDueDate) : '-');
   
   const paymentMode = (transaction.paymentMode || '').toUpperCase();
   const isCash = paymentMode.includes('CASH');
   const isETransfer = paymentMode.includes('E-TRANSFER') || paymentMode.includes('BANK') || paymentMode.includes('NET');
   const isUpi = paymentMode.includes('UPI') || paymentMode.includes('GPAY') || paymentMode.includes('PHONEPE') || paymentMode.includes('PAYTM') || (!isCash && !isETransfer);
 
-  const amountPaid = transaction.amountPaid || 0;
-  const discount = transaction.discount || 0;
-  const perMonthFee = (transaction as any).perMonthFee || (amountPaid + discount);
-  const remaining = (transaction as any).remainingBalance || 0;
   const studentName = student?.name || (transaction as any).studentName || 'Student';
   const studentPhone = (student as any)?.phone || (student as any)?.mobile || (transaction as any)?.phone || '';
   const courseName = course?.courseName || (transaction as any).courseName || 'Foundation-Spoken English';
@@ -204,7 +223,7 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
               <td className="cell-td font-bold">
                 <span className="currency-symbol">₹</span> {remaining}
               </td>
-              <td className={`cell-td font-bold ${isNoDues ? 'text-due-green' : 'text-due-red'}`}>
+              <td className={`cell-td font-bold ${(isNoDues || (isOffline && remaining === 0)) ? 'text-due-green' : 'text-due-red'}`}>
                 {nextDueDateStr}
               </td>
             </tr>

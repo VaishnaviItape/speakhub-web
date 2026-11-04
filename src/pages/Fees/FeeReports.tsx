@@ -240,9 +240,9 @@ const FeeReports: React.FC = () => {
             const diffTime = Math.abs(now.getTime() - dueDateObj.getTime());
             daysOverdue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             
-            // Estimate months pending
+            // Estimate pending amount (for offline course, exactly remaining balance)
             const monthsOverdue = Math.max(1, (now.getFullYear() - dueDateObj.getFullYear()) * 12 + (now.getMonth() - dueDateObj.getMonth()) + 1);
-            pendingAmt = (monthlyFee > 0 ? monthlyFee : 500) * monthsOverdue;
+            pendingAmt = isOffline ? Math.max(0, offlineTarget - totalPaidByStudent) : (monthlyFee > 0 ? monthlyFee : 500) * monthsOverdue;
             
             totalPending += pendingAmt;
             defaulters++;
@@ -252,7 +252,7 @@ const FeeReports: React.FC = () => {
             const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             if (daysLeft <= 7) {
               status = 'due_soon';
-              pendingAmt = monthlyFee;
+              pendingAmt = isOffline ? Math.max(0, offlineTarget - totalPaidByStudent) : monthlyFee;
               totalPending += pendingAmt;
             }
           }
