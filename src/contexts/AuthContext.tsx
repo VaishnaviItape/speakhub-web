@@ -2,10 +2,11 @@ import React, { createContext, useContext, useState, useEffect, type ReactNode }
 import { useNavigate, useLocation } from 'react-router-dom';
 import { auth, db } from '../config/firebase';
 import { signInWithEmailAndPassword, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, onSnapshot, type Unsubscribe } from 'firebase/firestore';
 
 interface User {
   id: string;
+  uid?: string;
   email?: string;
   phone?: string;
   address?: string;
@@ -33,6 +34,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const userDocUnsubRef = React.useRef<Unsubscribe | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -41,12 +43,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (firebaseUser) {
         await fetchAndSetUserData(firebaseUser.email || '', firebaseUser.uid);
       } else {
+        if (userDocUnsubRef.current) {
+          userDocUnsubRef.current();
+          userDocUnsubRef.current = null;
+        }
         setUser(null);
       }
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (userDocUnsubRef.current) {
+        userDocUnsubRef.current();
+        userDocUnsubRef.current = null;
+      }
+    };
   }, []);
 
   const fetchAndSetUserData = async (emailOrPhone: string, uid?: string) => {
@@ -110,8 +122,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           return;
         }
 
+        if (userDocUnsubRef.current) {
+          userDocUnsubRef.current();
+          userDocUnsubRef.current = null;
+        }
+
         setUser({
           id: docId,
+          uid: data.uid || uid || docId,
           email: data.email,
           phone: data.phone || data.mobile,
           address: data.address,
@@ -124,6 +142,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           demoStartDate: data.demoStartDate,
           demoEndDate: data.demoEndDate,
           demoDays: data.demoDays
+        });
+
+        // Real-time listener for user document changes (especially batch assignments)
+        userDocUnsubRef.current = onSnapshot(doc(db, 'users', docId), (docSnap) => {
+          if (docSnap.exists()) {
+            const updatedData = docSnap.data();
+            setUser(prev => {
+              if (!prev) return null;
+              return {
+                ...prev,
+                name: updatedData.name || updatedData.firstName || prev.name,
+                status: updatedData.status || prev.status,
+                batchIds: updatedData.batchIds || [],
+                forcePasswordChange: updatedData.forcePasswordChange
+              };
+            });
+          }
         });
 
         // Forced redirect logic

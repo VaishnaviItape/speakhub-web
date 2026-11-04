@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { Users, GraduationCap, BookOpen, CalendarDays, Activity, UserPlus, Clock } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -33,14 +33,35 @@ const Dashboard: React.FC = () => {
         const batchesSnapshot = await getDocs(batchesQuery);
         let allBatches = batchesSnapshot.docs.map(doc => ({ id: doc.id, documentId: doc.id, ...doc.data() }));
 
-        let teacherBatchIds = new Set<string>();
+        let teacherBatchIds = new Set<string>((user as any)?.batchIds || []);
         if (isTeacher) {
-          allBatches = allBatches.filter((b: any) => 
-            b.teacherId === user?.id || 
-            b.teacherId === user?.email || 
-            (user as any)?.batchIds?.includes(b.documentId || b.id)
-          );
-          teacherBatchIds = new Set(allBatches.map((b: any) => (b.documentId || b.id) as string));
+          if (user?.id) {
+            try {
+              const uDoc = await getDoc(doc(db, 'users', user.id));
+              if (uDoc.exists()) {
+                const uData = uDoc.data();
+                (uData.batchIds || []).forEach((id: string) => teacherBatchIds.add(id));
+              }
+            } catch (e) {
+              console.warn("Could not refresh user batchIds in Dashboard:", e);
+            }
+          }
+
+          allBatches = allBatches.filter((b: any) => {
+            const bId = (b.documentId || b.id) as string;
+            return (
+              teacherBatchIds.has(bId) ||
+              b.teacherId === user?.id || 
+              (user?.uid && b.teacherId === user.uid) ||
+              b.teacherId === user?.email || 
+              (Array.isArray(b.teacherIds) && (
+                b.teacherIds.includes(user?.id) ||
+                (user?.uid && b.teacherIds.includes(user.uid)) ||
+                b.teacherIds.includes(user?.email)
+              ))
+            );
+          });
+          allBatches.forEach((b: any) => teacherBatchIds.add((b.documentId || b.id) as string));
         }
 
         // Fetch Students

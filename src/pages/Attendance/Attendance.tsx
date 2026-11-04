@@ -30,6 +30,7 @@ import {
   writeBatch,
   addDoc,
   deleteDoc,
+  getDoc,
   onSnapshot,
   orderBy
 } from 'firebase/firestore';
@@ -135,11 +136,31 @@ const Attendance: React.FC = () => {
       bSnapshot.forEach(d => activeBatches.push({ documentId: d.id, ...d.data() } as Batch));
 
       if (isTeacher) {
-        activeBatches = activeBatches.filter(b => 
-          b.teacherId === user?.id || 
-          b.teacherId === user?.email ||
-          (user as any)?.batchIds?.includes(b.documentId)
-        );
+        const teacherAssignedBatchIds = new Set<string>((user as any)?.batchIds || []);
+        if (user?.id) {
+          try {
+            const userDocSnap = await getDoc(doc(db, 'users', user.id));
+            if (userDocSnap.exists()) {
+              const uData = userDocSnap.data();
+              (uData.batchIds || []).forEach((id: string) => teacherAssignedBatchIds.add(id));
+            }
+          } catch (e) { }
+        }
+
+        activeBatches = activeBatches.filter(b => {
+          const bId = b.documentId || '';
+          return (
+            teacherAssignedBatchIds.has(bId) ||
+            b.teacherId === user?.id || 
+            (user?.uid && b.teacherId === user.uid) ||
+            b.teacherId === user?.email ||
+            (Array.isArray((b as any).teacherIds) && (
+              (b as any).teacherIds.includes(user?.id) ||
+              (user?.uid && (b as any).teacherIds.includes(user.uid)) ||
+              (b as any).teacherIds.includes(user?.email)
+            ))
+          );
+        });
       }
 
       setBatches(activeBatches);

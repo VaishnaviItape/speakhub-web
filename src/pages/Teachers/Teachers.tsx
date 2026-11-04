@@ -22,7 +22,9 @@ import {
   setDoc, 
   where, 
   serverTimestamp, 
-  deleteDoc 
+  deleteDoc,
+  arrayUnion,
+  arrayRemove 
 } from 'firebase/firestore';
 import { checkMobileExists } from '../../utils/phoneValidation';
 import { validateName, validateEmail, validatePhoneNumber } from '../../utils/validation';
@@ -113,6 +115,7 @@ const Teachers: React.FC = () => {
 
       setIsSaving(true);
       const fullName = `${firstName} ${lastName}`.trim();
+      let targetTeacherId = editingId || '';
 
       if (editingId) {
         // Update existing teacher
@@ -178,6 +181,46 @@ const Teachers: React.FC = () => {
         alert(`Teacher Account Created Successfully!\n\nCredentials:\nEmail: ${email.trim()}\nPassword: ${defaultPassword}\nMobile: ${mobile.trim()}`);
       }
 
+      // targetTeacherId was assigned
+
+      // Bidirectional sync with batches collection:
+      // 1. Assign this teacher to all selected batches
+      for (const bId of selectedBatchIds) {
+        try {
+          await updateDoc(doc(db, 'batches', bId), {
+            teacherId: targetTeacherId,
+            teacherIds: arrayUnion(targetTeacherId),
+            updatedAt: serverTimestamp()
+          });
+        } catch (bErr) {
+          console.warn("Could not sync batch " + bId, bErr);
+        }
+      }
+
+      // 2. Unassign from batches that were previously assigned to this teacher but are no longer selected
+      if (editingId) {
+        const unassignedBatches = batches.filter(b => 
+          b.documentId && 
+          !selectedBatchIds.includes(b.documentId) && (
+            b.teacherId === editingId || 
+            b.teacherId === email.trim() ||
+            ((b as any).teacherIds && Array.isArray((b as any).teacherIds) && (b as any).teacherIds.includes(editingId))
+          )
+        );
+
+        for (const unb of unassignedBatches) {
+          try {
+            await updateDoc(doc(db, 'batches', unb.documentId!), {
+              teacherId: '',
+              teacherIds: arrayRemove(editingId),
+              updatedAt: serverTimestamp()
+            });
+          } catch (unErr) {
+            console.warn("Could not unassign batch " + unb.documentId, unErr);
+          }
+        }
+      }
+
       setIsModalOpen(false);
       resetForm();
       fetchTeachers();
@@ -207,7 +250,30 @@ const Teachers: React.FC = () => {
     setEmail(teacher.email || '');
     setMobile(teacher.mobile || '');
     setStatus((teacher.status as 'active' | 'inactive') || 'active');
-    setSelectedBatchIds(teacher.batchIds || []);
+
+    // Pre-select all batches currently assigned to this teacher
+    const teacherId = teacher.documentId;
+    const teacherUid = teacher.uid;
+    const teacherEmail = teacher.email;
+    const initialBatchIds = new Set<string>(teacher.batchIds || []);
+    batches.forEach(b => {
+      if (b.documentId) {
+        if (
+          (teacherId && b.teacherId === teacherId) ||
+          (teacherUid && b.teacherId === teacherUid) ||
+          (teacherEmail && b.teacherId === teacherEmail) ||
+          ((b as any).teacherIds && Array.isArray((b as any).teacherIds) && (
+            (teacherId && (b as any).teacherIds.includes(teacherId)) ||
+            (teacherUid && (b as any).teacherIds.includes(teacherUid)) ||
+            (teacherEmail && (b as any).teacherIds.includes(teacherEmail))
+          ))
+        ) {
+          initialBatchIds.add(b.documentId);
+        }
+      }
+    });
+
+    setSelectedBatchIds(Array.from(initialBatchIds));
     setEditingId(teacher.documentId || null);
     setBatchSearch('');
     setIsModalOpen(true);
@@ -262,6 +328,27 @@ const Teachers: React.FC = () => {
         } catch (e) { }
       }
 
+      // Unassign deleted teacher from any batches
+      const teacherBatches = batches.filter(b => 
+        b.teacherId === teacher.documentId ||
+        (teacher.uid && b.teacherId === teacher.uid) ||
+        ((b as any).teacherIds && Array.isArray((b as any).teacherIds) && (
+          (b as any).teacherIds.includes(teacher.documentId) ||
+          (teacher.uid && (b as any).teacherIds.includes(teacher.uid))
+        ))
+      );
+      for (const tb of teacherBatches) {
+        if (tb.documentId) {
+          try {
+            await updateDoc(doc(db, 'batches', tb.documentId), {
+              teacherId: '',
+              teacherIds: arrayRemove(teacher.documentId, teacher.uid || ''),
+              updatedAt: serverTimestamp()
+            });
+          } catch (e) { }
+        }
+      }
+
       await deleteDoc(doc(db, 'users', teacher.documentId!));
       setTeachers(teachers.filter(t => t.documentId !== teacher.documentId));
 
@@ -275,9 +362,27 @@ const Teachers: React.FC = () => {
     }
   };
 
-  const getAssignedBatchNames = (batchIds?: string[]) => {
-    if (!batchIds || !Array.isArray(batchIds) || batchIds.length === 0) return [];
-    return batchIds.map(bId => {
+  const getAssignedBatchNames = (batchIds?: string[], teacherDocId?: string, teacherUid?: string, teacherEmail?: string) => {
+    const assignedIds = new Set<string>(batchIds || []);
+    batches.forEach(b => {
+      if (b.documentId) {
+        if (
+          (teacherDocId && b.teacherId === teacherDocId) ||
+          (teacherUid && b.teacherId === teacherUid) ||
+          (teacherEmail && b.teacherId === teacherEmail) ||
+          ((b as any).teacherIds && Array.isArray((b as any).teacherIds) && (
+            (teacherDocId && (b as any).teacherIds.includes(teacherDocId)) ||
+            (teacherUid && (b as any).teacherIds.includes(teacherUid)) ||
+            (teacherEmail && (b as any).teacherIds.includes(teacherEmail))
+          ))
+        ) {
+          assignedIds.add(b.documentId);
+        }
+      }
+    });
+
+    if (assignedIds.size === 0) return [];
+    return Array.from(assignedIds).map(bId => {
       const match = batches.find(b => b.documentId === bId);
       return match ? match.batchName : bId;
     });
@@ -309,7 +414,7 @@ const Teachers: React.FC = () => {
       key: 'batchIds',
       header: 'Assigned Batches',
       render: (row) => {
-        const batchNames = getAssignedBatchNames(row.batchIds);
+        const batchNames = getAssignedBatchNames(row.batchIds, row.documentId, row.uid, row.email);
         if (batchNames.length === 0) {
           return <span className="text-gray-400 text-xs italic">No Batches</span>;
         }

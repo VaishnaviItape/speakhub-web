@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Upload, Download, RefreshCw, Users, CheckCircle2, UserX, Sparkles, FileSpreadsheet, AlertTriangle } from 'lucide-react';
+import { Plus, Upload, Download, RefreshCw, Users, CheckCircle2, UserX, Sparkles, FileSpreadsheet, AlertTriangle, BookOpen } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import type { Course, Batch } from '../../types/models';
 import { db } from '../../config/firebase';
-import { collection, query, where, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
@@ -114,13 +114,35 @@ const Students: React.FC = () => {
       // Active Batches for assignment dropdowns
       const activeBatches = fetchedAllBatches.filter(b => b.status === 'active' || !b.status);
 
-      // Filter active batches for teacher
+      // Filter batches for teacher
       if (isTeacher) {
-        const teacherBatches = activeBatches.filter(b => 
-          b.teacherId === user?.id || 
-          b.teacherId === user?.email ||
-          (user as any)?.batchIds?.includes(b.documentId)
-        );
+        const teacherAssignedBatchIds = new Set<string>((user as any)?.batchIds || []);
+        if (user?.id) {
+          try {
+            const userDocSnap = await getDoc(doc(db, 'users', user.id));
+            if (userDocSnap.exists()) {
+              const uData = userDocSnap.data();
+              (uData.batchIds || []).forEach((id: string) => teacherAssignedBatchIds.add(id));
+            }
+          } catch (e) {
+            console.warn("Could not refresh user batchIds in Students:", e);
+          }
+        }
+
+        const teacherBatches = fetchedAllBatches.filter(b => {
+          const bId = b.documentId || '';
+          return (
+            teacherAssignedBatchIds.has(bId) ||
+            b.teacherId === user?.id ||
+            (user?.uid && b.teacherId === user.uid) ||
+            b.teacherId === user?.email ||
+            (Array.isArray((b as any).teacherIds) && (
+              (b as any).teacherIds.includes(user?.id) ||
+              (user?.uid && (b as any).teacherIds.includes(user.uid)) ||
+              (b as any).teacherIds.includes(user?.email)
+            ))
+          );
+        });
         setBatches(teacherBatches);
       } else {
         setBatches(activeBatches);
@@ -156,20 +178,42 @@ const Students: React.FC = () => {
         studentsList.push({ documentId: doc.id, ...doc.data() });
       });
 
-      // Strictly filter to active assigned batch students for teachers
+      // Strictly filter to assigned batch students for teachers
       if (isTeacher) {
-        const teacherBatches = fetchedBatches.filter(b => 
-          (b.status === 'active' || !b.status) && (
-            b.teacherId === user?.id || 
+        const teacherAssignedBatchIds = new Set<string>((user as any)?.batchIds || []);
+        if (user?.id) {
+          try {
+            const userDocSnap = await getDoc(doc(db, 'users', user.id));
+            if (userDocSnap.exists()) {
+              const uData = userDocSnap.data();
+              (uData.batchIds || []).forEach((id: string) => teacherAssignedBatchIds.add(id));
+            }
+          } catch (e) {
+            console.warn("Could not refresh user batchIds in fetchStudents:", e);
+          }
+        }
+
+        const teacherBatches = fetchedBatches.filter(b => {
+          const bId = b.documentId || '';
+          return (
+            teacherAssignedBatchIds.has(bId) ||
+            b.teacherId === user?.id ||
+            (user?.uid && b.teacherId === user.uid) ||
             b.teacherId === user?.email ||
-            (user as any)?.batchIds?.includes(b.documentId)
-          )
-        );
-        const teacherBatchIds = new Set(teacherBatches.map(b => b.documentId!).filter(Boolean));
+            (Array.isArray((b as any).teacherIds) && (
+              (b as any).teacherIds.includes(user?.id) ||
+              (user?.uid && (b as any).teacherIds.includes(user.uid)) ||
+              (b as any).teacherIds.includes(user?.email)
+            ))
+          );
+        });
+
+        const teacherBatchIdSet = new Set(teacherBatches.map(b => b.documentId!).filter(Boolean));
+        teacherAssignedBatchIds.forEach(id => teacherBatchIdSet.add(id));
 
         studentsList = studentsList.filter(s => {
           const sBatches = s.batchIds || (s.batchId ? [s.batchId] : []);
-          return sBatches.some((bId: string) => teacherBatchIds.has(bId));
+          return sBatches.some((bId: string) => teacherBatchIdSet.has(bId));
         });
       }
 
@@ -882,9 +926,9 @@ const Students: React.FC = () => {
         return false;
       }
 
-      // 2. Batch Filter
-      const studentBatchId = student.batchIds?.[0] || student.batchId;
-      if (selectedBatchFilter !== 'all' && studentBatchId !== selectedBatchFilter) {
+      // 2. Batch Filter (checks all batches student belongs to)
+      const sBatches = student.batchIds || (student.batchId ? [student.batchId] : []);
+      if (selectedBatchFilter !== 'all' && !sBatches.includes(selectedBatchFilter)) {
         return false;
       }
 
@@ -971,11 +1015,22 @@ const Students: React.FC = () => {
       header: 'Course & Batch',
       render: (row) => {
         const courseName = courses.find(c => c.documentId === (row.courseIds?.[0] || row.courseId))?.courseName || 'Unassigned';
-        const batchName = allBatches.find(b => b.documentId === (row.batchIds?.[0] || row.batchId))?.batchName || 'Unassigned';
+        const sBatchIds = row.batchIds || (row.batchId ? [row.batchId] : []);
+        const studentBatchNames = sBatchIds.map((bId: string) => allBatches.find(b => b.documentId === bId)?.batchName || bId);
         return (
           <div>
             <div className="font-semibold text-xs text-indigo-600 dark:text-indigo-400">{courseName}</div>
-            <div className="text-[11px] text-slate-500 font-medium">{batchName}</div>
+            <div className="flex flex-wrap gap-1 mt-0.5">
+              {studentBatchNames.length === 0 ? (
+                <span className="text-[11px] text-slate-400 font-medium">Unassigned</span>
+              ) : (
+                studentBatchNames.map((name: string, idx: number) => (
+                  <span key={idx} className="inline-block text-[11px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium px-1.5 py-0.5 rounded">
+                    {name}
+                  </span>
+                ))
+              )}
+            </div>
           </div>
         );
       }
@@ -1147,30 +1202,34 @@ const Students: React.FC = () => {
       {/* Top Header */}
       <div className="student-master-header">
         <div>
-          <h1 className="page-title">Student Master &amp; Directory</h1>
+          <h1 className="page-title">{isTeacher ? "My Students" : "Student Master & Directory"}</h1>
           <div className="breadcrumbs">
-            <span>Dashboard</span> <span className="separator">/</span> <span className="current">Student Master</span>
+            <span>Dashboard</span> <span className="separator">/</span> <span className="current">{isTeacher ? "My Students" : "Student Master"}</span>
           </div>
         </div>
 
         <div className="student-header-actions">
-          <button
-            type="button"
-            className="btn-add-student"
-            onClick={() => { resetForm(); setIsModalOpen(true); }}
-          >
-            <Plus size={18} />
-            Add New Student
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className="btn-add-student"
+              onClick={() => { resetForm(); setIsModalOpen(true); }}
+            >
+              <Plus size={18} />
+              Add New Student
+            </button>
+          )}
 
-          <button
-            type="button"
-            className="btn-bulk-upload"
-            onClick={() => { setCsvFile(null); setParsedRows([]); setBulkUploadSummary(null); setIsBulkModalOpen(true); }}
-          >
-            <Upload size={16} />
-            Bulk CSV Upload
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className="btn-bulk-upload"
+              onClick={() => { setCsvFile(null); setParsedRows([]); setBulkUploadSummary(null); setIsBulkModalOpen(true); }}
+            >
+              <Upload size={16} />
+              Bulk CSV Upload
+            </button>
+          )}
 
           <button
             type="button"
@@ -1209,6 +1268,44 @@ const Students: React.FC = () => {
       )}
 
       {/* VIEW 1: ACTIVE STUDENTS */}
+      {/* Teacher View Banner */}
+      {isTeacher && (
+        <div style={{
+          backgroundColor: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: '12px',
+          padding: '0.85rem 1.25rem',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.75rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1d4ed8' }}>
+              <BookOpen size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1e3a8a' }}>
+                Teacher View: Assigned Students
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#3b82f6', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                <span>Assigned Batches ({batches.length}):</span>
+                {batches.map(b => (
+                  <span key={b.documentId} style={{ backgroundColor: '#ffffff', border: '1px solid #93c5fd', borderRadius: '4px', padding: '1px 7px', fontWeight: 700, fontSize: '0.75rem', color: '#1e40af' }}>
+                    {b.batchName}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e40af', backgroundColor: '#dbeafe', padding: '6px 12px', borderRadius: '20px' }}>
+            {filteredActiveStudents.length} Students in Your Batches
+          </div>
+        </div>
+      )}
+
       {activeViewTab === 'active' && (
         <>
           {/* Filter & Summary Card */}
@@ -1262,7 +1359,7 @@ const Students: React.FC = () => {
 
               <Select
                 label="Filter by Batch"
-                options={[{ label: 'All Batches', value: 'all' }, ...batches.map(b => ({ label: b.batchName, value: b.documentId! }))]}
+                options={[{ label: isTeacher ? 'All My Assigned Batches' : 'All Batches', value: 'all' }, ...batches.map(b => ({ label: b.batchName, value: b.documentId! }))]}
                 value={selectedBatchFilter}
                 onChange={(e) => setSelectedBatchFilter(e.target.value)}
               />
@@ -1299,13 +1396,13 @@ const Students: React.FC = () => {
 
           {/* Active Students Data Table */}
           <DataTable
-            title={`Active Student Directory (${filteredActiveStudents.length} Students)`}
+            title={isTeacher ? `My Assigned Students (${filteredActiveStudents.length} Students)` : `Active Student Directory (${filteredActiveStudents.length} Students)`}
             data={filteredActiveStudents}
             columns={activeColumns}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
+            onEdit={isAdmin ? handleEdit : undefined}
+            onDelete={isAdmin ? handleDelete : undefined}
             onRefresh={fetchStudents}
-            searchPlaceholder="Search active student name, phone, course..."
+            searchPlaceholder={isTeacher ? "Search my students..." : "Search active student name, phone, course..."}
             isLoading={isLoading}
           />
         </>

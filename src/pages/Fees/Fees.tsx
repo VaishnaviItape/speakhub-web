@@ -5,7 +5,7 @@ import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import { db } from '../../config/firebase';
-import { collection, query, where, getDocs, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import type { FeeTransaction, User, Course, Batch } from '../../types/models';
 import { validatePositiveNumber } from '../../utils/validation';
 import '../../components/ui/TableStyles.css';
@@ -204,12 +204,33 @@ const Fees: React.FC = () => {
       let teacherBatchIds = new Set<string>();
 
       if (isTeacher) {
-        visibleBatches = activeBatches.filter(b => 
-          b.teacherId === user?.id || 
-          b.teacherId === user?.email ||
-          (user as any)?.batchIds?.includes(b.documentId)
-        );
+        const teacherAssignedBatchIds = new Set<string>((user as any)?.batchIds || []);
+        if (user?.id) {
+          try {
+            const userDocSnap = await getDoc(doc(db, 'users', user.id));
+            if (userDocSnap.exists()) {
+              const uData = userDocSnap.data();
+              (uData.batchIds || []).forEach((id: string) => teacherAssignedBatchIds.add(id));
+            }
+          } catch (e) { }
+        }
+
+        visibleBatches = activeBatches.filter(b => {
+          const bId = b.documentId || '';
+          return (
+            teacherAssignedBatchIds.has(bId) ||
+            b.teacherId === user?.id || 
+            (user?.uid && b.teacherId === user.uid) ||
+            b.teacherId === user?.email ||
+            (Array.isArray((b as any).teacherIds) && (
+              (b as any).teacherIds.includes(user?.id) ||
+              (user?.uid && (b as any).teacherIds.includes(user.uid)) ||
+              (b as any).teacherIds.includes(user?.email)
+            ))
+          );
+        });
         teacherBatchIds = new Set(visibleBatches.map(b => b.documentId!).filter(Boolean));
+        teacherAssignedBatchIds.forEach(id => teacherBatchIds.add(id));
       }
       setBatches(visibleBatches);
 

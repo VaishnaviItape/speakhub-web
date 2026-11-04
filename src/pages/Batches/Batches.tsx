@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Users, Calendar } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
 import Modal from '../../components/ui/Modal';
 import DataTable, { type Column } from '../../components/ui/DataTable';
 import type { Batch, Course, User } from '../../types/models';
 import { db } from '../../config/firebase';
-import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, where, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc, where, arrayUnion, arrayRemove, getDoc, serverTimestamp } from 'firebase/firestore';
 import { validateBatchName } from '../../utils/validation';
 import { formatIndianDate } from '../../utils/dateTime';
 import { sendNotificationToBatch } from '../../services/pushNotificationService';
@@ -29,6 +29,7 @@ const Batches: React.FC = () => {
   const [youtubeVideoUrl, setYoutubeVideoUrl] = useState('');
   const [status, setStatus] = useState<'active' | 'completed' | 'inactive'>('active');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [batchStudentCounts, setBatchStudentCounts] = useState<{ [batchId: string]: number }>({});
 
   // Data
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -60,18 +61,58 @@ const Batches: React.FC = () => {
     try {
       setIsLoading(true);
       const q = query(collection(db, 'batches'));
-      const snapshot = await getDocs(q);
+      const [snapshot, studentsSnapshot] = await Promise.all([
+        getDocs(q),
+        getDocs(query(collection(db, 'users'), where('role', '==', 'student'))).catch(() => ({ docs: [] } as any))
+      ]);
+
       let fetchedBatches: Batch[] = [];
       snapshot.forEach(doc => {
         fetchedBatches.push({ documentId: doc.id, ...doc.data() } as Batch);
       });
 
+      // Calculate student enrollment count per batch
+      const counts: { [batchId: string]: number } = {};
+      if (studentsSnapshot?.docs) {
+        studentsSnapshot.docs.forEach((docSnap: any) => {
+          const s = docSnap.data();
+          const sBatches = s.batchIds || (s.batchId ? [s.batchId] : []);
+          sBatches.forEach((bId: string) => {
+            counts[bId] = (counts[bId] || 0) + 1;
+          });
+        });
+      }
+      setBatchStudentCounts(counts);
+
       if (isTeacher) {
-        fetchedBatches = fetchedBatches.filter(b => 
-          b.teacherId === user?.id || 
-          b.teacherId === user?.email ||
-          (user as any)?.batchIds?.includes(b.documentId)
-        );
+        // Fetch fresh teacher user doc to ensure latest assigned batchIds
+        const teacherAssignedBatchIds = new Set<string>((user as any)?.batchIds || []);
+        if (user?.id) {
+          try {
+            const userDocSnap = await getDoc(doc(db, 'users', user.id));
+            if (userDocSnap.exists()) {
+              const uData = userDocSnap.data();
+              (uData.batchIds || []).forEach((id: string) => teacherAssignedBatchIds.add(id));
+            }
+          } catch (e) {
+            console.warn("Could not refresh user batchIds in Batches:", e);
+          }
+        }
+
+        fetchedBatches = fetchedBatches.filter(b => {
+          const bId = b.documentId || '';
+          return (
+            teacherAssignedBatchIds.has(bId) ||
+            b.teacherId === user?.id ||
+            (user?.uid && b.teacherId === user.uid) ||
+            b.teacherId === user?.email ||
+            (Array.isArray((b as any).teacherIds) && (
+              (b as any).teacherIds.includes(user?.id) ||
+              (user?.uid && (b as any).teacherIds.includes(user.uid)) ||
+              (b as any).teacherIds.includes(user?.email)
+            ))
+          );
+        });
       }
 
       setBatches(fetchedBatches);
@@ -106,6 +147,7 @@ const Batches: React.FC = () => {
         batchName,
         courseId,
         teacherId,
+        teacherIds: [teacherId],
         meetingLink,
         youtubeVideoUrl: youtubeVideoUrl.trim(),
         demoVideoUrl: youtubeVideoUrl.trim(),
@@ -159,7 +201,19 @@ const Batches: React.FC = () => {
         }
       }
 
-      // Assign the batch to the teacher's profile
+      // Sync teacher's profile and remove batch from old teacher if changed
+      if (editingId) {
+        const oldBatch = batches.find(b => b.documentId === editingId);
+        const oldTeacherId = oldBatch?.teacherId;
+        if (oldTeacherId && oldTeacherId !== teacherId) {
+          try {
+            await updateDoc(doc(db, 'users', oldTeacherId), {
+              batchIds: arrayRemove(editingId)
+            });
+          } catch (e) { }
+        }
+      }
+
       if (teacherId && newBatchId) {
         try {
           await updateDoc(doc(db, 'users', teacherId), {
@@ -220,6 +274,13 @@ const Batches: React.FC = () => {
     if (!batch.documentId) return;
     if (window.confirm('Are you sure you want to delete this batch?')) {
       try {
+        if (batch.teacherId && batch.documentId) {
+          try {
+            await updateDoc(doc(db, 'users', batch.teacherId), {
+              batchIds: arrayRemove(batch.documentId)
+            });
+          } catch (e) { }
+        }
         await deleteDoc(doc(db, 'batches', batch.documentId));
         fetchBatches();
       } catch (error) {
@@ -241,17 +302,36 @@ const Batches: React.FC = () => {
     {
       key: 'batchName',
       header: 'Batch Name',
-      render: (row) => <span className="font-medium">{row.batchName}</span>
+      render: (row) => (
+        <div>
+          <div className="font-semibold text-slate-900 dark:text-white text-sm">{row.batchName}</div>
+          {row.meetingLink && (
+            <a href={row.meetingLink} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline">
+              🔗 Join Class Link
+            </a>
+          )}
+        </div>
+      )
     },
     {
       key: 'courseId',
       header: 'Course',
       render: (row) => getCourseName(row.courseId)
     },
+    ...(!isTeacher ? [{
+      key: 'teacherId' as keyof Batch,
+      header: 'Assigned Teacher',
+      render: (row: Batch) => getTeacherName(row.teacherId)
+    }] : []),
     {
-      key: 'teacherId',
-      header: 'Teacher',
-      render: (row) => getTeacherName(row.teacherId)
+      key: 'status' as any,
+      header: 'Enrolled Students',
+      render: (row: Batch) => (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+          <Users size={12} />
+          {batchStudentCounts[row.documentId!] || 0} Students
+        </span>
+      )
     },
     {
       key: 'startDate',
@@ -281,25 +361,59 @@ const Batches: React.FC = () => {
     <div className="page-container">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Batches</h1>
+          <h1 className="page-title">{isTeacher ? "My Assigned Batches" : "Batches"}</h1>
           <div className="breadcrumbs">
-            <span>Dashboard</span> <span className="separator">/</span> <span className="current">Batches</span>
+            <span>Dashboard</span> <span className="separator">/</span> <span className="current">{isTeacher ? "My Batches" : "Batches"}</span>
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => { resetForm(); setIsModalOpen(true); }}>
-          <Plus size={16} />
-          Create Batch
-        </button>
+        {!isTeacher && (
+          <button className="btn btn-primary" onClick={() => { resetForm(); setIsModalOpen(true); }}>
+            <Plus size={16} />
+            Create Batch
+          </button>
+        )}
       </div>
 
+      {isTeacher && (
+        <div style={{
+          backgroundColor: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: '12px',
+          padding: '0.85rem 1.25rem',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.75rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1d4ed8' }}>
+              <Calendar size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1e3a8a' }}>
+                Teacher View: Assigned Batches
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#3b82f6', marginTop: '2px' }}>
+                You have <strong>{batches.length}</strong> batch(es) assigned to your teaching schedule.
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e40af', backgroundColor: '#dbeafe', padding: '6px 12px', borderRadius: '20px' }}>
+            {batches.reduce((sum, b) => sum + (batchStudentCounts[b.documentId!] || 0), 0)} Total Assigned Students
+          </div>
+        </div>
+      )}
+
       <DataTable 
-        title="Batch Records" 
+        title={isTeacher ? `My Assigned Batches (${batches.length})` : "Batch Records"} 
         data={batches} 
         columns={columns} 
-        onEdit={handleEdit}
-        onDelete={handleDelete}
+        onEdit={!isTeacher ? handleEdit : undefined}
+        onDelete={!isTeacher ? handleDelete : undefined}
         onRefresh={fetchBatches}
-        searchPlaceholder="Search batches..."
+        searchPlaceholder={isTeacher ? "Search my assigned batches..." : "Search batches..."}
         isLoading={isLoading}
       />
 

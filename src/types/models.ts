@@ -70,8 +70,11 @@ export interface Batch {
   documentId?: string;
   courseId: string;
   teacherId: string;
+  teacherIds?: string[];
   batchName: string;
   meetingLink?: string;
+  youtubeVideoUrl?: string;
+  demoVideoUrl?: string;
   startDate: Timestamp | Date;
   endDate: Timestamp | Date;
   status: 'active' | 'completed' | 'inactive';
