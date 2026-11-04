@@ -466,7 +466,7 @@ const Fees: React.FC = () => {
       }
 
       opts.push({
-        label: `Full Course Fee (One-Time) — ₹${fullFee.toLocaleString('en-IN')}`,
+        label: `Course Fee — ₹${fullFee.toLocaleString('en-IN')}`,
         value: 'one_time'
       });
 
@@ -486,7 +486,7 @@ const Fees: React.FC = () => {
       { label: '5 Months', value: '5' },
       { label: '6 Months (Half-Yearly)', value: '6' },
       { label: '12 Months (Yearly Advance)', value: '12' },
-      { label: 'One-Time Fee (Full Course - e.g. ₹4000)', value: 'one_time' }
+      { label: 'Course Fee (Full Course)', value: 'one_time' }
     ];
   };
 
@@ -589,7 +589,7 @@ const Fees: React.FC = () => {
         } else {
           if (feeDurationOption === 'one_time') {
             setNumberOfMonths(0);
-            setPeriodCoverageText(`One-Time Fee (${startMonth})`);
+            setPeriodCoverageText(`Course Fee (${startMonth})`);
 
             if (isNoDues) {
               setCalculatedDueDate('No Dues');
@@ -752,7 +752,7 @@ const Fees: React.FC = () => {
           coverage = `Offline Installment ${instNumber} of ${totalInstCount}`;
         }
       } else if (isOneTimeFee) {
-        coverage = `One-Time Fee (Full Course)`;
+        coverage = `Course Fee (Full Course)`;
       } else if (!coverage) {
         coverage = `${billingPeriod} (${numberOfMonths} ${numberOfMonths === 1 ? 'Month' : 'Months'})`;
       }
@@ -1469,7 +1469,7 @@ const Fees: React.FC = () => {
           {/* Amounts Breakdown */}
           <div className="fee-modal-grid-3">
             <Input 
-              label={`Total Fee (₹) (${feeDurationOption === 'one_time' ? 'One-Time Fee' : `${numberOfMonths} ${numberOfMonths === 1 ? 'month' : 'months'}`}) *`} 
+              label={`Fee Amount (₹) (${(feeDurationOption === 'one_time' || selectedRecord?.isOffline) ? 'Course Fee' : `${numberOfMonths} ${numberOfMonths === 1 ? 'month' : 'months'}`}) *`} 
               type="number" 
               min="0"
               value={amountPaid} 
@@ -1569,7 +1569,7 @@ const Fees: React.FC = () => {
         transaction={receiptModalTx} 
         student={receiptModalStudent || (receiptModalTx ? students.find(s => s.documentId === receiptModalTx.studentId) : null)}
         course={receiptModalCourse || (receiptModalTx ? courses.find(c => c.documentId === receiptModalTx.courseId) : null)}
-        plan={{ planName: (receiptModalTx?.monthsCount === 0 || receiptModalTx?.billingPeriod?.includes('One-Time')) ? 'One-Time Fee (Offline / Full Course)' : `Monthly Fee (${receiptModalTx?.monthsCount || 1} Months)` }}
+        plan={{ planName: (receiptModalTx?.monthsCount === 0 || receiptModalTx?.billingPeriod?.includes('One-Time') || receiptModalTx?.billingPeriod?.includes('Course Fee')) ? 'Course Fee (Offline / Full Course)' : `Monthly Fee (${receiptModalTx?.monthsCount || 1} Months)` }}
       />
     </div>
   );

@@ -263,7 +263,7 @@ const Courses: React.FC = () => {
           return (
             <div>
               <div style={{ fontWeight: 700, color: '#15803d', fontSize: '13px' }}>
-                One-Time: ₹{oneTime.toLocaleString('en-IN')}
+                Course Fee: ₹{oneTime.toLocaleString('en-IN')}
               </div>
               {row.hasInstallments !== false && (
                 <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
@@ -405,7 +405,7 @@ const Courses: React.FC = () => {
                 </div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '14px', color: mode === 'offline' ? '#b45309' : '#1e293b' }}>Offline Mode</div>
-                  <div style={{ fontSize: '11px', color: '#64748b' }}>Classroom / One-time & Installments</div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Classroom / Course Fee & Installments</div>
                 </div>
               </div>
             </div>
@@ -454,7 +454,7 @@ const Courses: React.FC = () => {
                   required 
                 />
                 <Input 
-                  label="One-Time / Full Fee (₹) *" 
+                  label="Course Fee (₹) *" 
                   type="number"
                   placeholder="e.g. 4000"
                   value={offlineOneTimeFee}

@@ -77,7 +77,10 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
   const isOneTimeFee = Boolean(
     isOffline ||
     (transaction as any).monthsCount === 0 || 
-    (transaction.billingPeriod && transaction.billingPeriod.toLowerCase().includes('one-time'))
+    (transaction.billingPeriod && (
+      transaction.billingPeriod.toLowerCase().includes('one-time') ||
+      transaction.billingPeriod.toLowerCase().includes('course fee')
+    ))
   );
 
   const amountPaid = transaction.amountPaid || 0;
