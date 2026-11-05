@@ -72,8 +72,14 @@ const Teachers: React.FC = () => {
       const q = query(collection(db, 'users'), where('role', '==', 'teacher'));
       const snapshot = await getDocs(q);
       const fetchedTeachers: User[] = [];
+      const seenKeys = new Set<string>();
       snapshot.forEach(docSnap => {
-        fetchedTeachers.push({ documentId: docSnap.id, ...docSnap.data() } as User);
+        const t = { documentId: docSnap.id, ...docSnap.data() } as User;
+        const key = (t.email || t.phone || t.mobile || docSnap.id).toLowerCase().trim();
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          fetchedTeachers.push(t);
+        }
       });
       setTeachers(fetchedTeachers);
     } catch (error) {
