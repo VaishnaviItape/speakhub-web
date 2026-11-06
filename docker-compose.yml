@@ -1,0 +1,9 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: speakhub-academy-web
+    restart: always
+    ports:
+      - "80:80"
