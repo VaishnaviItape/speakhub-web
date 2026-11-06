@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Upload, Download, RefreshCw, Users, CheckCircle2, UserX, Sparkles, FileSpreadsheet, AlertTriangle, BookOpen } from 'lucide-react';
 import Input from '../../components/forms/Input';
 import Select from '../../components/forms/Select';
@@ -91,6 +92,7 @@ const Students: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const isTeacher = user?.role === 'teacher';
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     fetchStudents();
@@ -413,6 +415,26 @@ const Students: React.FC = () => {
     setDemoEndDate('');
   };
 
+  const handleOpenAddModal = () => {
+    resetForm();
+    if (isTeacher && batches.length === 1) {
+      const singleBatch = batches[0];
+      setBatchId(singleBatch.documentId || '');
+      if (singleBatch.courseId) {
+        setCourseId(singleBatch.courseId);
+      }
+    }
+    setIsModalOpen(true);
+  };
+
+  useEffect(() => {
+    if (searchParams.get('action') === 'add') {
+      handleOpenAddModal();
+      searchParams.delete('action');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, batches, isTeacher]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -514,8 +536,13 @@ const Students: React.FC = () => {
           const newUserRef = doc(db, 'users', userCredential.user.uid);
           await setDoc(newUserRef, updates);
 
+          try {
+            await secondarySignOut(secondaryAuth);
+          } catch (e) { }
+
           alert(`Student Created Successfully!\n\nLogin Credentials:\nPhone: ${phone}\nPassword: ${defaultPassword}`);
           setStudents([...students, { documentId: userCredential.user.uid, ...updates }]);
+          fetchStudents();
         } catch (authError: any) {
           if (authError.code === 'auth/email-already-in-use') {
             const candidatePasswords = [
@@ -545,6 +572,7 @@ const Students: React.FC = () => {
 
                 alert(`Student Created & Auth Account Re-synchronized Successfully!\n\nLogin Credentials:\nPhone: ${phone}\nPassword: ${defaultPassword}`);
                 setStudents([...students, { documentId: signedInUser.uid, ...updates }]);
+                fetchStudents();
               } catch (updateErr: any) {
                 alert(`Auth account exists for ${phone}, but could not update password: ` + updateErr.message);
                 return;
@@ -630,6 +658,7 @@ const Students: React.FC = () => {
         const userRef = doc(db, 'users', editingId);
         await setDoc(userRef, updates, { merge: true });
         setStudents(students.map(s => s.documentId === editingId ? { ...s, ...updates } : s));
+        fetchStudents();
 
         if (passwordUpdated) {
           alert(`Student Details & Password Updated Successfully!\n\nNew Login Credentials:\nPhone: ${phone}\nPassword: ${newDefaultPassword}`);
@@ -1226,9 +1255,17 @@ const Students: React.FC = () => {
 
   // Batch options for Add/Edit Modal (allows selecting active batches or retaining current inactive batch)
   const modalBatchOptions = useMemo(() => {
+    let availableBatches = batches;
+    if (courseId) {
+      const courseBatches = batches.filter(b => b.courseId === courseId);
+      if (courseBatches.length > 0) {
+        availableBatches = courseBatches;
+      }
+    }
+
     const list = [
       { label: 'Select Batch', value: '' },
-      ...batches.map(b => ({ label: `${b.batchName} (Active)`, value: b.documentId! }))
+      ...availableBatches.map(b => ({ label: `${b.batchName} (Active)`, value: b.documentId! }))
     ];
     // If editing a student assigned to an inactive batch, retain it as an option with a warning label
     if (editingId && batchId && !batches.some(b => b.documentId === batchId)) {
@@ -1238,7 +1275,7 @@ const Students: React.FC = () => {
       }
     }
     return list;
-  }, [batches, allBatches, editingId, batchId]);
+  }, [batches, allBatches, editingId, batchId, courseId]);
 
   return (
     <div className="page-container">
@@ -1252,18 +1289,18 @@ const Students: React.FC = () => {
         </div>
 
         <div className="student-header-actions">
-          {isAdmin && (
+          {(isAdmin || isTeacher) && (
             <button
               type="button"
               className="btn-add-student"
-              onClick={() => { resetForm(); setIsModalOpen(true); }}
+              onClick={handleOpenAddModal}
             >
               <Plus size={18} />
               Add New Student
             </button>
           )}
 
-          {isAdmin && (
+          {(isAdmin || isTeacher) && (
             <button
               type="button"
               className="btn-bulk-upload"
@@ -1343,8 +1380,30 @@ const Students: React.FC = () => {
               </div>
             </div>
           </div>
-          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e40af', backgroundColor: '#dbeafe', padding: '6px 12px', borderRadius: '20px' }}>
-            {filteredActiveStudents.length} Students in Your Batches
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e40af', backgroundColor: '#dbeafe', padding: '6px 12px', borderRadius: '20px' }}>
+              {filteredActiveStudents.length} Students in Your Batches
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenAddModal}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 14px',
+                borderRadius: '20px',
+                backgroundColor: '#2563eb',
+                color: '#ffffff',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(37, 99, 235, 0.28)'
+              }}
+            >
+              <Plus size={15} /> Add Student
+            </button>
           </div>
         </div>
       )}
@@ -1442,7 +1501,7 @@ const Students: React.FC = () => {
             title={isTeacher ? `My Assigned Students (${filteredActiveStudents.length} Students)` : `Active Student Directory (${filteredActiveStudents.length} Students)`}
             data={filteredActiveStudents}
             columns={activeColumns}
-            onEdit={isAdmin ? handleEdit : undefined}
+            onEdit={isAdmin || isTeacher ? handleEdit : undefined}
             onDelete={isAdmin ? handleDelete : undefined}
             onRefresh={fetchStudents}
             searchPlaceholder={isTeacher ? "Search my students..." : "Search active student name, phone, course..."}
@@ -1532,6 +1591,12 @@ const Students: React.FC = () => {
       {/* MODAL 1: Add / Edit Single Student */}
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); resetForm(); }} title={editingId ? "Edit Student Details" : "Register New Student"}>
         <form onSubmit={handleSubmit} className="modal-form" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', maxHeight: '75vh', overflowY: 'auto', paddingRight: '6px' }}>
+          {isTeacher && batches.length === 0 && (
+            <div style={{ padding: '10px 14px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#991b1b', fontSize: '0.82rem', lineHeight: '1.4' }}>
+              ⚠️ <strong>No Assigned Batches Found:</strong> You do not currently have an active batch assigned to your teacher account. To register students, please contact an administrator to assign you to a batch in Batch Master.
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
             <Input label="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
             <Input label="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
@@ -1585,7 +1650,16 @@ const Students: React.FC = () => {
               label="Assigned Batch"
               options={modalBatchOptions}
               value={batchId}
-              onChange={(e) => setBatchId(e.target.value)}
+              onChange={(e) => {
+                const newBId = e.target.value;
+                setBatchId(newBId);
+                if (newBId) {
+                  const bObj = allBatches.find(b => b.documentId === newBId);
+                  if (bObj?.courseId && !courseId) {
+                    setCourseId(bObj.courseId);
+                  }
+                }
+              }}
               required
             />
           </div>

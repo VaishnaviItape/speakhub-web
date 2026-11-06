@@ -91,7 +91,7 @@ export const MENU_GROUPS: MenuGroup[] = [
         title: 'Student Master / Directory',
         path: '/students',
         icon: GraduationCap,
-        keywords: ['students', 'directory', 'admissions', 'enrolled', 'profiles', 'kids'],
+        keywords: ['students', 'directory', 'admissions', 'enrolled', 'profiles', 'kids', 'add student', 'add students', 'register student', 'new student'],
         description: 'View student directory and enrollments'
       },
       {

@@ -308,12 +308,20 @@ const Dashboard: React.FC = () => {
                     </h3>
                   </div>
                   <div className="card-body p-4 flex flex-col gap-3">
-                    <Link to="/fees" className="p-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl border border-emerald-200 flex items-center justify-between transition-all">
+                    <Link to="/students?action=add" className="p-3 bg-rose-50 hover:bg-rose-100 text-rose-800 rounded-xl border border-rose-200 flex items-center justify-between transition-all">
                       <div>
-                        <div className="font-bold text-sm">Student Fee Dues</div>
-                        <div className="text-xs text-emerald-600">View upcoming &amp; overdue fee dates for your batch</div>
+                        <div className="font-bold text-sm">Add New Student</div>
+                        <div className="text-xs text-rose-600">Register and enroll a new student to your batch</div>
                       </div>
-                      <span className="text-xs font-bold px-2 py-1 bg-white rounded-md shadow-xs">View Dues →</span>
+                      <span className="text-xs font-bold px-2 py-1 bg-white rounded-md shadow-xs">+ Add Student →</span>
+                    </Link>
+
+                    <Link to="/students" className="p-3 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl border border-amber-200 flex items-center justify-between transition-all">
+                      <div>
+                        <div className="font-bold text-sm">My Students Directory</div>
+                        <div className="text-xs text-amber-600">Profiles of students enrolled in your batches</div>
+                      </div>
+                      <span className="text-xs font-bold px-2 py-1 bg-white rounded-md shadow-xs">Open →</span>
                     </Link>
 
                     <Link to="/attendance" className="p-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 rounded-xl border border-indigo-200 flex items-center justify-between transition-all">
@@ -324,12 +332,12 @@ const Dashboard: React.FC = () => {
                       <span className="text-xs font-bold px-2 py-1 bg-white rounded-md shadow-xs">Mark →</span>
                     </Link>
 
-                    <Link to="/students" className="p-3 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl border border-amber-200 flex items-center justify-between transition-all">
+                    <Link to="/fees" className="p-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl border border-emerald-200 flex items-center justify-between transition-all">
                       <div>
-                        <div className="font-bold text-sm">My Students Directory</div>
-                        <div className="text-xs text-amber-600">Profiles of students enrolled in your batches</div>
+                        <div className="font-bold text-sm">Student Fee Dues</div>
+                        <div className="text-xs text-emerald-600">View upcoming &amp; overdue fee dates for your batch</div>
                       </div>
-                      <span className="text-xs font-bold px-2 py-1 bg-white rounded-md shadow-xs">Open →</span>
+                      <span className="text-xs font-bold px-2 py-1 bg-white rounded-md shadow-xs">View Dues →</span>
                     </Link>
                   </div>
                 </div>
