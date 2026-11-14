@@ -94,8 +94,6 @@ const Fees: React.FC = () => {
   const [transactionNumber, setTransactionNumber] = useState('');
   const [remarks, setRemarks] = useState('');
   const [customNextDueDate, setCustomNextDueDate] = useState<string>('');
-  const [editingRowStudentId, setEditingRowStudentId] = useState<string | null>(null);
-  const [editingRowDateVal, setEditingRowDateVal] = useState<string>('');
 
   // Receipt Modal State
   const [receiptModalTx, setReceiptModalTx] = useState<FeeTransaction | null>(null);
@@ -393,7 +391,6 @@ const Fees: React.FC = () => {
           }
           return r;
         }));
-        setEditingRowStudentId(null);
         alert("Due date updated to No Dues successfully!");
         return;
       }
@@ -432,7 +429,6 @@ const Fees: React.FC = () => {
         return r;
       }));
 
-      setEditingRowStudentId(null);
       alert(`Due date updated to ${ddMmYyyy} successfully!`);
     } catch (e: any) {
       console.error("Error updating due date:", e);
@@ -921,43 +917,6 @@ const Fees: React.FC = () => {
       header: 'Current Due Date',
       render: (row) => {
         const isStudentNoDues = row.currentDueDate === 'No Dues' || row.currentDueDateRaw === 'NO_DUES';
-        const isEditingThisRow = editingRowStudentId === row.studentId;
-
-        if (isEditingThisRow) {
-          return (
-            <div className="fee-inline-due-edit" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <input 
-                type="date"
-                value={editingRowDateVal}
-                onChange={(e) => setEditingRowDateVal(e.target.value)}
-                style={{ fontSize: '12px', padding: '3px 6px', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-              />
-              <button
-                type="button"
-                className="fee-inline-due-save-btn"
-                onClick={() => handleSaveCurrentDueDate(row.studentId, editingRowDateVal)}
-                title="Fire Update Query to Save Due Date"
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                className="fee-inline-nodues-btn"
-                title="Mark student as No Dues"
-                onClick={() => handleSaveCurrentDueDate(row.studentId, 'NO_DUES')}
-              >
-                ✓ No Dues
-              </button>
-              <button
-                type="button"
-                className="fee-inline-due-cancel-btn"
-                onClick={() => setEditingRowStudentId(null)}
-              >
-                Cancel
-              </button>
-            </div>
-          );
-        }
 
         return (
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -975,13 +934,24 @@ const Fees: React.FC = () => {
             <button
               type="button"
               className="fee-edit-due-date-btn"
-              title="Edit Due Date"
+              title={isStudentNoDues ? "Change Due Date" : "Edit Due Date (DD-MM-YYYY)"}
               onClick={() => {
-                setEditingRowStudentId(row.studentId);
-                const rawIso = row.currentDueDateRaw && row.currentDueDateRaw !== 'NO_DUES'
-                  ? row.currentDueDateRaw
-                  : formatYYYYMMDD(row.currentDueDate) || formatYYYYMMDD(new Date());
-                setEditingRowDateVal(rawIso);
+                const defaultDate = isStudentNoDues
+                  ? ''
+                  : (row.currentDueDate && row.currentDueDate !== 'No Dues'
+                      ? (formatDDMMYYYY(row.currentDueDate) || row.currentDueDate)
+                      : (row.currentDueDateRaw && row.currentDueDateRaw !== 'NO_DUES'
+                          ? formatDDMMYYYY(row.currentDueDateRaw)
+                          : formatDDMMYYYY(new Date())));
+
+                const input = window.prompt(
+                  `Edit Due Date for ${row.studentName} (DD-MM-YYYY or enter 'NO_DUES'):`,
+                  defaultDate || ''
+                );
+
+                if (input !== null && input.trim() !== '') {
+                  handleSaveCurrentDueDate(row.studentId, input.trim());
+                }
               }}
             >
               <Edit2 size={12} />

@@ -22,12 +22,13 @@ export const parseDate = (input: any): Date | null => {
     const str = input.trim();
     if (!str || str.toUpperCase() === 'NO_DUES' || str.toLowerCase() === 'no dues') return null;
 
-    // 1. Match DD-MM-YYYY or DD/MM/YYYY
-    const ddmmyyyy = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    // 1. Match DD-MM-YYYY or DD/MM/YYYY (supports 2 or 4 digit year)
+    const ddmmyyyy = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
     if (ddmmyyyy) {
       const d = parseInt(ddmmyyyy[1], 10);
       const m = parseInt(ddmmyyyy[2], 10);
-      const y = parseInt(ddmmyyyy[3], 10);
+      let y = parseInt(ddmmyyyy[3], 10);
+      if (y < 100) y += 2000;
       const date = new Date(y, m - 1, d);
       return isNaN(date.getTime()) ? null : date;
     }
