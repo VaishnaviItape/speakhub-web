@@ -38,6 +38,7 @@ import type { Batch } from '../../types/models';
 import { useAuth } from '../../contexts/AuthContext';
 import '../../components/ui/TableStyles.css';
 import './Attendance.css';
+import { parseDate } from '../../utils/dateTime';
 
 interface StudentAttendanceItem {
   userId: string;
@@ -295,12 +296,12 @@ const Attendance: React.FC = () => {
     }
     let dueDateObj: Date | null = null;
     if (student.feeDueDate) {
-      const d = student.feeDueDate?.toDate ? student.feeDueDate.toDate() : new Date(student.feeDueDate);
-      if (!isNaN(d.getTime())) dueDateObj = d;
+      const d = parseDate(student.feeDueDate);
+      if (d && !isNaN(d.getTime())) dueDateObj = d;
     }
     if (!dueDateObj && student.joiningDate) {
-      const d = student.joiningDate?.toDate ? student.joiningDate.toDate() : new Date(student.joiningDate);
-      if (!isNaN(d.getTime())) {
+      const d = parseDate(student.joiningDate);
+      if (d && !isNaN(d.getTime())) {
         const today = new Date();
         const jDay = Math.min(d.getDate(), 28);
         dueDateObj = new Date(today.getFullYear(), today.getMonth(), jDay);
@@ -314,7 +315,9 @@ const Attendance: React.FC = () => {
     dueMidnight.setHours(0, 0, 0, 0);
 
     const diffDays = Math.round((dueMidnight.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    const display = dueDateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    const dStr = String(dueDateObj.getDate()).padStart(2, '0');
+    const mStr = String(dueDateObj.getMonth() + 1).padStart(2, '0');
+    const display = `${dStr}-${mStr}-${dueDateObj.getFullYear()}`;
 
     if (diffDays < 0) {
       return { display, label: `Overdue (${Math.abs(diffDays)}d)`, badgeClass: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800' };

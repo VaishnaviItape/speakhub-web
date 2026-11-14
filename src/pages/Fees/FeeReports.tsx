@@ -22,6 +22,7 @@ import type { FeeTransaction, User, Course } from '../../types/models';
 import ReceiptModal from './ReceiptModal';
 import '../../components/ui/TableStyles.css';
 import '../Attendance/Attendance.css';
+import { parseDate, formatDDMMYYYY } from '../../utils/dateTime';
 
 interface DefaulterRecord {
   studentId: string;
@@ -72,38 +73,36 @@ const FeeReports: React.FC = () => {
 
   const formatJoiningDateDisplay = (joiningDateVal: any): { display: string; raw: string } => {
     if (!joiningDateVal) {
-      return { display: '01 Jan 2026', raw: '2026-01-01' };
+      const today = new Date();
+      const dd = String(today.getDate()).padStart(2, '0');
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const yyyy = today.getFullYear();
+      return { display: `${dd}-${mm}-${yyyy}`, raw: `${yyyy}-${mm}-${dd}` };
     }
     if (typeof joiningDateVal === 'string' && (joiningDateVal.toUpperCase() === 'NO_DUES' || joiningDateVal.toLowerCase() === 'no dues')) {
       return { display: 'No Dues', raw: 'NO_DUES' };
     }
-    let d: Date;
-    if (joiningDateVal.seconds) {
-      d = new Date(joiningDateVal.seconds * 1000);
-    } else if (typeof joiningDateVal === 'string') {
-      d = new Date(joiningDateVal);
-    } else if (joiningDateVal instanceof Date) {
-      d = joiningDateVal;
-    } else {
-      d = new Date('2026-01-01');
-    }
-
-    if (isNaN(d.getTime())) {
-      return { display: '01 Jan 2026', raw: '2026-01-01' };
+    const d = parseDate(joiningDateVal);
+    if (!d || isNaN(d.getTime())) {
+      const today = new Date();
+      const dd = String(today.getDate()).padStart(2, '0');
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const yyyy = today.getFullYear();
+      return { display: `${dd}-${mm}-${yyyy}`, raw: `${yyyy}-${mm}-${dd}` };
     }
 
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
 
-    const display = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const display = `${day}-${month}-${year}`;
     const raw = `${year}-${month}-${day}`;
     return { display, raw };
   };
 
   const calculateNextDueDateString = (baseDateStr: string, monthsToAdd: number): { display: string; iso: string } => {
-    let base = new Date(baseDateStr);
-    if (isNaN(base.getTime())) {
+    let base = parseDate(baseDateStr);
+    if (!base || isNaN(base.getTime())) {
       base = new Date();
     }
     
@@ -113,7 +112,7 @@ const FeeReports: React.FC = () => {
     const month = String(target.getMonth() + 1).padStart(2, '0');
     const day = String(target.getDate()).padStart(2, '0');
 
-    const display = target.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const display = `${day}-${month}-${year}`;
     const iso = `${year}-${month}-${day}`;
     return { display, iso };
   };
@@ -152,7 +151,6 @@ const FeeReports: React.FC = () => {
       let total = 0;
       let monthTotal = 0;
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
 
       // Expanded Transactions list
       const expandedTxList: ExpandedTransactionRecord[] = [];
@@ -238,28 +236,33 @@ const FeeReports: React.FC = () => {
           pendingAmt = 0;
           daysOverdue = 0;
         } else {
-          const dueDateObj = new Date(nextDueIso);
-          const isOverdue = nextDueIso < todayStr;
+          const dueDateObj = parseDate(nextDueIso);
 
-          if (isOverdue && !isNaN(dueDateObj.getTime())) {
-            status = 'overdue';
-            const diffTime = Math.abs(now.getTime() - dueDateObj.getTime());
-            daysOverdue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            
-            // Estimate pending amount (for offline course, exactly remaining balance)
-            const monthsOverdue = Math.max(1, (now.getFullYear() - dueDateObj.getFullYear()) * 12 + (now.getMonth() - dueDateObj.getMonth()) + 1);
-            pendingAmt = isOffline ? Math.max(0, offlineTarget - totalPaidByStudent) : (monthlyFee > 0 ? monthlyFee : 500) * monthsOverdue;
-            
-            totalPending += pendingAmt;
-            defaulters++;
-          } else if (!isNaN(dueDateObj.getTime())) {
-            // Check if due within next 7 days
-            const diffTime = dueDateObj.getTime() - now.getTime();
-            const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            if (daysLeft <= 7) {
-              status = 'due_soon';
-              pendingAmt = isOffline ? Math.max(0, offlineTarget - totalPaidByStudent) : monthlyFee;
+          if (dueDateObj && !isNaN(dueDateObj.getTime())) {
+            const dueMidnight = new Date(dueDateObj);
+            dueMidnight.setHours(0, 0, 0, 0);
+            const isOverdue = dueMidnight.getTime() < now.getTime();
+
+            if (isOverdue) {
+              status = 'overdue';
+              const diffTime = Math.abs(now.getTime() - dueMidnight.getTime());
+              daysOverdue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              
+              // Estimate pending amount (for offline course, exactly remaining balance)
+              const monthsOverdue = Math.max(1, (now.getFullYear() - dueDateObj.getFullYear()) * 12 + (now.getMonth() - dueDateObj.getMonth()) + 1);
+              pendingAmt = isOffline ? Math.max(0, offlineTarget - totalPaidByStudent) : (monthlyFee > 0 ? monthlyFee : 500) * monthsOverdue;
+              
               totalPending += pendingAmt;
+              defaulters++;
+            } else {
+              // Check if due within next 7 days
+              const diffTime = dueMidnight.getTime() - now.getTime();
+              const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              if (daysLeft <= 7) {
+                status = 'due_soon';
+                pendingAmt = isOffline ? Math.max(0, offlineTarget - totalPaidByStudent) : monthlyFee;
+                totalPending += pendingAmt;
+              }
             }
           }
         }
@@ -271,7 +274,7 @@ const FeeReports: React.FC = () => {
           courseName: course?.courseName || 'Unassigned',
           monthlyFee: monthlyFee,
           joiningDate: jInfo.display,
-          lastPaidDate: lastTx?.paymentDate ? new Date((lastTx.paymentDate as any).seconds * 1000).toLocaleDateString() : undefined,
+          lastPaidDate: lastTx?.paymentDate ? formatDDMMYYYY(lastTx.paymentDate) : undefined,
           lastPaidMonth: lastTx?.billingPeriod,
           nextDueDate: nextDueDisplay,
           status,

@@ -4,6 +4,7 @@ import logoImg from '../../assets/logo.png';
 import stampImg from '../../assets/stamp.jpeg';
 import signImg from '../../assets/sign.jpeg';
 import './ReceiptTemplate.css';
+import { parseDate } from '../../utils/dateTime';
 
 export interface ReceiptTemplateProps {
   transaction: FeeTransaction;
@@ -21,20 +22,15 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
 }) => {
   const formatDateDisplay = (dateVal?: any): string => {
     if (!dateVal) return 'N/A';
-    let d: Date;
-    if (dateVal instanceof Date) {
-      d = dateVal;
-    } else if (dateVal.seconds) {
-      d = new Date(dateVal.seconds * 1000);
-    } else if (typeof dateVal?.toDate === 'function') {
-      d = dateVal.toDate();
-    } else if (typeof dateVal === 'string') {
-      d = new Date(dateVal);
-    } else {
-      d = new Date();
+    if (typeof dateVal === 'string' && (dateVal.toUpperCase() === 'NO_DUES' || dateVal.toLowerCase() === 'no dues')) {
+      return 'No Dues';
     }
-    if (isNaN(d.getTime())) return 'N/A';
-    return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+    const d = parseDate(dateVal);
+    if (!d) return typeof dateVal === 'string' ? dateVal : 'N/A';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
   };
 
   const formatLongDate = (dateVal?: any): string => {

@@ -18,8 +18,72 @@ export const parseDate = (input: any): Date | null => {
     const d = new Date(input.seconds * 1000);
     return isNaN(d.getTime()) ? null : d;
   }
+  if (typeof input === 'string') {
+    const str = input.trim();
+    if (!str || str.toUpperCase() === 'NO_DUES' || str.toLowerCase() === 'no dues') return null;
+
+    // 1. Match DD-MM-YYYY or DD/MM/YYYY
+    const ddmmyyyy = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (ddmmyyyy) {
+      const d = parseInt(ddmmyyyy[1], 10);
+      const m = parseInt(ddmmyyyy[2], 10);
+      const y = parseInt(ddmmyyyy[3], 10);
+      const date = new Date(y, m - 1, d);
+      return isNaN(date.getTime()) ? null : date;
+    }
+
+    // 2. Match YYYY-MM-DD or YYYY/MM/DD
+    const yyyymmdd = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (yyyymmdd) {
+      const y = parseInt(yyyymmdd[1], 10);
+      const m = parseInt(yyyymmdd[2], 10);
+      const d = parseInt(yyyymmdd[3], 10);
+      const date = new Date(y, m - 1, d);
+      return isNaN(date.getTime()) ? null : date;
+    }
+
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+  }
   const d = new Date(input);
   return isNaN(d.getTime()) ? null : d;
+};
+
+/**
+ * Format date strictly in dd-mm-yyyy format (e.g. "14-11-2026")
+ */
+export const formatDDMMYYYY = (input: any): string => {
+  if (!input) return '';
+  if (typeof input === 'string' && (input.toUpperCase() === 'NO_DUES' || input.toLowerCase() === 'no dues')) {
+    return 'No Dues';
+  }
+  const d = parseDate(input);
+  if (!d) {
+    if (typeof input === 'string' && /^\d{2}-\d{2}-\d{4}$/.test(input.trim())) {
+      return input.trim();
+    }
+    return '';
+  }
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
+/**
+ * Format date in yyyy-mm-dd format for HTML <input type="date">
+ */
+export const formatYYYYMMDD = (input: any): string => {
+  if (!input) return '';
+  if (typeof input === 'string' && (input.toUpperCase() === 'NO_DUES' || input.toLowerCase() === 'no dues')) {
+    return 'NO_DUES';
+  }
+  const d = parseDate(input);
+  if (!d) return '';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${year}-${month}-${day}`;
 };
 
 /**

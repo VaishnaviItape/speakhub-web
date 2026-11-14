@@ -22,6 +22,7 @@ import { validateName, validatePhoneNumber } from '../../utils/validation';
 import { useAuth } from '../../contexts/AuthContext';
 import '../../components/ui/TableStyles.css';
 import './Students.css';
+import { parseDate } from '../../utils/dateTime';
 
 interface ParsedCsvStudent {
   name: string;
@@ -346,18 +347,18 @@ const Students: React.FC = () => {
     let dueDateObj: Date | null = null;
 
     if (student.feeDueDate) {
-      const d = student.feeDueDate?.toDate ? student.feeDueDate.toDate() : new Date(student.feeDueDate);
-      if (!isNaN(d.getTime())) dueDateObj = d;
+      const d = parseDate(student.feeDueDate);
+      if (d && !isNaN(d.getTime())) dueDateObj = d;
     }
 
     if (!dueDateObj && lastTx?.nextDueDate) {
-      const d = lastTx.nextDueDate?.toDate ? lastTx.nextDueDate.toDate() : new Date(lastTx.nextDueDate);
-      if (!isNaN(d.getTime())) dueDateObj = d;
+      const d = parseDate(lastTx.nextDueDate);
+      if (d && !isNaN(d.getTime())) dueDateObj = d;
     }
 
     if (!dueDateObj && student.joiningDate) {
-      const d = student.joiningDate?.toDate ? student.joiningDate.toDate() : new Date(student.joiningDate);
-      if (!isNaN(d.getTime())) {
+      const d = parseDate(student.joiningDate);
+      if (d && !isNaN(d.getTime())) {
         const today = new Date();
         const jDay = Math.min(d.getDate(), 28);
         dueDateObj = new Date(today.getFullYear(), today.getMonth(), jDay);
@@ -373,7 +374,9 @@ const Students: React.FC = () => {
     dueMidnight.setHours(0, 0, 0, 0);
 
     const diffDays = Math.round((dueMidnight.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    const display = dueDateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const dayStr = String(dueDateObj.getDate()).padStart(2, '0');
+    const monthStr = String(dueDateObj.getMonth() + 1).padStart(2, '0');
+    const display = `${dayStr}-${monthStr}-${dueDateObj.getFullYear()}`;
 
     if (diffDays < 0) {
       return { date: dueDateObj, display, status: 'OVERDUE', diffDays: Math.abs(diffDays), label: `Overdue (${Math.abs(diffDays)}d)`, badgeClass: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800' };
@@ -717,8 +720,8 @@ const Students: React.FC = () => {
     setDemoEndDate(student.demoEndDate?.toDate ? student.demoEndDate.toDate().toISOString().split('T')[0] : '');
 
     if (student.feeDueDate) {
-      const d = student.feeDueDate?.toDate ? student.feeDueDate.toDate() : new Date(student.feeDueDate);
-      setFeeDueDate(!isNaN(d.getTime()) ? d.toISOString().split('T')[0] : '');
+      const d = parseDate(student.feeDueDate);
+      setFeeDueDate(d && !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '');
     } else {
       setFeeDueDate('');
     }

@@ -599,6 +599,21 @@
 }
 
 /* Full Course Discount Section */
+.fee-offline-summary-card {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.65rem;
+  margin-top: 0.35rem;
+  margin-bottom: 0.4rem;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .fee-offline-summary-card {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 .fee-full-discount-section {
   background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
   border: 1.5px solid #fcd34d;
