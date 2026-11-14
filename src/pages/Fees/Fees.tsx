@@ -50,7 +50,7 @@ const Fees: React.FC = () => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  
+
   // Data State
   const [students, setStudents] = useState<User[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -108,7 +108,7 @@ const Fees: React.FC = () => {
   const [receiptModalTx, setReceiptModalTx] = useState<FeeTransaction | null>(null);
   const [receiptModalStudent, setReceiptModalStudent] = useState<any>(null);
   const [receiptModalCourse, setReceiptModalCourse] = useState<any>(null);
-  
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -189,7 +189,7 @@ const Fees: React.FC = () => {
     if (!startMonthStr) return '';
     const parts = startMonthStr.trim().split(' ');
     if (parts.length < 2) return `${startMonthStr} (${count} ${count === 1 ? 'Month' : 'Months'})`;
-    
+
     const startMonthIdx = monthNames.indexOf(parts[0]);
     const startYear = parseInt(parts[1], 10);
     if (startMonthIdx === -1 || isNaN(startYear)) {
@@ -198,7 +198,7 @@ const Fees: React.FC = () => {
     if (count <= 1) {
       return `${parts[0]} ${startYear} (1 Month)`;
     }
-    
+
     const endMonthTotal = startMonthIdx + count - 1;
     const endYear = startYear + Math.floor(endMonthTotal / 12);
     const endMonthName = monthNames[endMonthTotal % 12];
@@ -234,7 +234,7 @@ const Fees: React.FC = () => {
           const bId = b.documentId || '';
           return (
             teacherAssignedBatchIds.has(bId) ||
-            b.teacherId === user?.id || 
+            b.teacherId === user?.id ||
             (user?.uid && b.teacherId === user.uid) ||
             b.teacherId === user?.email ||
             (Array.isArray((b as any).teacherIds) && (
@@ -283,7 +283,7 @@ const Fees: React.FC = () => {
       const records: StudentFeeRecord[] = usersList.map(student => {
         const courseId = student.courseIds?.[0] || '';
         const course = coursesList.find(c => c.documentId === courseId);
-        
+
         const rawBatchId = student.batchIds?.[0] || (student as any).batchId || '';
         const matchedBatch = allBatches.find(b => b.documentId === rawBatchId);
         const batchName = matchedBatch?.batchName || 'General';
@@ -304,9 +304,9 @@ const Fees: React.FC = () => {
         let curDueRaw = jInfo.raw;
         let curDueDay = jInfo.day;
 
-        const isTxNoDues = lastTx?.nextDueDate && typeof lastTx.nextDueDate === 'string' && 
+        const isTxNoDues = lastTx?.nextDueDate && typeof lastTx.nextDueDate === 'string' &&
           (lastTx.nextDueDate.toUpperCase() === 'NO_DUES' || lastTx.nextDueDate.toLowerCase() === 'no dues');
-        const isStudentExplicitNoDues = (student as any).feeDueDate && typeof (student as any).feeDueDate === 'string' && 
+        const isStudentExplicitNoDues = (student as any).feeDueDate && typeof (student as any).feeDueDate === 'string' &&
           ((student as any).feeDueDate.toUpperCase() === 'NO_DUES' || (student as any).feeDueDate.toLowerCase() === 'no dues');
 
         const isOffline = course?.mode === 'offline' || course?.modeBadge?.toLowerCase().includes('offline');
@@ -857,12 +857,12 @@ const Fees: React.FC = () => {
       const extraDisc = Math.max(0, Number(discount) || 0);
       const lf = Math.max(0, Number(lateFee) || 0);
       const netPaid = Math.max(0, amt - extraDisc + lf);
-      
+
       const course = courses.find(c => c.documentId === paymentCourseId) || courses.find(c => c.documentId === record.courseId);
       const isOfflineCourse = course?.mode === 'offline' || course?.modeBadge?.toLowerCase().includes('offline');
       const isOneTimeFee = feeDurationOption === 'one_time';
       const isInstallment = feeDurationOption.startsWith('inst_') || feeDurationOption === 'remaining_balance' || feeDurationOption === 'custom_amount';
-      
+
       const baseFee = Number(customCourseFee) || course?.offlineOneTimeFee || record.originalCourseFee || record.offlineOneTimeFee || 4000;
       const courseDisc = Math.max(0, Number(fullCourseDiscount) || 0);
       const netFullCourseFee = Math.max(0, baseFee - courseDisc);
@@ -878,7 +878,7 @@ const Fees: React.FC = () => {
       const computedDue = calculateNextDueFromBillingPeriod(billingPeriod, Math.max(1, numberOfMonths), dueDay).iso;
       const willBeNoDues = isNoDues || (isOfflineCourse && remainingAfter === 0);
       const finalNextDueDate = willBeNoDues ? 'NO_DUES' : (customNextDueDate || computedDue);
-      
+
       let coverage = periodCoverageText;
       if (isOfflineCourse) {
         if (isOneTimeFee) {
@@ -967,10 +967,10 @@ const Fees: React.FC = () => {
       setFeeDurationOption('1');
       setNumberOfMonths(1);
       setIsNoDues(false);
-      
+
       // Open interactive official fee receipt modal immediately with complete transaction metadata
-      const recordedTx: FeeTransaction = { 
-        ...newTransaction, 
+      const recordedTx: FeeTransaction = {
+        ...newTransaction,
         paymentDate: new Date(),
         studentName: record.studentName,
         courseName: course?.courseName || record.courseName,
@@ -1063,9 +1063,9 @@ const Fees: React.FC = () => {
     }
     const cleanPhone = phone.replace(/[^0-9]/g, '');
     const phoneWithCode = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-    
+
     const msg = `Dear Parents / Guardians, Students / Learners,\n\nThis is to inform you that the Spoken English / Abacus class FEE of ₹${monthlyFee || 800} for ${name || 'Student'} is to be paid on or before ${dueDate || 'due date'}.\n\nFee to be paid to:\n\nGoogle Pay:\nSpeak Hub Academy\n9970964742\n\nOR\n\nPhonePe:\n9970964742\nSpeak Hub Academy\n\nOR\n\nBank details:\nBank Name: State Bank Of India\nA/c No: 41871708652\nIFSC Code: SBIN0011701\nName: Speak Hub Academy\n\nThank you,\nSpeak Hub Academy`;
-    
+
     window.open(`https://wa.me/${phoneWithCode}?text=${encodeURIComponent(msg)}`, 'speakhub_whatsapp');
   };
 
@@ -1278,17 +1278,17 @@ const Fees: React.FC = () => {
                 No Dues (Paid)
               </span>
             ) : (
-              <button 
-                className="btn btn-primary" 
-                style={{padding: '5px 10px', fontSize: '12px', borderRadius: '8px'}} 
+              <button
+                className="btn btn-primary"
+                style={{ padding: '5px 10px', fontSize: '12px', borderRadius: '8px' }}
                 onClick={() => handleOpenPaymentModal(row)}
               >
                 Pay Fee
               </button>
             )}
-            <button 
-              className="btn bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold" 
-              style={{padding: '5px 10px', fontSize: '12px', borderRadius: '8px', border: '1px solid #cbd5e1'}} 
+            <button
+              className="btn bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+              style={{ padding: '5px 10px', fontSize: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
               onClick={() => handleOpenReceiptForStudent(row)}
               title="View, Print & WhatsApp Share Fee Receipt"
             >
@@ -1296,16 +1296,16 @@ const Fees: React.FC = () => {
             </button>
             {!isStudentNoDues && (
               <>
-                <button 
-                  className="btn btn-outline" 
-                  style={{padding: '5px 10px', fontSize: '12px', color: '#16a34a', borderColor: '#16a34a', borderRadius: '8px'}} 
+                <button
+                  className="btn btn-outline"
+                  style={{ padding: '5px 10px', fontSize: '12px', color: '#16a34a', borderColor: '#16a34a', borderRadius: '8px' }}
                   onClick={() => openWhatsApp(phone, student?.name, (row.remainingBalance && row.remainingBalance > 0 ? row.remainingBalance : row.monthlyFee), row.currentDueDate)}
                 >
                   <MessageCircle size={14} className="mr-1 inline" /> WhatsApp
                 </button>
-                <button 
-                  className="btn bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold border border-rose-200" 
-                  style={{padding: '5px 10px', fontSize: '12px', borderRadius: '8px'}} 
+                <button
+                  className="btn bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold border border-rose-200"
+                  style={{ padding: '5px 10px', fontSize: '12px', borderRadius: '8px' }}
                   title="Send Push Notification to Student Mobile"
                   onClick={() => handleSendPushFeeReminder(row)}
                 >
@@ -1314,9 +1314,9 @@ const Fees: React.FC = () => {
               </>
             )}
             {isStudentNoDues && (
-              <button 
+              <button
                 type="button"
-                className="text-[11px] text-slate-500 hover:text-slate-800 hover:underline px-1 py-0.5 cursor-pointer" 
+                className="text-[11px] text-slate-500 hover:text-slate-800 hover:underline px-1 py-0.5 cursor-pointer"
                 onClick={() => handleOpenPaymentModal(row)}
                 title="Add extra payment or adjust fee"
               >
@@ -1339,18 +1339,18 @@ const Fees: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button 
+          <button
             className="btn bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold border border-amber-300 flex items-center gap-1.5"
             onClick={handleNotifyAllDueStudents}
           >
             <Bell size={15} /> Notify All Due Students
           </button>
-          <button 
-            className="btn btn-primary flex items-center gap-2" 
-            onClick={() => { 
-              if(feeRecords.length > 0) { 
+          <button
+            className="btn btn-primary flex items-center gap-2"
+            onClick={() => {
+              if (feeRecords.length > 0) {
                 handleOpenPaymentModal(feeRecords[0]);
-              } 
+              }
             }}
           >
             <Plus size={16} /> Record Payment
@@ -1383,10 +1383,10 @@ const Fees: React.FC = () => {
         )}
       </div>
 
-      <DataTable 
-        title={user?.role === 'teacher' ? "My Batch Students - Fee Dues" : "Student Fee Roster"} 
-        data={feeRecords.filter(r => selectedBatchFilter === 'all' || r.batchId === selectedBatchFilter)} 
-        columns={columns} 
+      <DataTable
+        title={user?.role === 'teacher' ? "My Batch Students - Fee Dues" : "Student Fee Roster"}
+        data={feeRecords.filter(r => selectedBatchFilter === 'all' || r.batchId === selectedBatchFilter)}
+        columns={columns}
         onRefresh={fetchData}
         searchPlaceholder="Search student name or course..."
         isLoading={isLoading}
@@ -1395,10 +1395,10 @@ const Fees: React.FC = () => {
       {/* Record Payment Modal */}
       <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Record Fee Collection">
         <form onSubmit={handleRecordPayment} className="modal-form" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-          
+
           {/* 1. Student Name Selection with Quick Filter */}
           <div className="fee-search-box">
-            <input 
+            <input
               type="text"
               className="fee-search-input"
               placeholder="🔍 Filter student name or phone..."
@@ -1407,12 +1407,12 @@ const Fees: React.FC = () => {
             />
           </div>
 
-          <Select 
-            label="1. Student Name *" 
+          <Select
+            label="1. Student Name *"
             options={filteredFeeRecords.map(r => ({
-              label: `${r.studentName} (${r.courseName} | Due: ${r.currentDueDate})`, 
+              label: `${r.studentName} (${r.courseName} | Due: ${r.currentDueDate})`,
               value: r.studentId
-            }))} 
+            }))}
             value={paymentStudentId}
             onChange={(e) => {
               const rec = feeRecords.find(r => r.studentId === e.target.value);
@@ -1465,7 +1465,7 @@ const Fees: React.FC = () => {
                   </div>
                 ) : (
                   <div className="fee-inline-due-edit">
-                    <input 
+                    <input
                       type="date"
                       value={currentDueDateEditVal}
                       onChange={(e) => setCurrentDueDateEditVal(e.target.value)}
@@ -1499,8 +1499,8 @@ const Fees: React.FC = () => {
           )}
 
           {/* 2. Course Selection */}
-          <Select 
-            label="2. Select Course *" 
+          <Select
+            label="2. Select Course *"
             options={courses.map(c => {
               const isOff = c.mode === 'offline' || c.modeBadge?.toLowerCase().includes('offline');
               const feeStr = isOff ? `Offline - ₹${(c.offlineOneTimeFee || 4000).toLocaleString('en-IN')}` : `Online - ₹${c.monthlyFee || 800}/mo`;
@@ -1508,7 +1508,7 @@ const Fees: React.FC = () => {
                 label: `${c.courseName} (${feeStr})`,
                 value: c.documentId!
               };
-            })} 
+            })}
             value={paymentCourseId}
             onChange={(e) => handleCourseChange(e.target.value)}
             required
@@ -1524,8 +1524,8 @@ const Fees: React.FC = () => {
                   {isOfflineActive ? 'Offline Course' : 'Online Course'}
                 </span>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="fee-toggle-fee-btn"
                 onClick={() => setShowCourseFeeDetails(prev => !prev)}
               >
@@ -1535,7 +1535,7 @@ const Fees: React.FC = () => {
 
             {showCourseFeeDetails && (
               <div className="fee-modal-grid-2" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
-                <Input 
+                <Input
                   label={`Standard Course Fee (₹) (${isOfflineActive ? 'Full Course Fee' : 'Monthly Fee'}) *`}
                   type="number"
                   min="0"
@@ -1557,7 +1557,7 @@ const Fees: React.FC = () => {
                   required
                 />
                 {isOfflineActive ? (
-                  <Select 
+                  <Select
                     label="Installments Count *"
                     options={[
                       { label: '1 Installment (Single Full Payment)', value: 1 },
@@ -1612,7 +1612,7 @@ const Fees: React.FC = () => {
                 </div>
               </div>
 
-              <Input 
+              <Input
                 label="Discount on Full Course Fee (₹)"
                 type="number"
                 min="0"
@@ -1657,20 +1657,20 @@ const Fees: React.FC = () => {
 
           {/* 5. Installment / Fee Plan Selection & Starting Billing Month */}
           <div className="fee-modal-grid-2">
-            <Select 
-              label="3. Fee Plan / Installments *" 
+            <Select
+              label="3. Fee Plan / Installments *"
               options={getFeePlanOptions(selectedRecord, paymentCourseId, Number(customCourseFee), Number(fullCourseDiscount), customInstallmentsCount)}
               value={feeDurationOption}
               onChange={(e) => handleDurationOptionChange(e.target.value)}
               required
             />
 
-            <Select 
-              label="Starting Billing Month *" 
-              options={generateMonthOptions()} 
-              value={billingPeriod} 
-              onChange={(e) => setBillingPeriod(e.target.value)} 
-              required 
+            <Select
+              label="Starting Billing Month *"
+              options={generateMonthOptions()}
+              value={billingPeriod}
+              onChange={(e) => setBillingPeriod(e.target.value)}
+              required
             />
           </div>
 
@@ -1726,8 +1726,8 @@ const Fees: React.FC = () => {
           {/* No Dues Option Checkbox */}
           <div className="fee-nodues-box">
             <label className="fee-nodues-checkbox-label">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={isNoDues}
                 onChange={(e) => {
                   const checked = e.target.checked;
@@ -1771,10 +1771,10 @@ const Fees: React.FC = () => {
             <div className={`fee-due-date-banner ${isNoDues ? 'is-no-dues' : ''}`}>
               <div className="fee-due-date-left">
                 <span className="fee-due-date-label">
-                  <Clock size={16} /> 
+                  <Clock size={16} />
                   <span>
-                    {isNoDues 
-                      ? 'Payment Status / Next Due Date:' 
+                    {isNoDues
+                      ? 'Payment Status / Next Due Date:'
                       : `Calculated Next Due Date (after ${numberOfMonths} ${numberOfMonths === 1 ? 'month' : 'months'}):`}
                   </span>
                 </span>
@@ -1782,14 +1782,14 @@ const Fees: React.FC = () => {
                   {isNoDues ? '✓ No Dues (Full Fee Paid)' : calculatedDueDate}
                 </span>
               </div>
-              
+
               {!isNoDues && (
                 <div className="fee-due-date-right">
                   <label className="text-xs font-bold text-emerald-800 dark:text-emerald-300 block mb-1">
                     Custom Next Due Date (Optional Override):
                   </label>
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     className="fee-custom-date-input"
                     value={customNextDueDate === 'NO_DUES' ? '' : customNextDueDate}
                     onChange={(e) => handleCustomDueDateChange(e.target.value)}
@@ -1801,27 +1801,27 @@ const Fees: React.FC = () => {
 
           {/* Amounts Breakdown */}
           <div className="fee-modal-grid-3">
-            <Input 
-              label={`Amount for This Payment (₹) *`} 
-              type="number" 
+            <Input
+              label={`Amount for This Payment (₹) *`}
+              type="number"
               min="0"
-              value={amountPaid} 
-              onChange={(e) => setAmountPaid(Math.max(0, Number(e.target.value) || 0).toString())} 
-              required 
+              value={amountPaid}
+              onChange={(e) => setAmountPaid(Math.max(0, Number(e.target.value) || 0).toString())}
+              required
             />
-            <Input 
-              label="Extra Concession / Waiver (₹)" 
-              type="number" 
+            <Input
+              label="Extra Concession / Waiver (₹)"
+              type="number"
               min="0"
-              value={discount} 
-              onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0).toString())} 
+              value={discount}
+              onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0).toString())}
             />
-            <Input 
-              label="Late Fee (₹)" 
-              type="number" 
+            <Input
+              label="Late Fee (₹)"
+              type="number"
               min="0"
-              value={lateFee} 
-              onChange={(e) => setLateFee(Math.max(0, Number(e.target.value) || 0).toString())} 
+              value={lateFee}
+              onChange={(e) => setLateFee(Math.max(0, Number(e.target.value) || 0).toString())}
             />
           </div>
 
@@ -1851,38 +1851,39 @@ const Fees: React.FC = () => {
 
           {/* Payment Mode & Academic Year */}
           <div className="fee-modal-grid-2">
-            <Select 
-              label="Payment Mode *" 
+            <Select
+              label="Payment Mode *"
               options={[
-                { label: 'Cash', value: 'Cash' }, 
-                { label: 'UPI (Google Pay / PhonePe / Paytm)', value: 'UPI' }, 
+                { label: 'Cash', value: 'Cash' },
+                { label: 'UPI (Google Pay / PhonePe / Paytm)', value: 'UPI' },
                 { label: 'Bank Transfer (NEFT / IMPS)', value: 'Bank Transfer' },
                 { label: 'Online Gateway', value: 'Online Gateway' }
-              ]} 
+              ]}
               value={paymentMode}
               onChange={(e) => setPaymentMode(e.target.value as any)}
               required
             />
-            <Input 
+            {/* <Input 
               label="Academic Year *" 
               value={academicYear} 
               onChange={(e) => setAcademicYear(e.target.value)} 
               required 
-            />
+            /> */}
           </div>
 
           <div className="fee-modal-grid-2">
-            <Input 
-              label="Transaction / Reference Number" 
-              placeholder="e.g. UPI Ref / UTR / Cheque No."
-              value={transactionNumber} 
-              onChange={(e) => setTransactionNumber(e.target.value)} 
-            />
-            <Input 
-              label="Remarks / Notes (Optional)" 
+            {paymentMode !== 'Cash' && (
+              <Input
+                label="Transaction / Reference Number"
+                placeholder="e.g. UPI Ref / UTR / Cheque No."
+                value={transactionNumber}
+                onChange={(e) => setTransactionNumber(e.target.value)}
+              />)}
+            <Input
+              label="Remarks / Notes (Optional)"
               placeholder="e.g. Paid in full for 2 months"
-              value={remarks} 
-              onChange={(e) => setRemarks(e.target.value)} 
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
             />
           </div>
 
@@ -1896,10 +1897,10 @@ const Fees: React.FC = () => {
         </form>
       </Modal>
 
-      <ReceiptModal 
+      <ReceiptModal
         isOpen={Boolean(receiptModalTx)}
         onClose={() => setReceiptModalTx(null)}
-        transaction={receiptModalTx} 
+        transaction={receiptModalTx}
         student={receiptModalStudent || (receiptModalTx ? students.find(s => s.documentId === receiptModalTx.studentId) : null)}
         course={receiptModalCourse || (receiptModalTx ? courses.find(c => c.documentId === receiptModalTx.courseId) : null)}
         plan={{ planName: (receiptModalTx?.monthsCount === 0 || receiptModalTx?.billingPeriod?.includes('One-Time') || receiptModalTx?.billingPeriod?.includes('Course Fee')) ? 'Course Fee (Offline / Full Course)' : `Monthly Fee (${receiptModalTx?.monthsCount || 1} Months)` }}
