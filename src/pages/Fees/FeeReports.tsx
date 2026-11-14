@@ -215,7 +215,13 @@ const FeeReports: React.FC = () => {
         const isTxNoDues = lastTx?.nextDueDate && typeof lastTx.nextDueDate === 'string' && (lastTx.nextDueDate.toUpperCase() === 'NO_DUES' || lastTx.nextDueDate.toLowerCase() === 'no dues');
         const isStudentExplicitNoDues = (student as any).feeDueDate && typeof (student as any).feeDueDate === 'string' && ((student as any).feeDueDate.toUpperCase() === 'NO_DUES' || (student as any).feeDueDate.toLowerCase() === 'no dues');
         
-        const offlineTarget = course?.offlineOneTimeFee || 4000;
+        const baseCourseFee = course?.offlineOneTimeFee || 4000;
+        const studentCourseDiscount = (student as any).courseDiscount !== undefined
+          ? Number((student as any).courseDiscount)
+          : (studentTx.find(t => t.courseDiscount !== undefined)?.courseDiscount || 0);
+        const offlineTarget = (student as any).agreedCourseFee !== undefined
+          ? Number((student as any).agreedCourseFee)
+          : Math.max(0, baseCourseFee - studentCourseDiscount);
         const totalPaidByStudent = studentTx.reduce((sum, t) => sum + (Number(t.amountPaid) || 0), 0);
         const hasPaidFullOffline = isOffline && totalPaidByStudent >= offlineTarget && offlineTarget > 0;
 

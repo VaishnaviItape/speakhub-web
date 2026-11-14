@@ -322,7 +322,13 @@ const Students: React.FC = () => {
     const courseId = student.courseIds?.[0] || student.courseId;
     const course = courses.find((c: any) => c.documentId === courseId);
     const isOffline = course?.mode === 'offline' || (course as any)?.modeBadge?.toLowerCase().includes('offline');
-    const offlineTarget = course?.offlineOneTimeFee || 4000;
+    const baseCourseFee = course?.offlineOneTimeFee || 4000;
+    const studentCourseDiscount = (student as any).courseDiscount !== undefined
+      ? Number((student as any).courseDiscount)
+      : (sTxs.find((t: any) => t.courseDiscount !== undefined)?.courseDiscount || 0);
+    const offlineTarget = (student as any).agreedCourseFee !== undefined
+      ? Number((student as any).agreedCourseFee)
+      : Math.max(0, baseCourseFee - studentCourseDiscount);
     const totalPaid = sTxs.reduce((sum: number, t: any) => sum + (Number(t.amountPaid) || 0), 0);
     const hasPaidFullOffline = isOffline && totalPaid >= offlineTarget && offlineTarget > 0;
 

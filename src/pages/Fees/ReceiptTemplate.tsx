@@ -84,11 +84,14 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
   );
 
   const amountPaid = transaction.amountPaid || 0;
-  const discount = transaction.discount || 0;
-  const totalCourseFee = (transaction as any).totalCourseFee || (course as any)?.offlineOneTimeFee || (isOffline ? 4000 : undefined);
+  const courseDiscount = (transaction as any).courseDiscount || 0;
+  const transactionDiscount = transaction.discount || 0;
+  const displayDiscount = courseDiscount > 0 ? courseDiscount : transactionDiscount;
+  const originalFee = (transaction as any).originalCourseFee || (course as any)?.offlineOneTimeFee || (isOffline ? 4000 : undefined);
+  const totalCourseFee = (transaction as any).totalCourseFee || (originalFee ? Math.max(0, originalFee - courseDiscount) : (course as any)?.offlineOneTimeFee || (isOffline ? 4000 : undefined));
   const perMonthFee = isOffline 
-    ? (totalCourseFee || 4000) 
-    : (isOneTimeFee ? ((transaction as any).perMonthFee || amountPaid) : ((transaction as any).perMonthFee || (amountPaid + discount)));
+    ? (originalFee || totalCourseFee || 4000) 
+    : (isOneTimeFee ? ((transaction as any).perMonthFee || amountPaid) : ((transaction as any).perMonthFee || (amountPaid + transactionDiscount)));
   const remaining = (transaction as any).remainingBalance !== undefined 
     ? (transaction as any).remainingBalance 
     : (isOffline && totalCourseFee ? Math.max(0, totalCourseFee - amountPaid) : 0);
@@ -218,7 +221,7 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
                 <span className="currency-symbol">₹</span> {perMonthFee || amountPaid}
               </td>
               <td className="cell-td font-bold">
-                <span className="currency-symbol">₹</span> {discount > 0 ? discount : '-'}
+                <span className="currency-symbol">₹</span> {displayDiscount > 0 ? displayDiscount : '-'}
               </td>
               <td className="cell-td font-bold">
                 <span className="currency-symbol">₹</span> {amountPaid}

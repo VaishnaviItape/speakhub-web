@@ -19,6 +19,10 @@ export interface User {
   status: 'active' | 'inactive' | 'pending';
   courseIds?: string[];
   batchIds?: string[];
+  feeDueDate?: any;
+  courseDiscount?: number;
+  agreedCourseFee?: number;
+  originalCourseFee?: number;
   isDemoMode?: boolean;
   demoStartDate?: Timestamp | Date;
   demoEndDate?: Timestamp | Date;
@@ -44,6 +48,10 @@ export interface Student {
   parentMobile?: string;
   courseIds: string[];
   batchIds: string[];
+  feeDueDate?: any;
+  courseDiscount?: number;
+  agreedCourseFee?: number;
+  originalCourseFee?: number;
   joiningDate?: Timestamp | Date | string;
   photo?: string;
   status: 'active' | 'inactive' | 'pending';
@@ -276,6 +284,8 @@ export interface FeeTransaction {
   receiptNumber: string;
   status?: 'PAID';
   totalCourseFee?: number;
+  originalCourseFee?: number;
+  courseDiscount?: number;
   remainingBalance?: number;
   installmentNumber?: number;
   totalInstallments?: number;
