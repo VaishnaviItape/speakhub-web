@@ -125,37 +125,6 @@ async function seedData() {
     createdAt: Timestamp.now()
   });
 
-  // 5. Create Exams & Questions
-  console.log("Creating Exams...");
-  const examRef = await addDoc(collection(db, "exams"), {
-    title: "Weekly Grammar Test 1",
-    description: "Basic grammar test for week 1",
-    batchId: batchId,
-    courseId: courseId,
-    duration: 30, // minutes
-    totalMarks: 20,
-    status: "published",
-    createdAt: Timestamp.now()
-  });
-  
-  await addDoc(collection(db, "exam_questions"), {
-    examId: examRef.id,
-    questionText: "What is a noun?",
-    type: "mcq",
-    options: ["An action word", "A naming word", "A describing word", "A connecting word"],
-    correctOptionIndex: 1,
-    marks: 10
-  });
-
-  await addDoc(collection(db, "exam_questions"), {
-    examId: examRef.id,
-    questionText: "Which of the following is a verb?",
-    type: "mcq",
-    options: ["Apple", "Beautiful", "Run", "Quickly"],
-    correctOptionIndex: 2,
-    marks: 10
-  });
-
   // 6. Create Homework
   console.log("Creating Homework...");
   await addDoc(collection(db, "homeworks"), {

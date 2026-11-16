@@ -162,7 +162,7 @@ export const MENU_GROUPS: MenuGroup[] = [
         title: 'Exams',
         path: '/exams',
         icon: FileText,
-        keywords: ['exams', 'tests', 'mock tests', 'quizzes', 'scores', 'assessments'],
+        keywords: ['exams', 'tests', 'quizzes', 'scores', 'assessments'],
         description: 'Online exams, question papers, and results'
       }
     ]

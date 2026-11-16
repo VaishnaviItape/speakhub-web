@@ -1368,42 +1368,15 @@ const ExamQuestions: React.FC = () => {
           {/* Format Example Banner */}
           <div className="paste-example-banner">
             <div className="paste-example-header">
-              <span className="paste-example-title">Quick Format Loader</span>
-              <div className="flex gap-2">
-                <button 
-                  type="button" 
-                  className="btn-copy-format"
-                  onClick={() => {
-                    const sample = `Q: Look at the picture. What is this?\nIMG: https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=600\nA: that is wall\nB: this is ball\nC: this is doll\nD: that is cell\nANS: B\nMARKS: 1\n\nQ: Look at the picture. What is this fruit?\nIMG: https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=600\nA: This is an apple\nB: That is an orange\nC: This is a mango\nD: That is a banana\nANS: A\nMARKS: 1`;
-                    navigator.clipboard.writeText(sample);
-                    setPastedText(sample);
-                    setTimeout(() => handleParseTextPaste(), 50);
-                  }}
-                >
-                  🖼️ Load Phonics / Picture Sample
-                </button>
-                <button 
-                  type="button" 
-                  className="btn-copy-format"
-                  onClick={() => {
-                    const sample = `Q1: Choose the correct sentence.\nA: I have finished my work.\nB: I has finished my work.\nC: I finished my work.\nD: I had finished my work.\nANS: A\nMARKS: 1\n\nQ2: Complete the sentence: "She ______ a book."\nA: reads\nB: readed\nC: is read\nD: has reading\nANS: A\nMARKS: 1`;
-                    navigator.clipboard.writeText(sample);
-                    setPastedText(sample);
-                    setTimeout(() => handleParseTextPaste(), 50);
-                  }}
-                >
-                  📄 Load Standard Sample
-                </button>
-              </div>
+              <span className="paste-example-title">Question Format Guide</span>
             </div>
             <pre className="paste-snippet-box">
-{`Q1: Look at the picture. What is this?
-IMG: https://drive.google.com/file/d/YOUR_IMAGE_ID/view (or web url)
-A: that is wall
-B: this is ball
-C: this is doll
-D: that is cell
-ANS: B
+{`Q1: Enter question text here
+A: Option A
+B: Option B
+C: Option C
+D: Option D
+ANS: A
 MARKS: 1`}
             </pre>
           </div>
