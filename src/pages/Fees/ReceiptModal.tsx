@@ -75,7 +75,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     const canvas = await html2canvas(el, {
       scale: 2.5, // 2.5x sharp retina resolution
       useCORS: true,
-      allowTaint: true,
+      allowTaint: false,
       backgroundColor: '#ffffff',
       logging: false
     });
@@ -222,7 +222,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       const canvas = await html2canvas(el, {
         scale: 2.5,
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
         backgroundColor: '#ffffff',
         logging: false
       });
@@ -236,9 +236,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       document.body.removeChild(link);
 
       showToast("Receipt Image (PNG) downloaded successfully!");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Image generation error:", err);
-      alert("Could not generate image. Please try Print -> Save as PDF.");
+      alert(`Could not generate image: ${err?.message || "Render error"}. Please try Print -> Save as PDF.`);
     } finally {
       setIsExportingImage(false);
     }
@@ -250,11 +250,25 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     try {
       const res = await buildReceiptPdf();
       if (!res) return;
-      res.pdf.save(res.fileName);
+
+      try {
+        res.pdf.save(res.fileName);
+      } catch (saveErr) {
+        console.warn("pdf.save fallback to blob url:", saveErr);
+        const blobUrl = URL.createObjectURL(res.blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = res.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+      }
+
       showToast("PDF downloaded successfully!");
-    } catch (err) {
+    } catch (err: any) {
       console.error("PDF generation error:", err);
-      alert("Could not generate PDF. Please try Print -> Save as PDF.");
+      alert(`Could not download receipt PDF: ${err?.message || "Render error"}. You can also use the Print button.`);
     } finally {
       setIsExportingPdf(false);
     }

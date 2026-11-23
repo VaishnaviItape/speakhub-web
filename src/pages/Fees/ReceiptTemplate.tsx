@@ -92,6 +92,11 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
     ? (transaction as any).remainingBalance 
     : (isOffline && totalCourseFee ? Math.max(0, totalCourseFee - amountPaid) : 0);
 
+  const monthsCount = Number((transaction as any).monthsCount) || 1;
+  const unitMonthlyFee = !isOffline && monthsCount > 1 && (transaction as any).perMonthFee 
+    ? Number((transaction as any).perMonthFee) 
+    : (isOffline ? perMonthFee : Math.round((amountPaid + transactionDiscount) / (monthsCount || 1)));
+
   const paymentDateStr = formatDateDisplay(transaction.paymentDate);
   const nextDueDateStr = (isNoDues || (isOffline && remaining === 0)) ? 'No Dues' : (transaction.nextDueDate ? formatLongDate(transaction.nextDueDate) : '-');
   
@@ -114,6 +119,7 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
               src={logoImg} 
               alt="Speak Hub Academy" 
               className="receipt-logo-img"
+              crossOrigin="anonymous"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 if (target.src !== '/logo.png') {
@@ -196,6 +202,21 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
               </td>
             </tr>
 
+            {/* Row 3b: Period Covered / Duration */}
+            <tr>
+              <th className="cell-th">PERIOD COVERED</th>
+              <td className="cell-td font-bold" colSpan={3}>
+                <span style={{ color: '#0f172a' }}>
+                  {transaction.billingPeriod || (isOffline ? 'Full Course Fee' : 'Monthly Fee')}
+                </span>
+                {Boolean(!isOffline && monthsCount > 1) && (
+                  <span style={{ marginLeft: '8px', fontSize: '11px', color: '#15803d', fontWeight: 'bold' }}>
+                    ({monthsCount} Months Paid)
+                  </span>
+                )}
+              </td>
+            </tr>
+
             {/* Row 4: Account Info & Payment Period Section Headers */}
             <tr className="section-header-row">
               <th colSpan={3} className="cell-section-header">ACCOUNT INFO</th>
@@ -204,17 +225,24 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
 
             {/* Row 5: Financial Header */}
             <tr className="fin-headers-row">
-              <th style={{ width: '18%' }} className="cell-th">{isOneTimeFee ? 'COURSE FEE' : 'PER MONTH FEE'}</th>
+              <th style={{ width: '22%' }} className="cell-th">
+                {isOneTimeFee 
+                  ? 'COURSE FEE' 
+                  : (monthsCount > 1 ? `FEE (${monthsCount} MO)` : 'PER MONTH FEE')}
+              </th>
               <th style={{ width: '14%' }} className="cell-th">DISCOUNT</th>
               <th style={{ width: '18%' }} className="cell-th">AMOUNT PAID</th>
-              <th style={{ width: '18%' }} className="cell-th">REMANING</th>
-              <th style={{ width: '32%' }} className="cell-th">NEXT DUE DATE</th>
+              <th style={{ width: '16%' }} className="cell-th">REMAINING</th>
+              <th style={{ width: '30%' }} className="cell-th">NEXT DUE DATE</th>
             </tr>
 
             {/* Row 6: Financial Values */}
             <tr className="fin-data-row">
               <td className="cell-td font-bold">
-                <span className="currency-symbol">₹</span> {perMonthFee || amountPaid}
+                <span className="currency-symbol">₹</span>
+                {monthsCount > 1 && !isOffline
+                  ? `${unitMonthlyFee} × ${monthsCount} = ₹${unitMonthlyFee * monthsCount}`
+                  : (perMonthFee || amountPaid)}
               </td>
               <td className="cell-td font-bold">
                 <span className="currency-symbol">₹</span> {displayDiscount > 0 ? displayDiscount : '-'}
@@ -244,6 +272,7 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
                     src={stampImg} 
                     alt="Official Stamp" 
                     className="stamp-seal-img" 
+                    crossOrigin="anonymous"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       if (target.src !== '/stamp.jpeg') target.src = '/stamp.jpeg';
@@ -253,6 +282,7 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
                     src={signImg} 
                     alt="Authorized Signatory" 
                     className="signature-pen-img" 
+                    crossOrigin="anonymous"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       if (target.src !== '/sign.jpeg') target.src = '/sign.jpeg';
