@@ -319,24 +319,57 @@ const Fees: React.FC = () => {
         const remainingOffline = isOffline ? Math.max(0, offlineTarget - totalPaidByStudent) : 0;
         const paidInstCount = studentTx.length;
 
-        if (isStudentExplicitNoDues || hasPaidFullOffline) {
-          curDueDisplay = 'No Dues';
-          curDueRaw = 'NO_DUES';
-          curDueDay = 0;
-        } else if ((student as any).feeDueDate) {
-          const formattedFeeDue = formatJoiningDateDisplay((student as any).feeDueDate);
-          curDueDisplay = formattedFeeDue.display;
-          curDueRaw = formattedFeeDue.raw;
-          curDueDay = formattedFeeDue.day;
-        } else if (isTxNoDues) {
-          curDueDisplay = 'No Dues';
-          curDueRaw = 'NO_DUES';
-          curDueDay = 0;
-        } else if (lastTx?.nextDueDate) {
-          const formattedLastNext = formatJoiningDateDisplay(lastTx.nextDueDate);
-          curDueDisplay = formattedLastNext.display;
-          curDueRaw = formattedLastNext.raw;
-          curDueDay = formattedLastNext.day;
+        if (isOffline) {
+          if (isStudentExplicitNoDues || hasPaidFullOffline) {
+            curDueDisplay = 'No Dues';
+            curDueRaw = 'NO_DUES';
+            curDueDay = 0;
+          } else if ((student as any).feeDueDate) {
+            const formattedFeeDue = formatJoiningDateDisplay((student as any).feeDueDate);
+            curDueDisplay = formattedFeeDue.display;
+            curDueRaw = formattedFeeDue.raw;
+            curDueDay = formattedFeeDue.day;
+          } else if (isTxNoDues) {
+            curDueDisplay = 'No Dues';
+            curDueRaw = 'NO_DUES';
+            curDueDay = 0;
+          } else if (lastTx?.nextDueDate) {
+            const formattedLastNext = formatJoiningDateDisplay(lastTx.nextDueDate);
+            curDueDisplay = formattedLastNext.display;
+            curDueRaw = formattedLastNext.raw;
+            curDueDay = formattedLastNext.day;
+          }
+        } else {
+          // ONLINE COURSES NEVER HAVE NO DUES. They are recurring monthly courses (6 or 7 months duration).
+          const rawStudentDue = (student as any).feeDueDate;
+          const rawTxDue = lastTx?.nextDueDate;
+
+          const isRawStudentDueValid = rawStudentDue && typeof rawStudentDue === 'string' &&
+            rawStudentDue.toUpperCase() !== 'NO_DUES' && rawStudentDue.toLowerCase() !== 'no dues';
+          const isRawTxDueValid = rawTxDue && typeof rawTxDue === 'string' &&
+            rawTxDue.toUpperCase() !== 'NO_DUES' && rawTxDue.toLowerCase() !== 'no dues';
+
+          if (isRawStudentDueValid) {
+            const formatted = formatJoiningDateDisplay(rawStudentDue);
+            curDueDisplay = formatted.display;
+            curDueRaw = formatted.raw;
+            curDueDay = formatted.day;
+          } else if (isRawTxDueValid) {
+            const formatted = formatJoiningDateDisplay(rawTxDue);
+            curDueDisplay = formatted.display;
+            curDueRaw = formatted.raw;
+            curDueDay = formatted.day;
+          } else if (lastTx?.billingPeriod) {
+            const dueDay = jInfo.day || 1;
+            const computed = calculateNextDueFromBillingPeriod(lastTx.billingPeriod, (lastTx.monthsCount || 1), dueDay);
+            curDueDisplay = computed.display;
+            curDueRaw = computed.iso;
+            curDueDay = dueDay;
+          } else {
+            curDueDisplay = jInfo.display;
+            curDueRaw = jInfo.raw;
+            curDueDay = jInfo.day;
+          }
         }
 
         return {
@@ -653,10 +686,11 @@ const Fees: React.FC = () => {
       const totalPaidBefore = record.totalPaid || 0;
       const totalPaidSoFar = isOfflineCourse ? (totalPaidBefore + amt) : amt;
       const remainingAfter = isOfflineCourse ? Math.max(0, netFullCourseFee - totalPaidSoFar) : 0;
-      const willBeNoDues = isOfflineCourse ? (remainingAfter === 0) : (customNextDueDate === 'NO_DUES' || remainingAfter === 0);
+      // Online courses NEVER have No Dues. They are recurring monthly courses.
+      const willBeNoDues = Boolean(isOfflineCourse && remainingAfter === 0);
 
       let finalNextDueDate: string;
-      if (willBeNoDues) {
+      if (isOfflineCourse && willBeNoDues) {
         finalNextDueDate = 'NO_DUES';
       } else if (customNextDueDate && customNextDueDate !== 'NO_DUES') {
         finalNextDueDate = formatDDMMYYYY(customNextDueDate) || customNextDueDate;
@@ -690,8 +724,8 @@ const Fees: React.FC = () => {
         } else {
           const count = monthsCount || 1;
           defaultRemarks = count > 1
-            ? `${count} Months Fee - ₹${amt}${willBeNoDues ? ' [No Dues]' : ''}`
-            : `Monthly Fee - ₹${amt}${willBeNoDues ? ' [No Dues]' : ''}`;
+            ? `${count} Months Fee - ₹${amt}`
+            : `Monthly Fee - ₹${amt}`;
         }
       }
 
@@ -1002,7 +1036,8 @@ const Fees: React.FC = () => {
       key: 'currentDueDate',
       header: 'Current Due Date',
       render: (row) => {
-        const isStudentNoDues = row.currentDueDate === 'No Dues' || row.currentDueDateRaw === 'NO_DUES';
+        // Online courses NEVER have No Dues. No Dues is strictly for offline completed fee.
+        const isStudentNoDues = Boolean(row.isOffline) && (row.currentDueDate === 'No Dues' || row.currentDueDateRaw === 'NO_DUES');
 
         return (
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -1030,10 +1065,11 @@ const Fees: React.FC = () => {
                           ? formatDDMMYYYY(row.currentDueDateRaw)
                           : formatDDMMYYYY(new Date())));
 
-                const input = window.prompt(
-                  `Edit Due Date for ${row.studentName} (DD-MM-YYYY or enter 'NO_DUES'):`,
-                  defaultDate || ''
-                );
+                const promptMsg = row.isOffline
+                  ? `Edit Due Date for ${row.studentName} (DD-MM-YYYY or enter 'NO_DUES'):`
+                  : `Edit Next Due Date for ${row.studentName} (DD-MM-YYYY):`;
+
+                const input = window.prompt(promptMsg, defaultDate || '');
 
                 if (input !== null && input.trim() !== '') {
                   handleSaveCurrentDueDate(row.studentId, input.trim());
@@ -1042,7 +1078,7 @@ const Fees: React.FC = () => {
             >
               <Edit2 size={12} />
             </button>
-            {!isStudentNoDues && (
+            {!isStudentNoDues && Boolean(row.isOffline) && (
               <button
                 type="button"
                 className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded cursor-pointer transition-all"
@@ -1066,7 +1102,8 @@ const Fees: React.FC = () => {
       render: (row) => {
         const student = students.find(s => s.documentId === row.studentId);
         const phone = student?.phone || student?.mobile;
-        const isStudentNoDues = row.currentDueDate === 'No Dues' || row.currentDueDateRaw === 'NO_DUES';
+        // Online students NEVER have No Dues. They are always payable.
+        const isStudentNoDues = Boolean(row.isOffline) && (row.currentDueDate === 'No Dues' || row.currentDueDateRaw === 'NO_DUES');
         return (
           <div className="flex gap-2 items-center flex-wrap">
             {isStudentNoDues ? (
@@ -1232,7 +1269,7 @@ const Fees: React.FC = () => {
                 <span className="fee-course-fee-pill" style={{ fontSize: '11px', padding: '2px 8px' }}>
                   {isOfflineActive ? 'Offline Batch' : 'Online Course'}
                 </span>
-                {(selectedRecord.currentDueDateRaw === 'NO_DUES' || selectedRecord.currentDueDate === 'No Dues') && (
+                {isOfflineActive && (selectedRecord.currentDueDateRaw === 'NO_DUES' || selectedRecord.currentDueDate === 'No Dues') && (
                   <span className="fee-due-date-badge no-dues" style={{ fontSize: '11px', padding: '2px 8px' }}>
                     ✓ No Dues
                   </span>
@@ -1467,7 +1504,7 @@ const Fees: React.FC = () => {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  {[1, 2, 3, 6].map((count) => {
+                  {[1, 2, 3, 6, 7].map((count) => {
                     const isSelected = monthsCount === count;
                     return (
                       <button

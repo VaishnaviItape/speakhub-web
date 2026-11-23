@@ -51,13 +51,6 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
     return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  const isNoDues = Boolean(
-    transaction.nextDueDate && (
-      transaction.nextDueDate.toString().toUpperCase() === 'NO_DUES' || 
-      transaction.nextDueDate.toString().toLowerCase() === 'no dues'
-    )
-  );
-
   const isOffline = Boolean(
     (transaction as any).isOffline ||
     (transaction as any).totalCourseFee ||
@@ -68,6 +61,15 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
       transaction.billingPeriod.toLowerCase().includes('offline') ||
       transaction.billingPeriod.toLowerCase().includes('installment')
     ))
+  );
+
+  // Online courses NEVER have No Dues. No Dues is strictly for completed offline courses.
+  const isNoDues = Boolean(
+    isOffline &&
+    transaction.nextDueDate && (
+      transaction.nextDueDate.toString().toUpperCase() === 'NO_DUES' || 
+      transaction.nextDueDate.toString().toLowerCase() === 'no dues'
+    )
   );
 
   const isOneTimeFee = Boolean(
@@ -98,7 +100,25 @@ const ReceiptTemplate: React.FC<ReceiptTemplateProps> = ({
     : (isOffline ? perMonthFee : Math.round((amountPaid + transactionDiscount) / (monthsCount || 1)));
 
   const paymentDateStr = formatDateDisplay(transaction.paymentDate);
-  const nextDueDateStr = (isNoDues || (isOffline && remaining === 0)) ? 'No Dues' : (transaction.nextDueDate ? formatLongDate(transaction.nextDueDate) : '-');
+  // Online courses NEVER display "No Dues". They always display their exact next monthly due date.
+  let nextDueDateStr = '-';
+  if (isOffline) {
+    nextDueDateStr = (isNoDues || remaining === 0) ? 'No Dues' : (transaction.nextDueDate ? formatLongDate(transaction.nextDueDate) : '-');
+  } else {
+    const rawNextDue = transaction.nextDueDate;
+    const isDueValid = rawNextDue && typeof rawNextDue === 'string' &&
+      rawNextDue.toUpperCase() !== 'NO_DUES' && rawNextDue.toLowerCase() !== 'no dues';
+
+    if (isDueValid) {
+      nextDueDateStr = formatLongDate(rawNextDue);
+    } else {
+      // Fallback: advance from payment date by monthsCount
+      const pDate = transaction.paymentDate instanceof Date ? transaction.paymentDate : new Date();
+      const nextM = new Date(pDate);
+      nextM.setMonth(nextM.getMonth() + (monthsCount || 1));
+      nextDueDateStr = formatLongDate(nextM);
+    }
+  }
   
   const paymentMode = (transaction.paymentMode || '').toUpperCase();
   const isCash = paymentMode.includes('CASH');
